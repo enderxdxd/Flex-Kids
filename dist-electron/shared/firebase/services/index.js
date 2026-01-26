@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.settingsService = exports.packagesService = exports.paymentsService = exports.customersService = exports.visitsService = void 0;
+var visits_service_1 = require("./visits.service");
+Object.defineProperty(exports, "visitsService", { enumerable: true, get: function () { return visits_service_1.visitsService; } });
+var customers_service_1 = require("./customers.service");
+Object.defineProperty(exports, "customersService", { enumerable: true, get: function () { return customers_service_1.customersService; } });
+var payments_service_1 = require("./payments.service");
+Object.defineProperty(exports, "paymentsService", { enumerable: true, get: function () { return payments_service_1.paymentsService; } });
+var packages_service_1 = require("./packages.service");
+Object.defineProperty(exports, "packagesService", { enumerable: true, get: function () { return packages_service_1.packagesService; } });
+var settings_service_1 = require("./settings.service");
+Object.defineProperty(exports, "settingsService", { enumerable: true, get: function () { return settings_service_1.settingsService; } });
