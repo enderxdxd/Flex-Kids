@@ -3,6 +3,9 @@ dist
 release
 .DS_Store
 *.log
+
+# Prevent compiled JS files in src from interfering with TS
+src/**/*.js
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

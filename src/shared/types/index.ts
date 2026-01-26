@@ -55,6 +55,7 @@ export interface Payment {
 export interface Package {
   id: string;
   customerId: string;
+  childId: string;
   type: string;
   hours: number;
   usedHours: number;

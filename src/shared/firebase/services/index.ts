@@ -1,7 +1,5 @@
-import { visitsService } from './visits.service.js';
-import { customersService } from './customers.service.js';
-import { paymentsService } from './payments.service.js';
-import { packagesService } from './packages.service.js';
-import { settingsService } from './settings.service.js';
-
-export { visitsService, customersService, paymentsService, packagesService, settingsService };
+export { visitsService } from './visits.service';
+export { customersService } from './customers.service';
+export { paymentsService } from './payments.service';
+export { packagesService } from './packages.service';
+export { settingsService } from './settings.service';
