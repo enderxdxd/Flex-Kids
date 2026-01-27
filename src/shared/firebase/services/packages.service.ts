@@ -9,6 +9,7 @@ export const packagesService = {
     const db = getDb();
     const packageData = {
       ...data,
+      sharedAcrossUnits: data.sharedAcrossUnits ?? true, // Por padrão, pacotes são compartilhados
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
       expiresAt: data.expiresAt ? Timestamp.fromDate(data.expiresAt) : null,
@@ -18,6 +19,7 @@ export const packagesService = {
     return {
       id: docRef.id,
       ...data,
+      sharedAcrossUnits: data.sharedAcrossUnits ?? true,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

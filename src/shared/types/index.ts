@@ -52,6 +52,14 @@ export interface Payment {
   visits?: Visit[];
 }
 
+export interface Unit {
+  id: string;
+  name: string;
+  address?: string;
+  phone?: string;
+  active: boolean;
+}
+
 export interface Package {
   id: string;
   customerId: string;
@@ -62,6 +70,7 @@ export interface Package {
   price: number;
   expiresAt?: Date;
   active: boolean;
+  sharedAcrossUnits: boolean; // Permite uso em todas as unidades
   createdAt: Date;
   updatedAt: Date;
   customer?: Customer;

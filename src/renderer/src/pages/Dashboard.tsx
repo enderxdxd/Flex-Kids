@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUnit } from '../contexts/UnitContext';
 import { DashboardStats } from '../../../shared/types';
-import { visitsService } from '../../../shared/firebase/services/visits.service';
-import { paymentsService } from '../../../shared/firebase/services/payments.service';
-import { packagesService } from '../../../shared/firebase/services/packages.service';
+import { visitsServiceOffline } from '../../../shared/firebase/services/visits.service.offline';
+import { paymentsServiceOffline } from '../../../shared/firebase/services/payments.service.offline';
+import { packagesServiceOffline } from '../../../shared/firebase/services/packages.service.offline';
+import { statsCache } from '../../../shared/cache/statsCache';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -15,39 +16,75 @@ const Dashboard: React.FC = () => {
     todayVisits: 0,
     activePackages: 0,
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const loadingRef = useRef(false);
 
-  useEffect(() => {
-    loadStats();
-  }, [currentUnit]);
+  const loadStats = useCallback(async (forceRefresh = false) => {
+    // Evita múltiplas chamadas simultâneas
+    if (loadingRef.current) return;
+    
+    const cacheKey = `dashboard-stats-${currentUnit || 'all'}`;
+    
+    // Tenta buscar do cache primeiro (instantâneo)
+    if (!forceRefresh) {
+      const cached = statsCache.get<DashboardStats>(cacheKey);
+      if (cached) {
+        setStats(cached);
+        setLoading(false);
+        setIsInitialLoad(false);
+        
+        // Atualiza em background se o cache tem mais de 10 segundos
+        const cacheAge = statsCache.getAge(cacheKey);
+        if (cacheAge && cacheAge > 10000) {
+          setTimeout(() => loadStats(true), 100);
+        }
+        return;
+      }
+    }
 
-  const loadStats = async () => {
     try {
-      setLoading(true);
+      loadingRef.current = true;
+      // Só mostra loading se não tiver dados em cache
+      if (stats.activeVisits === 0 && stats.todayRevenue === 0) {
+        setLoading(true);
+      }
       setError(null);
       
+      // Carrega dados em paralelo do cache local (muito rápido)
       const [activeVisits, todayPayments, activePackages] = await Promise.all([
-        visitsService.getActiveVisits(currentUnit),
-        paymentsService.getTodayPayments(),
-        packagesService.getActivePackages(),
+        visitsServiceOffline.getActiveVisits(currentUnit),
+        paymentsServiceOffline.getTodayPayments(),
+        packagesServiceOffline.getActivePackages(),
       ]);
 
       const todayRevenue = todayPayments.reduce((sum, p) => sum + p.amount, 0);
 
-      setStats({
+      const newStats = {
         activeVisits: activeVisits.length,
         todayRevenue,
         todayVisits: activeVisits.length,
         activePackages: activePackages.length,
-      });
+      };
+
+      setStats(newStats);
+      setIsInitialLoad(false);
+      
+      // Salva no cache por 30 segundos
+      statsCache.set(cacheKey, newStats, 30000);
     } catch (error) {
       console.error('Error loading stats:', error);
       setError('Erro ao carregar dados. Verifique sua conexão.');
     } finally {
       setLoading(false);
+      loadingRef.current = false;
     }
-  };
+  }, [currentUnit, stats.activeVisits, stats.todayRevenue]);
+
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
 
   const StatCard: React.FC<{ 
     title: string; 
@@ -58,7 +95,7 @@ const Dashboard: React.FC = () => {
     loading?: boolean;
   }> = ({ title, value, icon, bgColor, textColor, loading }) => (
     <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow duration-300">
-      {loading ? (
+      {loading && isInitialLoad ? (
         <div className="animate-pulse">
           <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
           <div className="h-8 bg-gray-200 rounded w-3/4"></div>
@@ -66,12 +103,12 @@ const Dashboard: React.FC = () => {
       ) : (
         <>
           <div className="flex items-center justify-between mb-4">
-            <div className={`${bgColor} ${textColor} p-3 rounded-lg text-2xl`}>
+            <div className={`${bgColor} ${textColor} p-3 rounded-lg text-2xl transition-all duration-300`}>
               {icon}
             </div>
           </div>
           <p className="text-gray-500 text-sm font-medium mb-1">{title}</p>
-          <p className="text-3xl font-bold text-gray-800">{value}</p>
+          <p className="text-3xl font-bold text-gray-800 transition-all duration-300">{value}</p>
         </>
       )}
     </div>
@@ -102,7 +139,7 @@ const Dashboard: React.FC = () => {
           <p className="text-gray-500">Visão geral do sistema - {new Date().toLocaleDateString('pt-BR')}</p>
         </div>
         <button
-          onClick={loadStats}
+          onClick={() => loadStats(true)}
           disabled={loading}
           className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 flex items-center gap-2"
         >
