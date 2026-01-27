@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import { Customer } from '../../../../shared/types';
-import { customersService } from '../../../../shared/firebase/services/customers.service';
+import { customersServiceOffline } from '../../../../shared/firebase/services/customers.service.offline';
 
 interface CustomerModalProps {
   isOpen: boolean;
@@ -38,21 +38,30 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSucces
 
     try {
       setLoading(true);
+      console.log('🟢 CustomerModal: Starting save...');
       
       if (customer) {
-        await customersService.updateCustomer(customer.id, formData);
+        console.log('🔄 CustomerModal: Updating customer...');
+        await customersServiceOffline.updateCustomer(customer.id, formData);
+        console.log('✅ CustomerModal: Update successful');
         toast.success('✅ Cliente atualizado com sucesso!');
       } else {
-        await customersService.createCustomer(formData);
+        console.log('➕ CustomerModal: Creating new customer...');
+        const result = await customersServiceOffline.createCustomer(formData);
+        console.log('✅ CustomerModal: Create successful, result:', result);
         toast.success('✅ Cliente cadastrado com sucesso!');
       }
 
+      console.log('🔄 CustomerModal: Calling onSuccess...');
       onSuccess();
+      console.log('🚪 CustomerModal: Closing modal...');
       handleClose();
+      console.log('✅ CustomerModal: Process complete!');
     } catch (error) {
-      console.error('Error saving customer:', error);
+      console.error('❌ CustomerModal: Error saving customer:', error);
       toast.error('Erro ao salvar cliente');
     } finally {
+      console.log('🏁 CustomerModal: Setting loading to false');
       setLoading(false);
     }
   };

@@ -112,93 +112,100 @@ export const packagesServiceOffline = {
   },
 
   async getActivePackages(customerId?: string): Promise<Package[]> {
-    const now = new Date();
-
     try {
-      // Busca do cache local primeiro (instantâneo)
-      const allPackages = await syncService.getAllFromLocal(COLLECTION);
-      const cachedActivePackages = allPackages.filter((pkg: Package) => {
-        const matchesCustomer = !customerId || pkg.customerId === customerId;
-        const isActive = pkg.active;
-        const notExpired = !pkg.expiresAt || pkg.expiresAt > now;
-        return matchesCustomer && isActive && notExpired;
-      });
+      // 1. SEMPRE busca do cache primeiro
+      const localPackages = await syncService.getAllFromLocal(COLLECTION);
+      const cachedPackages = localPackages
+        .filter((pkg: Package) => {
+          const matchesCustomer = !customerId || pkg.customerId === customerId;
+          return matchesCustomer && pkg.active && pkg.usedHours < pkg.hours;
+        })
+        .sort((a: Package, b: Package) => {
+          const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime();
+          const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime();
+          return bTime - aTime;
+        });
 
-      // Se offline, retorna cache
+      // 2. Se offline, retorna cache
       if (!syncService.isOnline()) {
-        return cachedActivePackages;
+        return cachedPackages;
       }
 
-      // Se online, busca do Firebase e atualiza cache em background
-      try {
-        const db = getDb();
-        let q = query(
-          collection(db, COLLECTION),
-          where('active', '==', true),
-          orderBy('createdAt', 'desc')
-        );
-
-        if (customerId) {
-          q = query(q, where('customerId', '==', customerId));
-        }
-
-        const snapshot = await getDocs(q);
-        
-        const packages = snapshot.docs
-          .map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            createdAt: doc.data().createdAt?.toDate(),
-            updatedAt: doc.data().updatedAt?.toDate(),
-            expiresAt: doc.data().expiresAt?.toDate(),
-          }))
-          .filter(pkg => {
-            if (!pkg.expiresAt) return true;
-            return pkg.expiresAt > now;
-          }) as Package[];
-
-        // Atualiza cache em background
-        Promise.all(packages.map(pkg =>
-          syncService.saveLocally(COLLECTION, 'create', pkg).catch(() => {})
-        )).catch(console.error);
-
-        return packages;
-      } catch (error) {
-        console.error('Failed to fetch from Firebase, using cached data:', error);
-        return cachedActivePackages;
-      }
-    } catch (error) {
-      console.error('Failed to access local cache, fetching from Firebase:', error);
-      
-      // Fallback: busca direto do Firebase
+      // 3. Sempre retorna cache primeiro e busca Firebase em background
       if (syncService.isOnline()) {
-        const db = getDb();
-        let q = query(
-          collection(db, COLLECTION),
-          where('active', '==', true),
-          orderBy('createdAt', 'desc')
-        );
-
-        if (customerId) {
-          q = query(q, where('customerId', '==', customerId));
-        }
-
-        const snapshot = await getDocs(q);
-        
-        return snapshot.docs
-          .map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            createdAt: doc.data().createdAt?.toDate(),
-            updatedAt: doc.data().updatedAt?.toDate(),
-            expiresAt: doc.data().expiresAt?.toDate(),
-          }))
-          .filter(pkg => {
-            if (!pkg.expiresAt) return true;
-            return pkg.expiresAt > now;
-          }) as Package[];
+        this.fetchActivePackagesFromFirebase(customerId)
+          .then(packages => {
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('packages-updated', { 
+                detail: { packages, customerId } 
+              }));
+            }
+          })
+          .catch(err => console.error('Background fetch failed:', err));
       }
       
+      return cachedPackages;
+    } catch (error) {
+      console.error('Error in getActivePackages:', error);
+      return [];
+    }
+  },
+
+  async fetchActivePackagesFromFirebase(customerId?: string): Promise<Package[]> {
+    try {
+      const db = getDb();
+      const q = query(
+        collection(db, COLLECTION),
+        where('active', '==', true),
+        orderBy('createdAt', 'desc')
+      );
+
+      const snapshot = await getDocs(q);
+      const packages: Package[] = [];
+
+      for (const docSnap of snapshot.docs) {
+        const data = docSnap.data();
+        const pkg: Package = {
+          id: docSnap.id,
+          customerId: data.customerId,
+          childId: data.childId,
+          type: data.type,
+          hours: data.hours,
+          usedHours: data.usedHours || 0,
+          price: data.price,
+          expiresAt: data.expiresAt?.toDate(),
+          active: data.active,
+          sharedAcrossUnits: data.sharedAcrossUnits ?? true,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate() || new Date(),
+        };
+
+        if (data.customer) {
+          pkg.customer = {
+            id: data.customer.id || '',
+            name: data.customer.name || '',
+            phone: data.customer.phone || '',
+            email: data.customer.email,
+            cpf: data.customer.cpf,
+            address: data.customer.address,
+            createdAt: data.customer.createdAt?.toDate?.() || new Date(),
+            updatedAt: data.customer.updatedAt?.toDate?.() || new Date(),
+          };
+        }
+
+        if (pkg.usedHours < pkg.hours) {
+          packages.push(pkg);
+        }
+      }
+
+      // Salva em paralelo
+      await Promise.all(packages.map(pkg => 
+        syncService.saveLocally(COLLECTION, 'create', pkg).catch(() => {})
+      ));
+
+      return packages.filter(pkg => !customerId || pkg.customerId === customerId);
+    } catch (error) {
+      console.error('Error in getActivePackages:', error);
       return [];
     }
   },

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { Customer, Child } from '../../../shared/types';
-import { customersService } from '../../../shared/firebase/services/customers.service';
+import { customersServiceOffline } from '../../../shared/firebase/services/customers.service.offline';
 
 interface CustomerFormData {
   name: string;
@@ -48,8 +48,8 @@ const Customers: React.FC = () => {
     try {
       setLoading(true);
       const [allCustomers, allChildren] = await Promise.all([
-        customersService.getAllCustomers(),
-        customersService.getAllChildren(),
+        customersServiceOffline.getAllCustomers(),
+        customersServiceOffline.getAllChildren(),
       ]);
       setCustomers(allCustomers);
       setChildren(allChildren);
@@ -101,10 +101,10 @@ const Customers: React.FC = () => {
 
     try {
       if (editingCustomer) {
-        await customersService.updateCustomer(editingCustomer.id, formData);
+        await customersServiceOffline.updateCustomer(editingCustomer.id, formData);
         toast.success('✅ Cliente atualizado com sucesso!');
       } else {
-        await customersService.createCustomer(formData);
+        await customersServiceOffline.createCustomer(formData);
         toast.success('✅ Cliente cadastrado com sucesso!');
       }
       setShowModal(false);
@@ -121,7 +121,7 @@ const Customers: React.FC = () => {
     }
 
     try {
-      await customersService.deleteCustomer(id);
+      await customersServiceOffline.deleteCustomer(id);
       toast.success('✅ Cliente excluído com sucesso!');
       loadData();
     } catch (error) {
@@ -144,11 +144,12 @@ const Customers: React.FC = () => {
     }
 
     try {
-      await customersService.addChild(childFormData.customerId, {
+      await customersServiceOffline.addChild(childFormData.customerId, {
         name: childFormData.name,
         age: childFormData.age,
       });
       toast.success('✅ Criança cadastrada com sucesso!');
+      setChildFormData({ name: '', age: 0, customerId: '' });
       setShowChildModal(false);
       loadData();
     } catch (error) {

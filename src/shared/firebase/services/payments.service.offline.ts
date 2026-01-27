@@ -43,85 +43,91 @@ export const paymentsServiceOffline = {
   },
 
   async getTodayPayments(): Promise<Payment[]> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
     try {
-      // Busca do cache local primeiro (instantâneo)
-      const allPayments = await syncService.getAllFromLocal(COLLECTION);
-      const cachedTodayPayments = allPayments.filter((payment: Payment) => {
-        const paymentDate = new Date(payment.createdAt);
-        paymentDate.setHours(0, 0, 0, 0);
-        return paymentDate.getTime() === today.getTime();
-      });
+      // 1. SEMPRE busca do cache primeiro
+      const localPayments = await syncService.getAllFromLocal(COLLECTION);
+      
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      
+      const cachedTodayPayments = localPayments
+        .filter((payment: Payment) => {
+          const paymentDate = payment.createdAt instanceof Date 
+            ? payment.createdAt 
+            : new Date(payment.createdAt);
+          return paymentDate >= startOfDay;
+        })
+        .sort((a: Payment, b: Payment) => {
+          const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime();
+          const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime();
+          return bTime - aTime;
+        });
 
-      // Se offline, retorna cache
+      // 2. Se offline, retorna cache
       if (!syncService.isOnline()) {
         return cachedTodayPayments;
       }
 
-      // Se online, busca do Firebase e atualiza cache em background
-      try {
-        const db = getDb();
-        const q = query(
-          collection(db, COLLECTION),
-          where('createdAt', '>=', Timestamp.fromDate(today)),
-          orderBy('createdAt', 'desc')
-        );
-
-        const snapshot = await getDocs(q);
-        const payments = snapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            customerId: data.customerId,
-            amount: data.amount,
-            method: data.method,
-            status: data.status,
-            description: data.description,
-            createdAt: data.createdAt?.toDate(),
-            updatedAt: data.updatedAt?.toDate(),
-          } as Payment;
-        });
-
-        // Atualiza cache em background
-        Promise.all(payments.map(payment =>
-          syncService.saveLocally(COLLECTION, 'create', payment).catch(() => {})
-        )).catch(console.error);
-
-        return payments;
-      } catch (error) {
-        console.error('Failed to fetch from Firebase, using cached data:', error);
-        return cachedTodayPayments;
-      }
-    } catch (error) {
-      console.error('Failed to access local cache, fetching from Firebase:', error);
-      
-      // Fallback: busca direto do Firebase
+      // 3. Sempre retorna cache primeiro e busca Firebase em background
       if (syncService.isOnline()) {
-        const db = getDb();
-        const q = query(
-          collection(db, COLLECTION),
-          where('createdAt', '>=', Timestamp.fromDate(today)),
-          orderBy('createdAt', 'desc')
-        );
-
-        const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            customerId: data.customerId,
-            amount: data.amount,
-            method: data.method,
-            status: data.status,
-            description: data.description,
-            createdAt: data.createdAt?.toDate(),
-            updatedAt: data.updatedAt?.toDate(),
-          } as Payment;
-        });
+        this.fetchTodayPaymentsFromFirebase()
+          .then(payments => {
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('payments-updated', { 
+                detail: { payments } 
+              }));
+            }
+          })
+          .catch(err => console.error('Background fetch failed:', err));
       }
       
+      return cachedTodayPayments;
+    } catch (error) {
+      console.error('Error in getTodayPayments:', error);
+      return [];
+    }
+  },
+
+  async fetchTodayPaymentsFromFirebase(): Promise<Payment[]> {
+    try {
+      const db = getDb();
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const startOfDayTimestamp = Timestamp.fromDate(startOfDay);
+      
+      const q = query(
+        collection(db, COLLECTION),
+        where('createdAt', '>=', startOfDayTimestamp),
+        orderBy('createdAt', 'desc')
+      );
+
+      const snapshot = await getDocs(q);
+      const payments: Payment[] = [];
+
+      for (const docSnap of snapshot.docs) {
+        const data = docSnap.data();
+        const payment: Payment = {
+          id: docSnap.id,
+          customerId: data.customerId,
+          amount: data.amount,
+          method: data.method,
+          status: data.status,
+          description: data.description,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate() || new Date(),
+        };
+
+        payments.push(payment);
+      }
+
+      // Salva em paralelo
+      await Promise.all(payments.map(payment => 
+        syncService.saveLocally(COLLECTION, 'create', payment).catch(() => {})
+      ));
+
+      return payments;
+    } catch (error) {
+      console.error('Error fetching payments from Firebase:', error);
       return [];
     }
   },

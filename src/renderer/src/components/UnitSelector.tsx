@@ -2,13 +2,7 @@ import React from 'react';
 import { useUnit } from '../contexts/UnitContext';
 
 const UnitSelector: React.FC = () => {
-  const { currentUnit, setCurrentUnit } = useUnit();
-
-  const units = [
-    { id: 'unit-1', name: 'Unidade 1' },
-    { id: 'unit-2', name: 'Unidade 2' },
-    { id: 'unit-3', name: 'Unidade 3' },
-  ];
+  const { currentUnit, setCurrentUnit, units } = useUnit();
 
   return (
     <div className="w-full">
@@ -18,7 +12,7 @@ const UnitSelector: React.FC = () => {
       <select
         value={currentUnit}
         onChange={(e) => setCurrentUnit(e.target.value)}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
       >
         {units.map((unit) => (
           <option key={unit.id} value={unit.id}>

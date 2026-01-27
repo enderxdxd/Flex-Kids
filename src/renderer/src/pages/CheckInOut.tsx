@@ -3,8 +3,8 @@ import { toast } from 'react-toastify';
 import { useUnit } from '../contexts/UnitContext';
 import { Visit, Child } from '../../../shared/types';
 import { format, differenceInMinutes } from 'date-fns';
-import { visitsService } from '../../../shared/firebase/services/visits.service';
-import { customersService } from '../../../shared/firebase/services/customers.service';
+import { visitsServiceOffline } from '../../../shared/firebase/services/visits.service.offline';
+import { customersServiceOffline } from '../../../shared/firebase/services/customers.service.offline';
 
 const CheckInOut: React.FC = () => {
   const { currentUnit } = useUnit();
@@ -24,8 +24,8 @@ const CheckInOut: React.FC = () => {
     try {
       setLoading(true);
       const [visits, allChildren] = await Promise.all([
-        visitsService.getActiveVisits(currentUnit),
-        customersService.getAllChildren(),
+        visitsServiceOffline.getActiveVisits(currentUnit),
+        customersServiceOffline.getAllChildren(),
       ]);
       setActiveVisits(visits);
       setChildren(allChildren);
@@ -50,7 +50,7 @@ const CheckInOut: React.FC = () => {
     }
 
     try {
-      await visitsService.checkIn({
+      await visitsServiceOffline.checkIn({
         childId: selectedChild,
         unitId: currentUnit,
       });
@@ -70,7 +70,7 @@ const CheckInOut: React.FC = () => {
     }
 
     try {
-      await visitsService.checkOut({ visitId });
+      await visitsServiceOffline.checkOut({ visitId });
       toast.success('✅ Check-out realizado com sucesso!');
       loadData();
     } catch (error) {

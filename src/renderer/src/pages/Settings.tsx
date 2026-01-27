@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import { settingsService } from '../../../shared/firebase/services/settings.service';
+import { settingsServiceOffline } from '../../../shared/firebase/services/settings.service.offline';
 
 const Settings: React.FC = () => {
   const [hourlyRate, setHourlyRate] = useState('30.00');
@@ -17,9 +17,9 @@ const Settings: React.FC = () => {
     try {
       setLoading(true);
       const [hourlyRateValue, minimumTimeValue, pixKeyValue] = await Promise.all([
-        settingsService.getHourlyRate(),
-        settingsService.getMinimumTime(),
-        settingsService.getPixKey(),
+        settingsServiceOffline.getHourlyRate(),
+        settingsServiceOffline.getMinimumTime(),
+        settingsServiceOffline.getPixKey(),
       ]);
       setHourlyRate(hourlyRateValue.toString());
       setMinimumTime(minimumTimeValue.toString());
@@ -46,9 +46,9 @@ const Settings: React.FC = () => {
     try {
       setSaving(true);
       await Promise.all([
-        settingsService.setHourlyRate(parseFloat(hourlyRate)),
-        settingsService.setMinimumTime(parseInt(minimumTime)),
-        settingsService.setPixKey(pixKey),
+        settingsServiceOffline.setHourlyRate(parseFloat(hourlyRate)),
+        settingsServiceOffline.setMinimumTime(parseInt(minimumTime)),
+        settingsServiceOffline.setPixKey(pixKey),
       ]);
       toast.success('✅ Configurações salvas com sucesso!');
     } catch (error) {

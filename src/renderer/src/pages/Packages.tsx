@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { Package } from '../../../shared/types';
 import { format } from 'date-fns';
-import { packagesService } from '../../../shared/firebase/services/packages.service';
-import { customersService } from '../../../shared/firebase/services/customers.service';
+import { packagesServiceOffline } from '../../../shared/firebase/services/packages.service.offline';
+import { customersServiceOffline } from '../../../shared/firebase/services/customers.service.offline';
 
 interface PackageFormData {
   customerId: string;
@@ -39,9 +39,9 @@ const Packages: React.FC = () => {
     try {
       setLoading(true);
       const [allPackages, allCustomers, allChildren] = await Promise.all([
-        showActiveOnly ? packagesService.getActivePackages() : packagesService.getActivePackages(),
-        customersService.getAllCustomers(),
-        customersService.getAllChildren(),
+        showActiveOnly ? packagesServiceOffline.getActivePackages() : packagesServiceOffline.getActivePackages(),
+        customersServiceOffline.getAllCustomers(),
+        customersServiceOffline.getAllChildren(),
       ]);
       setPackages(allPackages);
       setCustomers(allCustomers);
@@ -88,13 +88,14 @@ const Packages: React.FC = () => {
 
     try {
       if (editingPackage) {
-        await packagesService.updatePackage(editingPackage.id, formData);
+        await packagesServiceOffline.updatePackage(editingPackage.id, formData);
         toast.success('✅ Pacote atualizado com sucesso!');
       } else {
-        await packagesService.createPackage({
+        await packagesServiceOffline.createPackage({
           ...formData,
           usedHours: 0,
           active: true,
+          sharedAcrossUnits: true,
         });
         toast.success('✅ Pacote criado com sucesso!');
       }
@@ -108,7 +109,7 @@ const Packages: React.FC = () => {
 
   const handleToggleActive = async (id: string, currentStatus: boolean) => {
     try {
-      await packagesService.updatePackage(id, { active: !currentStatus });
+      await packagesServiceOffline.updatePackage(id, { active: !currentStatus });
       toast.success(`Pacote ${!currentStatus ? 'ativado' : 'desativado'} com sucesso!`);
       loadData();
     } catch (error) {

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { Payment } from '../../../shared/types';
-import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from 'date-fns';
-import { paymentsService } from '../../../shared/firebase/services/payments.service';
+import { format } from 'date-fns';
+import { paymentsServiceOffline } from '../../../shared/firebase/services/payments.service.offline';
 
 const Payments: React.FC = () => {
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -21,17 +21,11 @@ const Payments: React.FC = () => {
       let allPayments: Payment[];
       
       if (filterType === 'today') {
-        allPayments = await paymentsService.getPaymentsByDateRange(
-          startOfDay(new Date()),
-          endOfDay(new Date())
-        );
+        allPayments = await paymentsServiceOffline.getTodayPayments();
       } else if (filterType === 'month') {
-        allPayments = await paymentsService.getPaymentsByDateRange(
-          startOfMonth(selectedMonth),
-          endOfMonth(selectedMonth)
-        );
+        allPayments = await paymentsServiceOffline.getTodayPayments();
       } else {
-        allPayments = await paymentsService.getTodayPayments();
+        allPayments = await paymentsServiceOffline.getTodayPayments();
       }
       
       setPayments(allPayments);

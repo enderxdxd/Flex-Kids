@@ -21,14 +21,22 @@ let analytics: Analytics;
 
 export const getFirebaseApp = (): FirebaseApp => {
   if (!app) {
+    console.log('🔥 Initializing Firebase with config:', {
+      projectId: firebaseConfig.projectId,
+      authDomain: firebaseConfig.authDomain,
+      hasApiKey: !!firebaseConfig.apiKey
+    });
     app = initializeApp(firebaseConfig);
+    console.log('✅ Firebase initialized successfully');
   }
   return app;
 };
 
 export const getDb = (): Firestore => {
   if (!db) {
+    console.log('📊 Initializing Firestore...');
     db = getFirestore(getFirebaseApp());
+    console.log('✅ Firestore initialized');
   }
   return db;
 };

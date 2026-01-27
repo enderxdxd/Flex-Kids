@@ -11,6 +11,11 @@ interface FlexKidsDB extends DBSchema {
     value: any;
     indexes: { 'by-sync': string };
   };
+  children: {
+    key: string;
+    value: any;
+    indexes: { 'by-sync': string; 'by-customer': string };
+  };
   payments: {
     key: string;
     value: any;
@@ -42,7 +47,7 @@ interface FlexKidsDB extends DBSchema {
 class LocalDatabase {
   private db: IDBPDatabase<FlexKidsDB> | null = null;
   private readonly DB_NAME = 'flex-kids-db';
-  private readonly DB_VERSION = 1;
+  private readonly DB_VERSION = 2;
 
   async init(): Promise<void> {
     if (this.db) return;
@@ -60,6 +65,13 @@ class LocalDatabase {
         if (!db.objectStoreNames.contains('customers')) {
           const customerStore = db.createObjectStore('customers', { keyPath: 'id' });
           customerStore.createIndex('by-sync', 'synced');
+        }
+
+        // Children store
+        if (!db.objectStoreNames.contains('children')) {
+          const childrenStore = db.createObjectStore('children', { keyPath: 'id' });
+          childrenStore.createIndex('by-sync', 'synced');
+          childrenStore.createIndex('by-customer', 'customerId');
         }
 
         // Payments store
