@@ -6,6 +6,20 @@ import { syncService } from '../../database/syncService';
 const COLLECTION = 'settings';
 
 export const settingsServiceOffline = {
+  async getSettings(): Promise<{ hourlyRate: number; minimumTime: number; pixKey: string }> {
+    try {
+      const [hourlyRate, minimumTime, pixKey] = await Promise.all([
+        this.getHourlyRate(),
+        this.getMinimumTime(),
+        this.getPixKey(),
+      ]);
+      return { hourlyRate, minimumTime, pixKey };
+    } catch (error) {
+      console.error('Error getting settings:', error);
+      return { hourlyRate: 30, minimumTime: 30, pixKey: '' };
+    }
+  },
+
   async getSetting(key: string): Promise<string | null> {
     try {
       // 1. Busca do cache local primeiro

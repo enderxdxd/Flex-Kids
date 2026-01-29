@@ -111,6 +111,36 @@ export const packagesServiceOffline = {
     return allPackages.filter((pkg: Package) => pkg.customerId === customerId);
   },
 
+  async getAllPackages(): Promise<Package[]> {
+    try {
+      const localPackages = await syncService.getAllFromLocal(COLLECTION);
+      return localPackages as Package[];
+    } catch (error) {
+      console.error('Error getting all packages:', error);
+      return [];
+    }
+  },
+
+  async usePackage(packageId: string, hoursUsed: number): Promise<void> {
+    try {
+      const pkg = await syncService.getFromLocal(COLLECTION, packageId);
+      if (!pkg) {
+        throw new Error('Package not found');
+      }
+
+      const newUsedHours = (pkg.usedHours || 0) + hoursUsed;
+      const isActive = newUsedHours < pkg.hours;
+
+      await this.updatePackage(packageId, {
+        usedHours: newUsedHours,
+        active: isActive,
+      });
+    } catch (error) {
+      console.error('Error using package:', error);
+      throw error;
+    }
+  },
+
   async getActivePackages(customerId?: string): Promise<Package[]> {
     try {
       // 1. SEMPRE busca do cache primeiro

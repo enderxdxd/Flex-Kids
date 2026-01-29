@@ -57,6 +57,15 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
 
     try {
       setLoading(true);
+      
+      // Verificar se a criança já tem check-in ativo
+      const hasActiveCheckIn = await visitsServiceOffline.hasActiveVisit(selectedChild, currentUnit);
+      if (hasActiveCheckIn) {
+        toast.error('❌ Esta criança já possui um check-in ativo!');
+        setLoading(false);
+        return;
+      }
+
       await visitsServiceOffline.checkIn({
         childId: selectedChild,
         unitId: currentUnit,

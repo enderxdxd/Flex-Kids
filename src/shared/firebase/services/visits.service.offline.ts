@@ -6,6 +6,19 @@ import { syncService } from '../../database/syncService';
 const COLLECTION = 'visits';
 
 export const visitsServiceOffline = {
+  async hasActiveVisit(childId: string, unitId: string): Promise<boolean> {
+    try {
+      const localVisits = await syncService.getAllFromLocal(COLLECTION);
+      const activeVisit = (localVisits as Visit[]).find(
+        v => v.childId === childId && v.unitId === unitId && !v.checkOut
+      );
+      return !!activeVisit;
+    } catch (error) {
+      console.error('Error checking active visit:', error);
+      return false;
+    }
+  },
+
   async checkIn(data: CheckInData): Promise<Visit> {
     const visitData = {
       childId: data.childId,
@@ -83,11 +96,38 @@ export const visitsServiceOffline = {
     return updatedVisit as Visit;
   },
 
-  async getActiveVisits(unitId?: string, limit?: number): Promise<Visit[]> {
+  async enrichVisitsWithChildData(visits: Visit[]): Promise<Visit[]> {
+    try {
+      const [localChildren, localCustomers] = await Promise.all([
+        syncService.getAllFromLocal('children'),
+        syncService.getAllFromLocal('customers'),
+      ]);
+
+      return visits.map(visit => {
+        const child = localChildren.find((c: any) => c.id === visit.childId);
+        if (child) {
+          const customer = localCustomers.find((c: any) => c.id === child.customerId);
+          return {
+            ...visit,
+            child: {
+              ...child,
+              customer: customer || undefined,
+            },
+          };
+        }
+        return visit;
+      });
+    } catch (error) {
+      console.error('Error enriching visits:', error);
+      return visits;
+    }
+  },
+
+  async getActiveVisits(unitId?: string, limit = 50): Promise<Visit[]> {
     try {
       // 1. SEMPRE busca do cache primeiro (rápido - 5-10ms)
       const localVisits = await syncService.getAllFromLocal(COLLECTION);
-      const cachedActiveVisits = localVisits
+      let cachedActiveVisits = localVisits
         .filter((visit: Visit) => {
           const matchesUnit = !unitId || visit.unitId === unitId;
           return matchesUnit && !visit.checkOut;
@@ -98,6 +138,9 @@ export const visitsServiceOffline = {
           return bTime - aTime;
         })
         .slice(0, limit);
+
+      // Enriquecer com dados de criança e cliente
+      cachedActiveVisits = await this.enrichVisitsWithChildData(cachedActiveVisits);
 
       // 2. Se offline, retorna cache imediatamente
       if (!syncService.isOnline()) {

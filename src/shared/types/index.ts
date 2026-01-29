@@ -98,6 +98,8 @@ export interface CheckInData {
 
 export interface CheckOutData {
   visitId: string;
+  duration?: number;
+  value?: number;
   paymentMethod?: string;
 }
 

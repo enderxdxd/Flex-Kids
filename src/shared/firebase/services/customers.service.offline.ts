@@ -1,4 +1,4 @@
-import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
 import { Customer, Child } from '../../types';
 import { syncService } from '../../database/syncService';
@@ -120,14 +120,17 @@ export const customersServiceOffline = {
     try {
       // 1. Busca do cache primeiro
       const localCustomers = await syncService.getAllFromLocal(CUSTOMERS_COLLECTION);
+      console.log(`📦 Loaded ${localCustomers.length} customers from cache`);
 
       // 2. Se offline, retorna cache
       if (!syncService.isOnline()) {
+        console.log('📴 Offline mode - returning cached customers');
         return localCustomers as Customer[];
       }
 
       // 3. Sempre retorna cache primeiro e busca Firebase em background
       if (syncService.isOnline()) {
+        console.log('🌐 Online - fetching customers from Firebase in background');
         this.fetchCustomersFromFirebase()
           .catch(err => console.error('Background fetch failed:', err));
       }
@@ -141,8 +144,10 @@ export const customersServiceOffline = {
 
   async fetchCustomersFromFirebase(): Promise<Customer[]> {
     try {
+      console.log('📥 Fetching customers from Firebase...');
       const db = getDb();
       const snapshot = await getDocs(collection(db, CUSTOMERS_COLLECTION));
+      console.log(`📥 Received ${snapshot.docs.length} customers from Firebase`);
       
       const customers: Customer[] = [];
       for (const docSnap of snapshot.docs) {
@@ -164,6 +169,7 @@ export const customersServiceOffline = {
       await Promise.all(customers.map(customer => 
         syncService.saveLocally(CUSTOMERS_COLLECTION, 'create', customer).catch(() => {})
       ));
+      console.log(`💾 Saved ${customers.length} customers to cache`);
 
       return customers;
     } catch (error) {
@@ -208,6 +214,85 @@ export const customersServiceOffline = {
       id,
       ...childData,
     } as Child;
+  },
+
+  async getChildById(childId: string): Promise<Child | null> {
+    try {
+      const localChildren = await syncService.getAllFromLocal(CHILDREN_COLLECTION);
+      const child = (localChildren as Child[]).find(c => c.id === childId);
+      return child || null;
+    } catch (error) {
+      console.error('Error getting child by id:', error);
+      return null;
+    }
+  },
+
+  async getCustomerById(customerId: string): Promise<Customer | null> {
+    try {
+      const localCustomers = await syncService.getAllFromLocal(CUSTOMERS_COLLECTION);
+      const customer = (localCustomers as Customer[]).find(c => c.id === customerId);
+      return customer || null;
+    } catch (error) {
+      console.error('Error getting customer by id:', error);
+      return null;
+    }
+  },
+
+  async getChildrenByCustomer(customerId: string): Promise<Child[]> {
+    try {
+      // 1. Busca do cache primeiro
+      const localChildren = await syncService.getAllFromLocal(CHILDREN_COLLECTION);
+      const customerChildren = (localChildren as Child[]).filter(c => c.customerId === customerId);
+
+      // 2. Se offline, retorna cache
+      if (!syncService.isOnline()) {
+        return customerChildren;
+      }
+
+      // 3. Busca do Firebase em background
+      this.fetchChildrenByCustomerFromFirebase(customerId)
+        .catch(err => console.error('Background fetch failed:', err));
+      
+      return customerChildren;
+    } catch (error) {
+      console.error('Error getting children by customer:', error);
+      return [];
+    }
+  },
+
+  async fetchChildrenByCustomerFromFirebase(customerId: string): Promise<Child[]> {
+    try {
+      const db = getDb();
+      const q = query(
+        collection(db, CHILDREN_COLLECTION),
+        where('customerId', '==', customerId)
+      );
+      const snapshot = await getDocs(q);
+      
+      const children: Child[] = [];
+      for (const docSnap of snapshot.docs) {
+        const data = docSnap.data();
+        const child: Child = {
+          id: docSnap.id,
+          name: data.name,
+          age: data.age,
+          customerId: data.customerId,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate() || new Date(),
+        };
+        children.push(child);
+      }
+
+      // Salva em paralelo
+      await Promise.all(children.map(child => 
+        syncService.saveLocally(CHILDREN_COLLECTION, 'create', child).catch(() => {})
+      ));
+
+      return children;
+    } catch (error) {
+      console.error('Error fetching children by customer:', error);
+      return [];
+    }
   },
 
   async getAllChildren(): Promise<Child[]> {

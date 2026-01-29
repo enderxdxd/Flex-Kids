@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { Customer } from '../../../../shared/types';
+import { Customer, Child } from '../../../../shared/types';
 import { customersServiceOffline } from '../../../../shared/firebase/services/customers.service.offline';
 
 interface CustomerModalProps {
@@ -18,6 +18,11 @@ interface FormData {
   address: string;
 }
 
+interface ChildFormData {
+  name: string;
+  age: number;
+}
+
 const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSuccess, customer }) => {
   const [formData, setFormData] = useState<FormData>({
     name: customer?.name || '',
@@ -26,7 +31,43 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSucces
     cpf: customer?.cpf || '',
     address: customer?.address || '',
   });
+  const [children, setChildren] = useState<ChildFormData[]>([]);
+  const [newChild, setNewChild] = useState<ChildFormData>({ name: '', age: 0 });
   const [loading, setLoading] = useState(false);
+  const [loadingChildren, setLoadingChildren] = useState(false);
+
+  useEffect(() => {
+    if (customer?.id) {
+      loadChildren(customer.id);
+    }
+  }, [customer]);
+
+  const loadChildren = async (customerId: string) => {
+    try {
+      setLoadingChildren(true);
+      const childrenData = await customersServiceOffline.getChildrenByCustomer(customerId);
+      setChildren(childrenData.map(c => ({ name: c.name, age: c.age })));
+    } catch (error) {
+      console.error('Error loading children:', error);
+    } finally {
+      setLoadingChildren(false);
+    }
+  };
+
+  const addChild = () => {
+    if (!newChild.name || newChild.age <= 0) {
+      toast.error('Nome e idade da criança são obrigatórios');
+      return;
+    }
+    setChildren([...children, { ...newChild }]);
+    setNewChild({ name: '', age: 0 });
+    toast.success('Criança adicionada!');
+  };
+
+  const removeChild = (index: number) => {
+    setChildren(children.filter((_, i) => i !== index));
+    toast.info('Criança removida');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,7 +90,17 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSucces
         console.log('➕ CustomerModal: Creating new customer...');
         const result = await customersServiceOffline.createCustomer(formData);
         console.log('✅ CustomerModal: Create successful, result:', result);
-        toast.success('✅ Cliente cadastrado com sucesso!');
+        
+        // Cadastrar crianças
+        if (children.length > 0) {
+          console.log(`👶 Adding ${children.length} children...`);
+          for (const child of children) {
+            await customersServiceOffline.addChild(result.id, child);
+          }
+          console.log('✅ Children added successfully');
+        }
+        
+        toast.success(`✅ Cliente cadastrado com ${children.length} criança(s)!`);
       }
 
       console.log('🔄 CustomerModal: Calling onSuccess...');
@@ -68,6 +119,8 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSucces
 
   const handleClose = () => {
     setFormData({ name: '', phone: '', email: '', cpf: '', address: '' });
+    setChildren([]);
+    setNewChild({ name: '', age: 0 });
     onClose();
   };
 
@@ -169,6 +222,76 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSucces
               rows={3}
               className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 text-lg resize-none"
             />
+          </div>
+
+          {/* Seção de Crianças */}
+          <div className="border-t-2 border-gray-200 pt-4 mt-4">
+            <label className="block text-lg font-bold text-gray-700 mb-3">
+              👶 Crianças
+            </label>
+            
+            {/* Lista de crianças adicionadas */}
+            {children.length > 0 && (
+              <div className="space-y-2 mb-4">
+                {children.map((child, index) => (
+                  <div key={index} className="flex items-center justify-between bg-blue-50 p-3 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">👶</span>
+                      <div>
+                        <p className="font-semibold text-gray-800">{child.name}</p>
+                        <p className="text-sm text-gray-600">{child.age} anos</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeChild(index)}
+                      className="text-red-500 hover:bg-red-100 p-2 rounded-lg transition-all"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Formulário para adicionar criança */}
+            {!customer && (
+              <div className="bg-gray-50 p-4 rounded-xl space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <input
+                      type="text"
+                      value={newChild.name}
+                      onChange={(e) => setNewChild({ ...newChild, name: e.target.value })}
+                      placeholder="Nome da criança"
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <input
+                      type="number"
+                      value={newChild.age || ''}
+                      onChange={(e) => setNewChild({ ...newChild, age: parseInt(e.target.value) || 0 })}
+                      placeholder="Idade"
+                      min="0"
+                      max="18"
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={addChild}
+                  className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition-all font-medium"
+                >
+                  ➕ Adicionar Criança
+                </button>
+              </div>
+            )}
+
+            {customer && loadingChildren && (
+              <p className="text-gray-500 text-center py-2">Carregando crianças...</p>
+            )}
           </div>
 
           {/* Botões */}

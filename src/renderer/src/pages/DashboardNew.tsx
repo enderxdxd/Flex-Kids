@@ -10,6 +10,7 @@ import Navbar from '../components/Navbar';
 import CheckInModal from '../components/modals/CheckInModal';
 import CustomerModal from '../components/modals/CustomerModal';
 import PackageModal from '../components/modals/PackageModal';
+import CheckOutModal from '../components/modals/CheckOutModal';
 
 const DashboardNew: React.FC = () => {
   const { currentUnit, getCurrentUnitInfo } = useUnit();
@@ -95,23 +96,10 @@ const DashboardNew: React.FC = () => {
     setShowCheckOutModal(true);
   };
 
-  const confirmCheckOut = async (paymentMethod: string) => {
-    if (!selectedVisit) return;
-
-    try {
-      await visitsServiceOffline.checkOut({
-        visitId: selectedVisit.id,
-        paymentMethod,
-      });
-      
-      toast.success('✅ Check-out realizado com sucesso!');
-      setShowCheckOutModal(false);
-      setSelectedVisit(null);
-      loadStats(true);
-    } catch (error) {
-      console.error('Error during checkout:', error);
-      toast.error('Erro ao realizar check-out');
-    }
+  const handleCheckOutSuccess = () => {
+    setShowCheckOutModal(false);
+    setSelectedVisit(null);
+    loadStats(true);
   };
 
   const unitInfo = getCurrentUnitInfo();
@@ -345,61 +333,17 @@ const DashboardNew: React.FC = () => {
         onSuccess={() => loadStats(true)}
       />
 
-      {/* Modal Check-Out */}
-      {showCheckOutModal && selectedVisit && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
-            <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-              <span>✓</span> Confirmar Check-Out
-            </h3>
-            
-            <div className="bg-blue-50 rounded-xl p-4 mb-6">
-              <p className="text-sm text-gray-600 mb-1">Criança</p>
-              <p className="font-bold text-lg text-gray-800">{selectedVisit.child?.name}</p>
-              <p className="text-sm text-gray-600 mt-2">
-                Tempo: {Math.floor((Date.now() - new Date(selectedVisit.checkIn).getTime()) / 60000)} minutos
-              </p>
-            </div>
-
-            <div className="space-y-3 mb-6">
-              <p className="font-medium text-gray-700">Método de Pagamento:</p>
-              <button
-                onClick={() => confirmCheckOut('dinheiro')}
-                className="w-full bg-green-500 text-white p-4 rounded-xl hover:bg-green-600 transition-all font-medium"
-              >
-                💵 Dinheiro
-              </button>
-              <button
-                onClick={() => confirmCheckOut('pix')}
-                className="w-full bg-blue-500 text-white p-4 rounded-xl hover:bg-blue-600 transition-all font-medium"
-              >
-                📱 PIX
-              </button>
-              <button
-                onClick={() => confirmCheckOut('cartao')}
-                className="w-full bg-purple-500 text-white p-4 rounded-xl hover:bg-purple-600 transition-all font-medium"
-              >
-                💳 Cartão
-              </button>
-              <button
-                onClick={() => confirmCheckOut('pacote')}
-                className="w-full bg-orange-500 text-white p-4 rounded-xl hover:bg-orange-600 transition-all font-medium"
-              >
-                📦 Pacote de Horas
-              </button>
-            </div>
-
-            <button
-              onClick={() => {
-                setShowCheckOutModal(false);
-                setSelectedVisit(null);
-              }}
-              className="w-full bg-gray-200 text-gray-700 p-3 rounded-xl hover:bg-gray-300 transition-all font-medium"
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
+      {/* Modal de Check-Out com Cálculo */}
+      {selectedVisit && (
+        <CheckOutModal
+          isOpen={showCheckOutModal}
+          onClose={() => {
+            setShowCheckOutModal(false);
+            setSelectedVisit(null);
+          }}
+          onSuccess={handleCheckOutSuccess}
+          visit={selectedVisit}
+        />
       )}
     </div>
   );
