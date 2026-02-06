@@ -379,10 +379,10 @@ export class BematechService {
   }
 
   /**
-   * Imprime relatório gerencial (não fiscal)
+   * Imprime relatório/comprovante usando ESC/POS (compatível com MP-4200 TH)
    */
   async printNonFiscalReport(title: string, lines: string[]): Promise<boolean> {
-    console.log('[BEMATECH] ========== PRINT NON FISCAL ==========');
+    console.log('[BEMATECH] ========== PRINT NON FISCAL (ESC/POS) ==========');
     console.log('[BEMATECH] isSimulationMode:', this.isSimulationMode);
     console.log('[BEMATECH] isConnected:', this.isConnected);
     console.log('[BEMATECH] Título:', title);
@@ -402,18 +402,35 @@ export class BematechService {
     }
 
     try {
-      console.log('=== IMPRIMINDO RELATÓRIO GERENCIAL ===');
-      console.log(title);
-      lines.forEach(line => console.log(line));
+      console.log('[BEMATECH] === IMPRIMINDO VIA ESC/POS ===');
       
-      // Comando Bematech para relatório gerencial
-      // ESC + 40 + Texto
-      const text = `${title}\n${lines.join('\n')}`;
-      await this.sendCommand(`\x1B\x28${text}`);
+      const api = getPrinterAPI();
+      if (!api) {
+        console.error('[BEMATECH] API não disponível');
+        return false;
+      }
       
-      return true;
+      // Monta o texto completo do comprovante
+      const fullText = [
+        title,
+        ...lines,
+        '', '', '' // Linhas extras para corte
+      ].join('\n');
+      
+      console.log('[BEMATECH] Enviando para impressora:', fullText.length, 'caracteres');
+      
+      // Usa printText que já implementa ESC/POS corretamente no main process
+      const success = await api.printText(fullText);
+      
+      if (success) {
+        console.log('[BEMATECH] ✅ Impressão enviada com sucesso');
+      } else {
+        console.error('[BEMATECH] ❌ Falha ao enviar para impressora');
+      }
+      
+      return success;
     } catch (error) {
-      console.error('Erro ao imprimir relatório:', error);
+      console.error('[BEMATECH] Erro ao imprimir relatório:', error);
       return false;
     }
   }

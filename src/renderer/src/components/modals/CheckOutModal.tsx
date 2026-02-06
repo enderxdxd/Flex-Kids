@@ -137,11 +137,25 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
       }
 
       // 4. Emitir nota fiscal se habilitado
-      if (printFiscalNote && fiscalConfig?.enableFiscalPrint && customer) {
-        await handleFiscalNote();
+      let printSuccess = true;
+      console.log('[CHECKOUT] Verificando impressão fiscal:');
+      console.log('[CHECKOUT] - printFiscalNote:', printFiscalNote);
+      console.log('[CHECKOUT] - enableFiscalPrint:', fiscalConfig?.enableFiscalPrint);
+      console.log('[CHECKOUT] - child:', !!child);
+      
+      // Só precisa de child para imprimir, customer é opcional
+      if (printFiscalNote && fiscalConfig?.enableFiscalPrint && child) {
+        console.log('[CHECKOUT] Condições atendidas, chamando handleFiscalNote...');
+        printSuccess = await handleFiscalNote();
+      } else {
+        console.log('[CHECKOUT] Impressão fiscal DESABILITADA - condições não atendidas');
       }
 
-      toast.success('✅ Check-out realizado com sucesso!');
+      if (printSuccess) {
+        toast.success('✅ Check-out realizado com sucesso!');
+      } else {
+        toast.success('✅ Check-out realizado! (Comprovante não impresso)');
+      }
       onSuccess();
       handleClose();
     } catch (error) {
@@ -152,8 +166,8 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
     }
   };
 
-  const handleFiscalNote = async () => {
-    if (!customer || !child || !fiscalConfig) return;
+  const handleFiscalNote = async (): Promise<boolean> => {
+    if (!child || !fiscalConfig) return false;
 
     try {
       // Formatar horários
@@ -161,14 +175,22 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
       const checkOutTime = new Date();
       const formatTime = (date: Date) => date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
       
+      console.log('[CHECKOUT] Inicializando impressora...');
+      
       // Inicializar impressora
-      await bematechService.initialize(fiscalConfig);
+      const initialized = await bematechService.initialize(fiscalConfig);
+      console.log('[CHECKOUT] Impressora inicializada:', initialized);
+      
+      if (!initialized) {
+        console.warn('[CHECKOUT] Impressora não inicializada - modo simulação');
+        return false;
+      }
       
       // Imprimir cupom não-fiscal simplificado
       const lines = [
         '================================',
         `CRIANCA: ${child.name}`,
-        `RESPONSAVEL: ${customer.name}`,
+        `RESPONSAVEL: ${customer?.name || 'N/A'}`,
         '',
         `ENTRADA: ${formatTime(checkInTime)}`,
         `SAIDA: ${formatTime(checkOutTime)}`,
@@ -180,19 +202,26 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
         'Obrigado pela preferencia!',
       ];
       
+      console.log('[CHECKOUT] Enviando para impressão...');
+      
       const printed = await bematechService.printNonFiscalReport(
         'COMPROVANTE DE ATENDIMENTO',
         lines
       );
 
+      console.log('[CHECKOUT] Resultado da impressão:', printed);
+
       if (printed) {
         toast.success('📄 Comprovante impresso com sucesso!');
+        return true;
       } else {
         toast.warning('⚠️ Impressora não conectada - Comprovante não foi impresso');
+        return false;
       }
     } catch (error) {
-      console.error('Error printing receipt:', error);
+      console.error('[CHECKOUT] Error printing receipt:', error);
       toast.error('❌ Erro ao processar comprovante');
+      return false;
     }
   };
 

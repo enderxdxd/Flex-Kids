@@ -106,23 +106,38 @@ async function disconnect(): Promise<void> {
 }
 
 /**
- * Envia comando para a impressora
+ * Envia comando para a impressora com drain (flush)
  */
 async function sendCommand(command: string): Promise<boolean> {
+  console.log('[PRINTER] sendCommand chamado, porta aberta:', port?.isOpen);
+  
   if (!port || !port.isOpen) {
-    console.error('Porta não está aberta');
+    console.error('[PRINTER] Porta não está aberta');
     return false;
   }
 
   return new Promise((resolve) => {
-    port.write(command, (err: any) => {
+    // Converte para Buffer para garantir encoding correto
+    const buffer = Buffer.from(command, 'latin1');
+    console.log('[PRINTER] Escrevendo', buffer.length, 'bytes na porta...');
+    
+    port.write(buffer, (err: any) => {
       if (err) {
-        console.error('Erro ao enviar comando:', err);
+        console.error('[PRINTER] Erro ao escrever:', err);
         resolve(false);
-      } else {
-        console.log(`Comando enviado: ${command.length} bytes`);
-        resolve(true);
+        return;
       }
+      
+      // Aguarda o buffer ser enviado fisicamente
+      port.drain((drainErr: any) => {
+        if (drainErr) {
+          console.error('[PRINTER] Erro no drain:', drainErr);
+          resolve(false);
+        } else {
+          console.log('[PRINTER] ✅ Dados enviados e flush completo');
+          resolve(true);
+        }
+      });
     });
   });
 }
@@ -162,28 +177,51 @@ function getStatus(): { connected: boolean; portOpen: boolean; serialportAvailab
 }
 
 /**
- * Imprime texto simples (para teste)
+ * Imprime texto simples usando ESC/POS (compatível com MP-4200 TH)
  */
 async function printText(text: string): Promise<boolean> {
+  console.log('[PRINTER] ========== printText ==========');
+  console.log('[PRINTER] Texto a imprimir:', text.substring(0, 100) + '...');
+  console.log('[PRINTER] Porta aberta:', port?.isOpen);
+  console.log('[PRINTER] isConnected:', isConnected);
+  
   if (!port || !port.isOpen) {
-    console.error('Porta não está aberta');
+    console.error('[PRINTER] ❌ Porta não está aberta!');
     return false;
   }
 
   try {
-    // Inicializa impressora
-    await sendCommand('\x1B\x40'); // ESC @
+    console.log('[PRINTER] 1. Inicializando impressora (ESC @)...');
+    const init = await sendCommand('\x1B\x40'); // ESC @ - Inicializa
+    if (!init) {
+      console.error('[PRINTER] Falha ao inicializar');
+      return false;
+    }
     
-    // Envia texto
-    await sendCommand(text);
+    // Pequena pausa para a impressora processar
+    await new Promise(r => setTimeout(r, 100));
     
-    // Avança papel e corta
-    await sendCommand('\n\n\n\n');
-    await sendCommand('\x1D\x56\x00'); // GS V 0 - Corte parcial
+    console.log('[PRINTER] 2. Enviando texto...');
+    const textSent = await sendCommand(text);
+    if (!textSent) {
+      console.error('[PRINTER] Falha ao enviar texto');
+      return false;
+    }
     
+    await new Promise(r => setTimeout(r, 100));
+    
+    console.log('[PRINTER] 3. Avançando papel...');
+    await sendCommand('\n\n\n\n\n'); // 5 linhas em branco
+    
+    await new Promise(r => setTimeout(r, 100));
+    
+    console.log('[PRINTER] 4. Cortando papel (GS V)...');
+    await sendCommand('\x1D\x56\x42\x00'); // GS V B 0 - Corte parcial com feed
+    
+    console.log('[PRINTER] ✅ Impressão completa!');
     return true;
   } catch (error) {
-    console.error('Erro ao imprimir:', error);
+    console.error('[PRINTER] ❌ Erro ao imprimir:', error);
     return false;
   }
 }
