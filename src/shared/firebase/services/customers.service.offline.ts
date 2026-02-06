@@ -1,4 +1,4 @@
-import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, query, where, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
 import { Customer, Child } from '../../types';
 import { syncService } from '../../database/syncService';
@@ -218,9 +218,42 @@ export const customersServiceOffline = {
 
   async getChildById(childId: string): Promise<Child | null> {
     try {
+      // 1. Busca do cache local primeiro (rápido)
       const localChildren = await syncService.getAllFromLocal(CHILDREN_COLLECTION);
       const child = (localChildren as Child[]).find(c => c.id === childId);
-      return child || null;
+      
+      if (child) {
+        console.log(`✅ [getChildById] Criança encontrada no cache local`);
+        return child;
+      }
+
+      console.warn(`⚠️ [getChildById] Criança ${childId} NÃO encontrada no cache local`);
+
+      // 2. Fallback: busca direto do Firebase por documento
+      if (syncService.isOnline()) {
+        console.log(`🌐 [getChildById] Buscando do Firebase...`);
+        const db = getDb();
+        const docSnap = await getDoc(doc(db, CHILDREN_COLLECTION, childId));
+        
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          const childFromFirebase: Child = {
+            id: docSnap.id,
+            name: data.name,
+            age: data.age,
+            customerId: data.customerId,
+            createdAt: data.createdAt?.toDate() || new Date(),
+            updatedAt: data.updatedAt?.toDate() || new Date(),
+          };
+
+          // Salva no cache para próximas vezes
+          await syncService.saveLocally(CHILDREN_COLLECTION, 'create', childFromFirebase).catch(() => {});
+          console.log(`✅ [getChildById] Criança encontrada no Firebase e salva no cache`);
+          return childFromFirebase;
+        }
+      }
+
+      return null;
     } catch (error) {
       console.error('Error getting child by id:', error);
       return null;
@@ -229,9 +262,43 @@ export const customersServiceOffline = {
 
   async getCustomerById(customerId: string): Promise<Customer | null> {
     try {
+      // 1. Busca do cache local primeiro
       const localCustomers = await syncService.getAllFromLocal(CUSTOMERS_COLLECTION);
       const customer = (localCustomers as Customer[]).find(c => c.id === customerId);
-      return customer || null;
+      
+      if (customer) {
+        console.log(`✅ [getCustomerById] Cliente encontrado no cache local`);
+        return customer;
+      }
+
+      console.warn(`⚠️ [getCustomerById] Cliente ${customerId} NÃO encontrado no cache local`);
+
+      // 2. Fallback: busca do Firebase
+      if (syncService.isOnline()) {
+        console.log(`🌐 [getCustomerById] Buscando do Firebase...`);
+        const db = getDb();
+        const docSnap = await getDoc(doc(db, CUSTOMERS_COLLECTION, customerId));
+        
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          const customerFromFirebase: Customer = {
+            id: docSnap.id,
+            name: data.name,
+            phone: data.phone,
+            email: data.email,
+            cpf: data.cpf,
+            address: data.address,
+            createdAt: data.createdAt?.toDate() || new Date(),
+            updatedAt: data.updatedAt?.toDate() || new Date(),
+          };
+
+          await syncService.saveLocally(CUSTOMERS_COLLECTION, 'create', customerFromFirebase).catch(() => {});
+          console.log(`✅ [getCustomerById] Cliente encontrado no Firebase e salvo no cache`);
+          return customerFromFirebase;
+        }
+      }
+
+      return null;
     } catch (error) {
       console.error('Error getting customer by id:', error);
       return null;

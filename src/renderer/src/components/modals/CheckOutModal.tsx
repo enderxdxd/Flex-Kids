@@ -58,6 +58,19 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
           p => p.customerId === childData.customerId && p.active && p.usedHours < p.hours
         );
         setPackages(activePackages);
+      } else {
+        // Fallback: tenta buscar via getAllChildren
+        console.warn('[CHECKOUT] Criança não encontrada via getChildById, tentando fallback...');
+        const allChildren = await customersServiceOffline.getAllChildren();
+        const foundChild = allChildren.find(c => c.id === visit.childId);
+        if (foundChild) {
+          console.log('[CHECKOUT] Criança encontrada via fallback');
+          setChild(foundChild);
+          const customerData = await customersServiceOffline.getCustomerById(foundChild.customerId);
+          setCustomer(customerData);
+        } else {
+          console.error('[CHECKOUT] Criança não encontrada em nenhum lugar!');
+        }
       }
 
       setHourlyRate(settings.hourlyRate || 30);
@@ -426,10 +439,10 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
             <button
               type="button"
               onClick={handleCheckOut}
-              disabled={loading}
+              disabled={loading || !child}
               className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white py-3 rounded-xl hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-bold shadow-lg"
             >
-              {loading ? '⏳ Processando...' : '✓ Confirmar Check-Out'}
+              {loading ? '⏳ Processando...' : !child ? '⏳ Carregando...' : '✓ Confirmar Check-Out'}
             </button>
           </div>
         </div>
