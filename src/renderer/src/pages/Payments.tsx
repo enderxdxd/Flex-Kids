@@ -23,9 +23,9 @@ const Payments: React.FC = () => {
       if (filterType === 'today') {
         allPayments = await paymentsServiceOffline.getTodayPayments();
       } else if (filterType === 'month') {
-        allPayments = await paymentsServiceOffline.getTodayPayments();
+        allPayments = await paymentsServiceOffline.getMonthPayments(selectedMonth);
       } else {
-        allPayments = await paymentsServiceOffline.getTodayPayments();
+        allPayments = await paymentsServiceOffline.getAllPayments();
       }
       
       setPayments(allPayments);

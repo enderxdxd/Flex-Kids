@@ -21,6 +21,30 @@ const Dashboard: React.FC = () => {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const loadingRef = useRef(false);
 
+  // Debug: Verifica status da impressora ao carregar
+  useEffect(() => {
+    const checkPrinterStatus = async () => {
+      try {
+        const api = (window as any).electronAPI?.printer;
+        if (api) {
+          console.log('🖨️ [PRINTER DEBUG] API disponível, verificando status...');
+          const status = await api.getStatus();
+          console.log('🖨️ [PRINTER DEBUG] Status:', status);
+          const logs = await api.getLogs();
+          console.log('🖨️ [PRINTER DEBUG] Logs do main process:', logs);
+          const ports = await api.listPorts();
+          console.log('🖨️ [PRINTER DEBUG] Portas disponíveis:', ports);
+        } else {
+          console.warn('🖨️ [PRINTER DEBUG] API de impressora NÃO disponível no window.electronAPI');
+          console.log('🖨️ [PRINTER DEBUG] window.electronAPI:', (window as any).electronAPI);
+        }
+      } catch (err) {
+        console.error('🖨️ [PRINTER DEBUG] Erro ao verificar impressora:', err);
+      }
+    };
+    checkPrinterStatus();
+  }, []);
+
   const loadStats = useCallback(async (forceRefresh = false) => {
     // Evita múltiplas chamadas simultâneas
     if (loadingRef.current) return;

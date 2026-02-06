@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { Visit, Package, Child, Customer } from '../../../../shared/types';
+import { Visit, Package, Child, Customer, FiscalConfig } from '../../../../shared/types';
 import { visitsServiceOffline } from '../../../../shared/firebase/services/visits.service.offline';
 import { packagesServiceOffline } from '../../../../shared/firebase/services/packages.service.offline';
 import { paymentsServiceOffline } from '../../../../shared/firebase/services/payments.service.offline';
 import { customersServiceOffline } from '../../../../shared/firebase/services/customers.service.offline';
 import { settingsServiceOffline } from '../../../../shared/firebase/services/settings.service.offline';
+import { bematechService } from '../../../../shared/services/bematech.service';
 
 interface CheckOutModalProps {
   isOpen: boolean;
@@ -25,6 +26,8 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
   const [totalValue, setTotalValue] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'pix' | 'package'>('cash');
   const [loading, setLoading] = useState(false);
+  const [printFiscalNote, setPrintFiscalNote] = useState(true);
+  const [fiscalConfig, setFiscalConfig] = useState<FiscalConfig | null>(null);
 
   useEffect(() => {
     if (isOpen && visit) {
@@ -59,6 +62,13 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
 
       setHourlyRate(settings.hourlyRate || 30);
       setMinimumTime(settings.minimumTime || 30);
+
+      // Carregar configurações fiscais
+      const fiscalSettings = await settingsServiceOffline.getFiscalConfig();
+      if (fiscalSettings) {
+        setFiscalConfig(fiscalSettings);
+        setPrintFiscalNote(fiscalSettings.enableFiscalPrint);
+      }
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Erro ao carregar dados');
@@ -114,14 +124,21 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
       }
 
       // 3. Se houver pagamento, registrar
+      let paymentId: string | undefined;
       if (totalValue > 0 && paymentMethod !== 'package' && customer) {
-        await paymentsServiceOffline.createPayment({
+        const payment = await paymentsServiceOffline.createPayment({
           customerId: customer.id,
           amount: totalValue,
           method: paymentMethod,
           status: 'paid',
           description: `Pagamento visita - ${child?.name} - ${duration} min`,
         });
+        paymentId = payment.id;
+      }
+
+      // 4. Emitir nota fiscal se habilitado
+      if (printFiscalNote && fiscalConfig?.enableFiscalPrint && customer) {
+        await handleFiscalNote();
       }
 
       toast.success('✅ Check-out realizado com sucesso!');
@@ -132,6 +149,50 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
       toast.error('Erro ao realizar check-out');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFiscalNote = async () => {
+    if (!customer || !child || !fiscalConfig) return;
+
+    try {
+      // Formatar horários
+      const checkInTime = visit.checkIn instanceof Date ? visit.checkIn : new Date(visit.checkIn);
+      const checkOutTime = new Date();
+      const formatTime = (date: Date) => date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      
+      // Inicializar impressora
+      await bematechService.initialize(fiscalConfig);
+      
+      // Imprimir cupom não-fiscal simplificado
+      const lines = [
+        '================================',
+        `CRIANCA: ${child.name}`,
+        `RESPONSAVEL: ${customer.name}`,
+        '',
+        `ENTRADA: ${formatTime(checkInTime)}`,
+        `SAIDA: ${formatTime(checkOutTime)}`,
+        `DURACAO: ${Math.floor(duration / 60)}h ${duration % 60}min`,
+        '',
+        `VALOR TOTAL: R$ ${totalValue.toFixed(2)}`,
+        `PAGAMENTO: ${selectedPackage ? 'PACOTE' : paymentMethod.toUpperCase()}`,
+        '================================',
+        'Obrigado pela preferencia!',
+      ];
+      
+      const printed = await bematechService.printNonFiscalReport(
+        'COMPROVANTE DE ATENDIMENTO',
+        lines
+      );
+
+      if (printed) {
+        toast.success('📄 Comprovante impresso com sucesso!');
+      } else {
+        toast.warning('⚠️ Impressora não conectada - Comprovante não foi impresso');
+      }
+    } catch (error) {
+      console.error('Error printing receipt:', error);
+      toast.error('❌ Erro ao processar comprovante');
     }
   };
 
@@ -258,6 +319,24 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
               <span className="text-6xl">💰</span>
             </div>
           </div>
+
+          {/* Nota Fiscal */}
+          {fiscalConfig?.enableFiscalPrint && (
+            <div className="bg-blue-50 p-4 rounded-xl">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={printFiscalNote}
+                  onChange={(e) => setPrintFiscalNote(e.target.checked)}
+                  className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                />
+                <div>
+                  <span className="font-bold text-gray-800">📄 Emitir Nota Fiscal</span>
+                  <p className="text-xs text-gray-600">Impressora: {fiscalConfig.printerModel}</p>
+                </div>
+              </label>
+            </div>
+          )}
 
           {/* Forma de Pagamento */}
           {!selectedPackage && totalValue > 0 && (

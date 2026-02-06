@@ -33,7 +33,8 @@
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.49.3",
     "react-router-dom": "^6.21.1",
-    "react-toastify": "^10.0.3"
+    "react-toastify": "^10.0.3",
+    "serialport": "^13.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.6",
@@ -71,6 +72,17 @@
       "node_modules/**/*",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "node_modules/serialport",
+        "to": "node_modules/serialport"
+      },
+      {
+        "from": "node_modules/@serialport",
+        "to": "node_modules/@serialport"
+      }
+    ],
+    "asar": false,
     "win": {
       "target": [
         "nsis"

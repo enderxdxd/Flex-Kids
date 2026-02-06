@@ -171,6 +171,98 @@ export const paymentsServiceOffline = {
     return allPayments.filter((payment: Payment) => payment.customerId === customerId);
   },
 
+  async getMonthPayments(date: Date = new Date()): Promise<Payment[]> {
+    try {
+      const localPayments = await syncService.getAllFromLocal(COLLECTION);
+      
+      const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+      startOfMonth.setHours(0, 0, 0, 0);
+      
+      const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+      endOfMonth.setHours(23, 59, 59, 999);
+      
+      const cachedMonthPayments = localPayments
+        .filter((payment: Payment) => {
+          const paymentDate = payment.createdAt instanceof Date 
+            ? payment.createdAt 
+            : new Date(payment.createdAt);
+          return paymentDate >= startOfMonth && paymentDate <= endOfMonth;
+        })
+        .sort((a: Payment, b: Payment) => {
+          const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime();
+          const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime();
+          return bTime - aTime;
+        });
+
+      if (!syncService.isOnline()) {
+        return cachedMonthPayments;
+      }
+
+      if (syncService.isOnline()) {
+        this.fetchMonthPaymentsFromFirebase(date)
+          .then(payments => {
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('payments-updated', { 
+                detail: { payments } 
+              }));
+            }
+          })
+          .catch(err => console.error('Background fetch failed:', err));
+      }
+      
+      return cachedMonthPayments;
+    } catch (error) {
+      console.error('Error in getMonthPayments:', error);
+      return [];
+    }
+  },
+
+  async fetchMonthPaymentsFromFirebase(date: Date = new Date()): Promise<Payment[]> {
+    try {
+      const db = getDb();
+      const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+      startOfMonth.setHours(0, 0, 0, 0);
+      
+      const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+      endOfMonth.setHours(23, 59, 59, 999);
+      
+      const q = query(
+        collection(db, COLLECTION),
+        where('createdAt', '>=', Timestamp.fromDate(startOfMonth)),
+        where('createdAt', '<=', Timestamp.fromDate(endOfMonth)),
+        orderBy('createdAt', 'desc')
+      );
+
+      const snapshot = await getDocs(q);
+      const payments: Payment[] = [];
+
+      for (const docSnap of snapshot.docs) {
+        const data = docSnap.data();
+        const payment: Payment = {
+          id: docSnap.id,
+          customerId: data.customerId,
+          amount: data.amount,
+          method: data.method,
+          status: data.status,
+          description: data.description,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate() || new Date(),
+        };
+
+        payments.push(payment);
+      }
+
+      await Promise.all(payments.map(payment => 
+        syncService.saveLocally(COLLECTION, 'create', payment).catch(() => {})
+      ));
+
+      return payments;
+    } catch (error) {
+      console.error('Error fetching month payments from Firebase:', error);
+      return [];
+    }
+  },
+
   async getAllPayments(): Promise<Payment[]> {
     if (syncService.isOnline()) {
       try {

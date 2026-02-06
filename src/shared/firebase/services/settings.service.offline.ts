@@ -1,6 +1,6 @@
 import { collection, doc, getDoc, setDoc, getDocs, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
-import { Settings } from '../../types';
+import { Settings, FiscalConfig } from '../../types';
 import { syncService } from '../../database/syncService';
 
 const COLLECTION = 'settings';
@@ -170,5 +170,38 @@ export const settingsServiceOffline = {
 
   async setPixKey(key: string): Promise<void> {
     await this.setSetting('pixKey', key);
+  },
+
+  async getFiscalConfig(): Promise<FiscalConfig | null> {
+    try {
+      const configStr = await this.getSetting('fiscalConfig');
+      if (!configStr) return null;
+      
+      const config = JSON.parse(configStr);
+      return {
+        ...config,
+        createdAt: new Date(config.createdAt),
+        updatedAt: new Date(config.updatedAt),
+      } as FiscalConfig;
+    } catch (error) {
+      console.error('Error getting fiscal config:', error);
+      return null;
+    }
+  },
+
+  async saveFiscalConfig(config: Omit<FiscalConfig, 'id' | 'createdAt' | 'updatedAt'>): Promise<void> {
+    try {
+      const fiscalConfig: FiscalConfig = {
+        id: 'fiscalConfig',
+        ...config,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      
+      await this.setSetting('fiscalConfig', JSON.stringify(fiscalConfig));
+    } catch (error) {
+      console.error('Error saving fiscal config:', error);
+      throw error;
+    }
   },
 };
