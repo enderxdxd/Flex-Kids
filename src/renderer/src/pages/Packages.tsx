@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import { Package } from '../../../shared/types';
+import { Package, Child, Customer } from '../../../shared/types';
 import { format } from 'date-fns';
 import { packagesServiceOffline } from '../../../shared/firebase/services/packages.service.offline';
 import { customersServiceOffline } from '../../../shared/firebase/services/customers.service.offline';
+import PackagePaymentModal from '../components/modals/PackagePaymentModal';
 
 interface PackageFormData {
   customerId: string;
@@ -11,17 +12,23 @@ interface PackageFormData {
   type: string;
   hours: number;
   price: number;
-  expiresAt?: Date;
+  expiryDays?: number;
 }
 
 const Packages: React.FC = () => {
   const [packages, setPackages] = useState<Package[]>([]);
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [children, setChildren] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(false);
   const [showActiveOnly, setShowActiveOnly] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingPackage, setEditingPackage] = useState<Package | null>(null);
+  
+  // Estado para modal de pagamento
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [pendingPackageData, setPendingPackageData] = useState<PackageFormData | null>(null);
+  const [selectedChild, setSelectedChild] = useState<Child | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   
   const [formData, setFormData] = useState<PackageFormData>({
     customerId: '',
@@ -29,6 +36,7 @@ const Packages: React.FC = () => {
     type: 'Pacote 10h',
     hours: 10,
     price: 300,
+    expiryDays: 30,
   });
 
   useEffect(() => {
@@ -63,7 +71,7 @@ const Packages: React.FC = () => {
         type: pkg.type,
         hours: pkg.hours,
         price: pkg.price,
-        expiresAt: pkg.expiresAt ? new Date(pkg.expiresAt) : undefined,
+        expiryDays: pkg.expiryDays || 30,
       });
     } else {
       setEditingPackage(null);
@@ -73,6 +81,7 @@ const Packages: React.FC = () => {
         type: 'Pacote 10h',
         hours: 10,
         price: 300,
+        expiryDays: 30,
       });
     }
     setShowModal(true);
@@ -88,23 +97,39 @@ const Packages: React.FC = () => {
 
     try {
       if (editingPackage) {
+        // Edição de pacote existente - não precisa de pagamento
         await packagesServiceOffline.updatePackage(editingPackage.id, formData);
         toast.success('✅ Pacote atualizado com sucesso!');
+        setShowModal(false);
+        loadData();
       } else {
-        await packagesServiceOffline.createPackage({
-          ...formData,
-          usedHours: 0,
-          active: true,
-          sharedAcrossUnits: true,
-        });
-        toast.success('✅ Pacote criado com sucesso!');
+        // NOVO PACOTE - Abre modal de pagamento obrigatório
+        const child = children.find(c => c.id === formData.childId);
+        const customer = customers.find(c => c.id === formData.customerId);
+        
+        if (!child || !customer) {
+          toast.error('Erro ao carregar dados do cliente');
+          return;
+        }
+        
+        setSelectedChild(child);
+        setSelectedCustomer(customer);
+        setPendingPackageData(formData);
+        setShowModal(false);
+        setShowPaymentModal(true);
       }
-      setShowModal(false);
-      loadData();
     } catch (error) {
       console.error('Error saving package:', error);
       toast.error('Erro ao salvar pacote');
     }
+  };
+
+  const handlePaymentSuccess = () => {
+    setShowPaymentModal(false);
+    setPendingPackageData(null);
+    setSelectedChild(null);
+    setSelectedCustomer(null);
+    loadData();
   };
 
   const handleToggleActive = async (id: string, currentStatus: boolean) => {
@@ -120,6 +145,19 @@ const Packages: React.FC = () => {
 
   const getPackageProgress = (pkg: Package) => {
     return Math.min((pkg.usedHours / pkg.hours) * 100, 100);
+  };
+
+  const getExpirationDate = (pkg: Package): Date | null => {
+    if (pkg.expiresAt) {
+      return pkg.expiresAt instanceof Date ? pkg.expiresAt : new Date(pkg.expiresAt);
+    }
+    if (pkg.expiryDays) {
+      const createdDate = pkg.createdAt instanceof Date ? pkg.createdAt : new Date(pkg.createdAt);
+      const expiryDate = new Date(createdDate);
+      expiryDate.setDate(expiryDate.getDate() + pkg.expiryDays);
+      return expiryDate;
+    }
+    return null;
   };
 
   const getRemainingHours = (pkg: Package) => {
@@ -203,7 +241,8 @@ const Packages: React.FC = () => {
             {packages.map((pkg) => {
               const progress = getPackageProgress(pkg);
               const remaining = getRemainingHours(pkg);
-              const isExpired = pkg.expiresAt && new Date(pkg.expiresAt) < new Date();
+              const expirationDate = getExpirationDate(pkg);
+              const isExpired = expirationDate && expirationDate < new Date();
               
               return (
                 <div
@@ -258,10 +297,13 @@ const Packages: React.FC = () => {
                     </p>
                   </div>
 
-                  {pkg.expiresAt && (
+                  {expirationDate && (
                     <div className={`text-sm mb-4 p-2 rounded ${isExpired ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'}`}>
                       {isExpired ? '⚠️ Expirado em: ' : '📅 Expira em: '}
-                      {format(new Date(pkg.expiresAt), 'dd/MM/yyyy')}
+                      {format(expirationDate, 'dd/MM/yyyy')}
+                      {pkg.expiryDays && (
+                        <span className="text-xs ml-2">({pkg.expiryDays} dias)</span>
+                      )}
                     </div>
                   )}
 
@@ -398,14 +440,24 @@ const Packages: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Data de Expiração (Opcional)
+                  Validade do Pacote (dias)
                 </label>
-                <input
-                  type="date"
-                  value={formData.expiresAt ? format(formData.expiresAt, 'yyyy-MM-dd') : ''}
-                  onChange={(e) => setFormData({ ...formData, expiresAt: e.target.value ? new Date(e.target.value) : undefined })}
+                <select
+                  value={formData.expiryDays || 30}
+                  onChange={(e) => setFormData({ ...formData, expiryDays: parseInt(e.target.value) })}
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
-                />
+                >
+                  <option value="15">15 dias</option>
+                  <option value="30">30 dias (1 mês)</option>
+                  <option value="60">60 dias (2 meses)</option>
+                  <option value="90">90 dias (3 meses)</option>
+                  <option value="120">120 dias (4 meses)</option>
+                  <option value="180">180 dias (6 meses)</option>
+                  <option value="365">365 dias (1 ano)</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  O pacote expirará {formData.expiryDays || 30} dias após a criação
+                </p>
               </div>
 
               <div className="flex gap-4 pt-4">
@@ -426,6 +478,23 @@ const Packages: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Modal de Pagamento Obrigatório */}
+      {showPaymentModal && pendingPackageData && selectedChild && selectedCustomer && (
+        <PackagePaymentModal
+          isOpen={showPaymentModal}
+          onClose={() => {
+            setShowPaymentModal(false);
+            setPendingPackageData(null);
+            setSelectedChild(null);
+            setSelectedCustomer(null);
+          }}
+          onSuccess={handlePaymentSuccess}
+          packageData={pendingPackageData}
+          child={selectedChild}
+          customer={selectedCustomer}
+        />
       )}
     </div>
   );

@@ -32,6 +32,7 @@ export interface Visit {
   value?: number;
   paid: boolean;
   paymentId?: string;
+  packageId?: string; // ID do pacote usado (se aplicável)
   unitId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -42,9 +43,13 @@ export interface Visit {
 export interface Payment {
   id: string;
   customerId: string;
+  childId?: string;
+  childName?: string;
   amount: number;
   method: string;
   status: string;
+  type: 'visit' | 'package'; // Tipo: visita avulsa ou pacote
+  packageId?: string; // ID do pacote se for pagamento de pacote
   description?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -68,9 +73,11 @@ export interface Package {
   hours: number;
   usedHours: number;
   price: number;
-  expiresAt?: Date;
+  expiresAt?: Date; // Mantido para compatibilidade com pacotes antigos
+  expiryDays?: number; // Número de dias até expiração (ex: 30, 60, 90)
   active: boolean;
   sharedAcrossUnits: boolean; // Permite uso em todas as unidades
+  paymentId?: string; // ID do pagamento que ativou o pacote
   createdAt: Date;
   updatedAt: Date;
   customer?: Customer;

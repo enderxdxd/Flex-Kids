@@ -1,5 +1,6 @@
 import React from 'react';
 import { useUnit } from '../contexts/UnitContext';
+import { useAuth } from '../contexts/AuthContext';
 
 interface NavbarProps {
   onRefresh?: () => void;
@@ -8,6 +9,7 @@ interface NavbarProps {
 
 const Navbar: React.FC<NavbarProps> = ({ onRefresh, loading }) => {
   const { currentUnit, units, setCurrentUnit } = useUnit();
+  const { isAuthenticated, logout } = useAuth();
 
   return (
     <div className="bg-white shadow-lg border-b-4 border-indigo-500">
@@ -39,10 +41,16 @@ const Navbar: React.FC<NavbarProps> = ({ onRefresh, loading }) => {
               👥 Clientes
             </a>
             <a
+              href="#/sell-package"
+              className="px-4 py-2 rounded-lg font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-all"
+            >
+              � Vender
+            </a>
+            <a
               href="#/packages"
               className="px-4 py-2 rounded-lg font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-all"
             >
-              📦 Pacotes
+              📦 Gestão
             </a>
             <a
               href="#/payments"
@@ -51,15 +59,36 @@ const Navbar: React.FC<NavbarProps> = ({ onRefresh, loading }) => {
               💰 Pagamentos
             </a>
             <a
+              href="#/history"
+              className="px-4 py-2 rounded-lg font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-all"
+            >
+              📋 Historico
+            </a>
+            <a
+              href="#/cash-report"
+              className="px-4 py-2 rounded-lg font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-all"
+            >
+              📊 Caixa
+            </a>
+            <a
               href="#/settings"
               className="px-4 py-2 rounded-lg font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-all"
             >
-              ⚙️ Configurações
+              ⚙️ Config
             </a>
           </nav>
 
-          {/* Seletor de Unidade e Atualizar */}
+          {/* Seletor de Unidade, Logout e Atualizar */}
           <div className="flex items-center gap-4">
+            {isAuthenticated && (
+              <button
+                onClick={logout}
+                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium flex items-center gap-2"
+                title="Sair da área administrativa"
+              >
+                🔓 Sair
+              </button>
+            )}
             <div className="text-right">
               <p className="text-xs text-gray-500">Unidade Atual</p>
               <select

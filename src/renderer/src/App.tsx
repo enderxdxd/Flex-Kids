@@ -3,13 +3,18 @@ import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { UnitProvider } from './contexts/UnitContext';
+import { AuthProvider } from './contexts/AuthContext';
 import Layout from './components/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './pages/DashboardNew';
 import CheckInOut from './pages/CheckInOut';
 import Customers from './pages/Customers';
 import Packages from './pages/Packages';
+import SellPackage from './pages/SellPackage';
 import Payments from './pages/Payments';
 import Settings from './pages/Settings';
+import VisitHistory from './pages/VisitHistory';
+import CashReport from './pages/CashReport';
 import { OnlineStatusBadge } from './components/OnlineStatusBadge';
 import { syncService } from '../../shared/database/syncService';
 
@@ -43,8 +48,9 @@ function App() {
   }
 
   return (
-    <UnitProvider>
-      <OnlineStatusBadge />
+    <AuthProvider>
+      <UnitProvider>
+        <OnlineStatusBadge />
       {initError && (
         <div className="fixed top-20 right-4 z-50 bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-lg">
           <p className="text-sm">⚠️ Sistema em modo limitado</p>
@@ -56,12 +62,21 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/checkinout" element={<Layout><CheckInOut /></Layout>} />
           <Route path="/customers" element={<Layout><Customers /></Layout>} />
-          <Route path="/packages" element={<Layout><Packages /></Layout>} />
+          <Route path="/packages" element={
+            <Layout>
+              <ProtectedRoute>
+                <Packages />
+              </ProtectedRoute>
+            </Layout>
+          } />
+          <Route path="/sell-package" element={<Layout><SellPackage /></Layout>} />
           <Route path="/payments" element={<Layout><Payments /></Layout>} />
+          <Route path="/history" element={<Layout><VisitHistory /></Layout>} />
+          <Route path="/cash-report" element={<Layout><CashReport /></Layout>} />
           <Route path="/settings" element={<Layout><Settings /></Layout>} />
         </Routes>
-      </Router>
-      <ToastContainer
+        </Router>
+        <ToastContainer
         position="top-right"
         autoClose={3000}
         hideProgressBar={false}
@@ -71,8 +86,9 @@ function App() {
         pauseOnFocusLoss
         draggable
         pauseOnHover
-      />
-    </UnitProvider>
+        />
+      </UnitProvider>
+    </AuthProvider>
   );
 }
 

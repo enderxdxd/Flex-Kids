@@ -138,15 +138,26 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
 
       // 3. Se houver pagamento, registrar
       let paymentId: string | undefined;
-      if (totalValue > 0 && paymentMethod !== 'package' && customer) {
+      if (totalValue > 0 && paymentMethod !== 'package' && customer && child) {
+        console.log('[CHECKOUT] Criando pagamento:', {
+          customerId: customer.id,
+          childId: child.id,
+          childName: child.name,
+          amount: totalValue,
+        });
+        
         const payment = await paymentsServiceOffline.createPayment({
           customerId: customer.id,
+          childId: child.id,
+          childName: child.name,
           amount: totalValue,
           method: paymentMethod,
           status: 'paid',
-          description: `Pagamento visita - ${child?.name} - ${duration} min`,
+          type: 'visit',
+          description: `Pagamento visita - ${child.name} - ${duration} min`,
         });
         paymentId = payment.id;
+        console.log('[CHECKOUT] Pagamento criado:', payment.id);
       }
 
       // 4. Emitir nota fiscal se habilitado
