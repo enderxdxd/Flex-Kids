@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { Customer, Child } from '../../../../shared/types';
+import { Customer } from '../../../../shared/types';
 import { customersServiceOffline } from '../../../../shared/firebase/services/customers.service.offline';
 
 interface CustomerModalProps {
@@ -127,188 +127,77 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSucces
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 rounded-t-2xl">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="text-4xl">👥</span>
-              <div>
-                <h3 className="text-2xl font-bold">
-                  {customer ? 'Editar Cliente' : 'Novo Cliente'}
-                </h3>
-                <p className="text-blue-100 text-sm">
-                  {customer ? 'Atualizar informações do cliente' : 'Cadastrar novo cliente no sistema'}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={handleClose}
-              className="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-all"
-            >
-              <span className="text-2xl">✕</span>
-            </button>
-          </div>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-5 border-b border-slate-200">
+          <h2 className="text-lg font-bold text-slate-800">{customer ? 'Editar Cliente' : 'Novo Cliente'}</h2>
+          <button onClick={handleClose} className="p-1 rounded-md hover:bg-slate-100 text-slate-400">✕</button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Nome */}
+        <form onSubmit={handleSubmit} className="p-5 space-y-3">
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
-              👤 Nome Completo *
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="Digite o nome completo"
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 text-lg"
-              required
-            />
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Nome Completo *</label>
+            <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="Nome completo" className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" required />
           </div>
 
-          {/* Telefone */}
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
-              📱 Telefone *
-            </label>
-            <input
-              type="tel"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              placeholder="(00) 00000-0000"
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 text-lg"
-              required
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Telefone *</label>
+              <input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="(00) 00000-0000" className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" required />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Email</label>
+              <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="email@exemplo.com" className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+            </div>
           </div>
 
-          {/* Email */}
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
-              📧 Email
-            </label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              placeholder="email@exemplo.com"
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 text-lg"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">CPF</label>
+              <input type="text" value={formData.cpf} onChange={(e) => setFormData({ ...formData, cpf: e.target.value })} placeholder="000.000.000-00" className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Endereço</label>
+              <input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} placeholder="Endereço" className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+            </div>
           </div>
 
-          {/* CPF */}
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
-              🆔 CPF
-            </label>
-            <input
-              type="text"
-              value={formData.cpf}
-              onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
-              placeholder="000.000.000-00"
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 text-lg"
-            />
-          </div>
+          {/* Children */}
+          <div className="border-t border-slate-200 pt-3 mt-1">
+            <p className="text-xs font-semibold text-slate-600 mb-2">Crianças</p>
 
-          {/* Endereço */}
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
-              🏠 Endereço
-            </label>
-            <textarea
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              placeholder="Endereço completo"
-              rows={3}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 text-lg resize-none"
-            />
-          </div>
-
-          {/* Seção de Crianças */}
-          <div className="border-t-2 border-gray-200 pt-4 mt-4">
-            <label className="block text-lg font-bold text-gray-700 mb-3">
-              👶 Crianças
-            </label>
-            
-            {/* Lista de crianças adicionadas */}
             {children.length > 0 && (
-              <div className="space-y-2 mb-4">
+              <div className="space-y-1 mb-3">
                 {children.map((child, index) => (
-                  <div key={index} className="flex items-center justify-between bg-blue-50 p-3 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">👶</span>
-                      <div>
-                        <p className="font-semibold text-gray-800">{child.name}</p>
-                        <p className="text-sm text-gray-600">{child.age} anos</p>
-                      </div>
+                  <div key={index} className="flex items-center justify-between bg-blue-50 px-3 py-2 rounded-lg">
+                    <div>
+                      <span className="text-sm font-semibold text-slate-800">{child.name}</span>
+                      <span className="text-xs text-slate-500 ml-2">{child.age} anos</span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => removeChild(index)}
-                      className="text-red-500 hover:bg-red-100 p-2 rounded-lg transition-all"
-                    >
-                      🗑️
-                    </button>
+                    <button type="button" onClick={() => removeChild(index)} className="text-red-400 hover:text-red-600 text-sm">✕</button>
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Formulário para adicionar criança */}
             {!customer && (
-              <div className="bg-gray-50 p-4 rounded-xl space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <input
-                      type="text"
-                      value={newChild.name}
-                      onChange={(e) => setNewChild({ ...newChild, name: e.target.value })}
-                      placeholder="Nome da criança"
-                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <input
-                      type="number"
-                      value={newChild.age || ''}
-                      onChange={(e) => setNewChild({ ...newChild, age: parseInt(e.target.value) || 0 })}
-                      placeholder="Idade"
-                      min="0"
-                      max="18"
-                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={addChild}
-                  className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition-all font-medium"
-                >
-                  ➕ Adicionar Criança
-                </button>
+              <div className="flex gap-2">
+                <input type="text" value={newChild.name} onChange={(e) => setNewChild({ ...newChild, name: e.target.value })} placeholder="Nome" className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                <input type="number" value={newChild.age || ''} onChange={(e) => setNewChild({ ...newChild, age: parseInt(e.target.value) || 0 })} placeholder="Idade" min="0" max="18" className="w-20 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                <button type="button" onClick={addChild} className="px-3 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors">+ Add</button>
               </div>
             )}
 
             {customer && loadingChildren && (
-              <p className="text-gray-500 text-center py-2">Carregando crianças...</p>
+              <p className="text-xs text-slate-400 text-center py-2">Carregando crianças...</p>
             )}
           </div>
 
-          {/* Botões */}
-          <div className="flex gap-3 pt-4 border-t-2 border-gray-200">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-xl hover:bg-gray-300 transition-all font-medium"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 rounded-xl hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-bold shadow-lg"
-            >
-              {loading ? '⏳ Salvando...' : customer ? '✓ Atualizar Cliente' : '✓ Cadastrar Cliente'}
+          {/* Buttons */}
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={handleClose} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
+            <button type="submit" disabled={loading} className="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors disabled:opacity-50">
+              {loading ? '⏳ Salvando...' : customer ? 'Salvar' : 'Cadastrar'}
             </button>
           </div>
         </form>

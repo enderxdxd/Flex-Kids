@@ -172,123 +172,82 @@ const Customers: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">Clientes</h1>
-          <p className="text-gray-500">Gerenciar clientes e crianças - {customers.length} cadastrados</p>
+          <h1 className="text-2xl font-bold text-slate-800">Clientes</h1>
+          <p className="text-sm text-slate-500">{customers.length} cadastrados</p>
         </div>
-        <button
-          onClick={() => openModal()}
-          className="bg-gradient-to-r from-green-500 to-green-600 text-white px-6 py-3 rounded-lg font-bold hover:opacity-90 transition-all transform hover:scale-105 shadow-lg flex items-center gap-2"
-        >
-          <span>➕</span> Novo Cliente
+        <button onClick={() => openModal()} className="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors shadow-sm">
+          + Novo Cliente
         </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <div className="flex gap-4 mb-6">
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-            placeholder="🔍 Buscar por nome, telefone ou email..."
-            className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-colors"
-          />
-          <button
-            onClick={handleSearch}
-            className="bg-blue-500 text-white px-8 py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors"
-          >
-            Buscar
-          </button>
-          <button
-            onClick={loadData}
-            className="bg-gray-500 text-white px-8 py-3 rounded-lg font-medium hover:bg-gray-600 transition-colors"
-          >
-            Limpar
-          </button>
-        </div>
+      {/* Search */}
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+          placeholder="Buscar por nome, telefone ou email..."
+          className="flex-1 px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+        />
+        {searchTerm && (
+          <button onClick={() => { setSearchTerm(''); loadData(); }} className="px-3 py-2 rounded-lg border border-slate-300 text-sm text-slate-600 hover:bg-slate-50">Limpar</button>
+        )}
+      </div>
 
+      {/* List */}
+      <div className="bg-white rounded-xl border border-slate-200">
         {loading ? (
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="animate-pulse p-6 border border-gray-200 rounded-xl">
-                <div className="h-6 bg-gray-200 rounded w-1/3 mb-3"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-              </div>
-            ))}
+          <div className="p-5 space-y-3">
+            {[1, 2, 3].map(i => <div key={i} className="animate-pulse h-16 bg-slate-100 rounded-lg" />)}
           </div>
         ) : filteredCustomers.length === 0 ? (
-          <div className="text-center py-16 text-gray-400">
-            <p className="text-6xl mb-4">👥</p>
-            <p className="text-xl font-medium">Nenhum cliente encontrado</p>
-            <p className="text-sm mt-2">Cadastre o primeiro cliente para começar!</p>
+          <div className="text-center py-12 text-slate-400">
+            <p className="text-4xl mb-2">👥</p>
+            <p className="font-medium">Nenhum cliente encontrado</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="divide-y divide-slate-100">
             {filteredCustomers.map((customer) => {
-              const customerChildren = getCustomerChildren(customer.id);
+              const custChildren = getCustomerChildren(customer.id);
               return (
-                <div
-                  key={customer.id}
-                  className="border-2 border-gray-200 rounded-xl p-6 hover:border-blue-300 hover:shadow-lg transition-all"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white text-xl font-bold">
+                <div key={customer.id} className="p-4 hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="w-10 h-10 bg-violet-100 rounded-full flex items-center justify-center text-violet-700 font-bold text-sm flex-shrink-0">
                         {customer.name.charAt(0).toUpperCase()}
                       </div>
-                      <div>
-                        <h3 className="font-bold text-lg text-gray-800">{customer.name}</h3>
-                        <p className="text-sm text-gray-500">📞 {customer.phone}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-slate-800 text-sm">{customer.name}</p>
+                        <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                          <span>{customer.phone}</span>
+                          {customer.email && <><span className="text-slate-300">|</span><span className="truncate">{customer.email}</span></>}
+                          {customer.cpf && <><span className="text-slate-300">|</span><span>{customer.cpf}</span></>}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {customer.email && (
-                    <p className="text-sm text-gray-600 mb-2">✉️ {customer.email}</p>
-                  )}
-                  {customer.cpf && (
-                    <p className="text-sm text-gray-600 mb-2">🆔 {customer.cpf}</p>
-                  )}
-
-                  <div className="mt-4 pt-4 border-t border-gray-200">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-700">Crianças:</span>
-                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-bold">
-                        {customerChildren.length}
-                      </span>
-                    </div>
-                    {customerChildren.length > 0 && (
-                      <div className="space-y-1 mb-3">
-                        {customerChildren.map(child => (
-                          <div key={child.id} className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
-                            👶 {child.name} ({child.age} anos)
-                          </div>
-                        ))}
+                    <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+                      {/* Children badges */}
+                      <div className="hidden md:flex items-center gap-1">
+                        {custChildren.length === 0 ? (
+                          <span className="text-xs text-slate-400">Sem crianças</span>
+                        ) : (
+                          custChildren.map(ch => (
+                            <span key={ch.id} className="text-[11px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                              {ch.name} ({ch.age}a)
+                            </span>
+                          ))
+                        )}
                       </div>
-                    )}
-                    <button
-                      onClick={() => openChildModal(customer.id)}
-                      className="text-blue-600 text-sm font-medium hover:text-blue-800"
-                    >
-                      + Adicionar Criança
-                    </button>
-                  </div>
 
-                  <div className="flex gap-2 mt-4">
-                    <button
-                      onClick={() => openModal(customer)}
-                      className="flex-1 bg-blue-500 text-white py-2 rounded-lg font-medium hover:bg-blue-600 transition-colors"
-                    >
-                      ✏️ Editar
-                    </button>
-                    <button
-                      onClick={() => handleDelete(customer.id, customer.name)}
-                      className="flex-1 bg-red-500 text-white py-2 rounded-lg font-medium hover:bg-red-600 transition-colors"
-                    >
-                      🗑️ Excluir
-                    </button>
+                      <button onClick={() => openChildModal(customer.id)} className="p-1.5 rounded-md hover:bg-blue-50 text-blue-600 transition-colors text-sm" title="Adicionar criança">👶+</button>
+                      <button onClick={() => openModal(customer)} className="p-1.5 rounded-md hover:bg-blue-50 text-blue-600 transition-colors text-sm" title="Editar">✏️</button>
+                      <button onClick={() => handleDelete(customer.id, customer.name)} className="p-1.5 rounded-md hover:bg-red-50 text-red-500 transition-colors text-sm" title="Excluir">🗑️</button>
+                    </div>
                   </div>
                 </div>
               );
@@ -297,139 +256,68 @@ const Customers: React.FC = () => {
         )}
       </div>
 
+      {/* Modal Cliente */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-6 rounded-t-xl">
-              <h2 className="text-2xl font-bold">
-                {editingCustomer ? '✏️ Editar Cliente' : '➕ Novo Cliente'}
-              </h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-5 border-b border-slate-200">
+              <h2 className="text-lg font-bold text-slate-800">{editingCustomer ? 'Editar Cliente' : 'Novo Cliente'}</h2>
+              <button onClick={() => setShowModal(false)} className="p-1 rounded-md hover:bg-slate-100 text-slate-400">✕</button>
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-5 space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nome Completo *
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-green-500"
-                  required
-                />
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Nome Completo *</label>
+                <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" required />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Telefone *
-                </label>
-                <input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-green-500"
-                  required
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Telefone *</label>
+                  <input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" required />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Email</label>
+                  <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-green-500"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">CPF</label>
+                  <input type="text" value={formData.cpf} onChange={(e) => setFormData({ ...formData, cpf: e.target.value })} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Endereço</label>
+                  <input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  CPF
-                </label>
-                <input
-                  type="text"
-                  value={formData.cpf}
-                  onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-green-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Endereço
-                </label>
-                <textarea
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-green-500"
-                  rows={3}
-                />
-              </div>
-              <div className="flex gap-4 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 bg-gray-500 text-white py-3 rounded-lg font-bold hover:bg-gray-600 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white py-3 rounded-lg font-bold hover:opacity-90 transition-opacity"
-                >
-                  {editingCustomer ? 'Atualizar' : 'Cadastrar'}
-                </button>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
+                <button type="submit" className="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors">{editingCustomer ? 'Salvar' : 'Cadastrar'}</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
+      {/* Modal Criança */}
       {showChildModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 rounded-t-xl">
-              <h2 className="text-2xl font-bold">👶 Adicionar Criança</h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full">
+            <div className="flex items-center justify-between p-5 border-b border-slate-200">
+              <h2 className="text-lg font-bold text-slate-800">Adicionar Criança</h2>
+              <button onClick={() => setShowChildModal(false)} className="p-1 rounded-md hover:bg-slate-100 text-slate-400">✕</button>
             </div>
-            <form onSubmit={handleChildSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleChildSubmit} className="p-5 space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nome da Criança *
-                </label>
-                <input
-                  type="text"
-                  value={childFormData.name}
-                  onChange={(e) => setChildFormData({ ...childFormData, name: e.target.value })}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                  required
-                />
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Nome *</label>
+                <input type="text" value={childFormData.name} onChange={(e) => setChildFormData({ ...childFormData, name: e.target.value })} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" required />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Idade *
-                </label>
-                <input
-                  type="number"
-                  value={childFormData.age || ''}
-                  onChange={(e) => setChildFormData({ ...childFormData, age: parseInt(e.target.value) || 0 })}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                  min="0"
-                  max="18"
-                  required
-                />
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Idade *</label>
+                <input type="number" value={childFormData.age || ''} onChange={(e) => setChildFormData({ ...childFormData, age: parseInt(e.target.value) || 0 })} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" min="0" max="18" required />
               </div>
-              <div className="flex gap-4 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowChildModal(false)}
-                  className="flex-1 bg-gray-500 text-white py-3 rounded-lg font-bold hover:bg-gray-600 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 rounded-lg font-bold hover:opacity-90 transition-opacity"
-                >
-                  Adicionar
-                </button>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowChildModal(false)} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
+                <button type="submit" className="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors">Adicionar</button>
               </div>
             </form>
           </div>

@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
+import { format } from 'date-fns';
 import { Child, Customer } from '../../../../shared/types';
-import { paymentsServiceOffline } from '../../../../shared/firebase/services/payments.service.offline';
 import { packagesServiceOffline } from '../../../../shared/firebase/services/packages.service.offline';
+import { paymentsServiceOffline } from '../../../../shared/firebase/services/payments.service.offline';
+import { settingsServiceOffline } from '../../../../shared/firebase/services/settings.service.offline';
+import { useUnit } from '../../contexts/UnitContext';
 
 interface PackagePaymentModalProps {
   isOpen: boolean;
@@ -10,13 +13,13 @@ interface PackagePaymentModalProps {
   onSuccess: () => void;
   packageData: {
     customerId: string;
-    childId: string;
+    childId?: string;
     type: string;
     hours: number;
     price: number;
     expiryDays?: number;
   };
-  child: Child;
+  child?: Child;
   customer: Customer;
 }
 
@@ -28,37 +31,83 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
   child,
   customer,
 }) => {
+  const { currentUnit } = useUnit();
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'pix'>('pix');
   const [loading, setLoading] = useState(false);
+  const [printReceipt, setPrintReceipt] = useState(true);
 
   if (!isOpen) return null;
+
+  const printFiscalReceipt = async () => {
+    try {
+      const fiscalConfig = await settingsServiceOffline.getFiscalConfig();
+      if (!fiscalConfig?.enableFiscalPrint) return;
+
+      const { bematechService } = await import('../../../../shared/services/bematech.service');
+      const initialized = await bematechService.initialize(fiscalConfig);
+      if (!initialized) return;
+
+      const methodLabel = paymentMethod === 'pix' ? 'PIX' : paymentMethod === 'card' ? 'CARTAO' : 'DINHEIRO';
+      const now = new Date();
+      const lines: string[] = [
+        '================================',
+        '     COMPROVANTE DE PACOTE      ',
+        '================================',
+        '',
+        `Data: ${format(now, 'dd/MM/yyyy HH:mm')}`,
+        '',
+        `Cliente: ${customer.name}`,
+        child ? `Crianca: ${child.name}` : '',
+        '',
+        '--------------------------------',
+        `Pacote: ${packageData.type}`,
+        `Horas:  ${packageData.hours}h`,
+        `Validade: ${packageData.expiryDays || 30} dias`,
+        '--------------------------------',
+        '',
+        `Pagamento: ${methodLabel}`,
+        `TOTAL: R$ ${packageData.price.toFixed(2)}`,
+        '',
+        '================================',
+        '    Obrigado pela preferencia!   ',
+        '================================',
+      ].filter(Boolean);
+
+      await bematechService.printNonFiscalReport('VENDA DE PACOTE', lines);
+    } catch (error) {
+      console.error('Error printing fiscal receipt:', error);
+    }
+  };
 
   const handleConfirmPayment = async () => {
     try {
       setLoading(true);
 
-      // 1. Criar o pagamento primeiro
       const payment = await paymentsServiceOffline.createPayment({
         customerId: customer.id,
-        childId: child.id,
-        childName: child.name,
+        childId: child?.id,
+        childName: child?.name,
         amount: packageData.price,
         method: paymentMethod,
         status: 'paid',
         type: 'package',
-        description: `${packageData.type} - ${child.name}`,
+        description: `${packageData.type} - ${customer.name}`,
       });
 
-      // 2. Só após pagamento confirmado, criar o pacote
       await packagesServiceOffline.createPackage({
         ...packageData,
         usedHours: 0,
         active: true,
         sharedAcrossUnits: true,
-        paymentId: payment.id, // Vincula ao pagamento
+        unitId: currentUnit,
+        paymentId: payment.id,
       });
 
-      toast.success('✅ Pagamento confirmado e pacote ativado!');
+      if (printReceipt) {
+        await printFiscalReceipt();
+      }
+
+      toast.success('Pagamento confirmado e pacote ativado!');
       onSuccess();
       onClose();
     } catch (error) {
@@ -69,76 +118,68 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
     }
   };
 
-  const getPaymentMethodIcon = (method: string) => {
-    switch (method) {
-      case 'cash': return '💵';
-      case 'card': return '💳';
-      case 'pix': return '📱';
-      default: return '💰';
-    }
-  };
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-6">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            💳 Pagamento do Pacote
-          </h2>
-          <p className="text-green-100 mt-1">Confirme o pagamento para ativar o pacote</p>
+        <div className="flex items-center justify-between p-5 border-b border-slate-200">
+          <h2 className="text-lg font-bold text-slate-800">Pagamento do Pacote</h2>
+          <button onClick={onClose} disabled={loading} className="p-1 rounded-md hover:bg-slate-100 text-slate-400">✕</button>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
-          {/* Resumo do Pacote */}
-          <div className="bg-purple-50 rounded-xl p-4 border-2 border-purple-200">
-            <h3 className="font-bold text-purple-800 mb-3">📦 Resumo do Pacote</h3>
+        <div className="p-5 space-y-4">
+          {/* Summary */}
+          <div className="bg-violet-50 rounded-lg p-4 border border-violet-200">
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600">Criança:</span>
-                <span className="font-bold text-gray-800">{child.name}</span>
+                <span className="text-slate-500">Responsável</span>
+                <span className="font-semibold text-slate-800">{customer.name}</span>
+              </div>
+              {child && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Criança</span>
+                  <span className="font-semibold text-slate-800">{child.name}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-slate-500">Pacote</span>
+                <span className="font-semibold text-slate-800">{packageData.type}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Responsável:</span>
-                <span className="font-bold text-gray-800">{customer.name}</span>
+                <span className="text-slate-500">Horas</span>
+                <span className="font-semibold text-slate-800">{packageData.hours}h</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Pacote:</span>
-                <span className="font-bold text-gray-800">{packageData.type}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Horas:</span>
-                <span className="font-bold text-gray-800">{packageData.hours}h</span>
-              </div>
-              <div className="flex justify-between border-t border-purple-200 pt-2 mt-2">
-                <span className="text-lg font-bold text-gray-800">Total:</span>
-                <span className="text-2xl font-bold text-green-600">
-                  R$ {packageData.price.toFixed(2)}
-                </span>
+              {packageData.expiryDays && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Validade</span>
+                  <span className="font-semibold text-slate-800">{packageData.expiryDays} dias</span>
+                </div>
+              )}
+              <div className="flex justify-between border-t border-violet-200 pt-2 mt-1">
+                <span className="font-bold text-slate-800">Total</span>
+                <span className="text-xl font-bold text-emerald-600">R$ {packageData.price.toFixed(2)}</span>
               </div>
             </div>
           </div>
 
-          {/* Forma de Pagamento */}
+          {/* Payment Method */}
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-3">
-              💳 Forma de Pagamento
-            </label>
-            <div className="grid grid-cols-3 gap-3">
+            <label className="block text-xs font-semibold text-slate-600 mb-2">Forma de Pagamento</label>
+            <div className="grid grid-cols-3 gap-2">
               {(['pix', 'card', 'cash'] as const).map((method) => (
                 <button
                   key={method}
                   type="button"
                   onClick={() => setPaymentMethod(method)}
-                  className={`p-4 rounded-xl transition-all border-2 ${
+                  className={`p-3 rounded-lg transition-all border text-center ${
                     paymentMethod === method
-                      ? 'border-green-500 bg-green-50 shadow-lg'
-                      : 'border-gray-200 hover:border-green-300 bg-white'
+                      ? 'border-violet-500 bg-violet-50'
+                      : 'border-slate-200 hover:border-violet-300'
                   }`}
                 >
-                  <div className="text-3xl mb-2">{getPaymentMethodIcon(method)}</div>
-                  <div className="font-semibold text-sm">
+                  <div className="text-xl mb-1">{method === 'pix' ? '📱' : method === 'card' ? '💳' : '💵'}</div>
+                  <div className="text-xs font-medium text-slate-700">
                     {method === 'pix' ? 'PIX' : method === 'card' ? 'Cartão' : 'Dinheiro'}
                   </div>
                 </button>
@@ -146,31 +187,20 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
             </div>
           </div>
 
-          {/* Aviso */}
-          <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4">
-            <p className="text-sm text-yellow-800">
-              <span className="font-bold">⚠️ Importante:</span> O pacote só será ativado após a confirmação do pagamento.
-            </p>
-          </div>
+          {/* Print option */}
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={printReceipt} onChange={(e) => setPrintReceipt(e.target.checked)} className="w-4 h-4 text-violet-600 rounded focus:ring-violet-500" />
+            <span className="text-sm text-slate-600">Imprimir comprovante fiscal</span>
+          </label>
         </div>
 
         {/* Footer */}
-        <div className="bg-gray-50 px-6 py-4 flex gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={loading}
-            className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-xl hover:bg-gray-300 transition-all font-medium disabled:opacity-50"
-          >
+        <div className="p-5 pt-0 flex gap-3">
+          <button type="button" onClick={onClose} disabled={loading} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50">
             Cancelar
           </button>
-          <button
-            type="button"
-            onClick={handleConfirmPayment}
-            disabled={loading}
-            className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white py-3 rounded-xl hover:opacity-90 transition-all font-bold shadow-lg disabled:opacity-50"
-          >
-            {loading ? '⏳ Processando...' : `✓ Confirmar R$ ${packageData.price.toFixed(2)}`}
+          <button type="button" onClick={handleConfirmPayment} disabled={loading} className="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors disabled:opacity-50">
+            {loading ? '⏳ Processando...' : `Confirmar R$ ${packageData.price.toFixed(2)}`}
           </button>
         </div>
       </div>

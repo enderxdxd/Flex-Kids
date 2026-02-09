@@ -68,7 +68,7 @@ export interface Unit {
 export interface Package {
   id: string;
   customerId: string;
-  childId: string;
+  childId?: string; // Opcional - pacote pertence ao responsável, não à criança
   type: string;
   hours: number;
   usedHours: number;
@@ -77,6 +77,7 @@ export interface Package {
   expiryDays?: number; // Número de dias até expiração (ex: 30, 60, 90)
   active: boolean;
   sharedAcrossUnits: boolean; // Permite uso em todas as unidades
+  unitId: string; // Unidade onde o pacote foi criado
   paymentId?: string; // ID do pagamento que ativou o pacote
   createdAt: Date;
   updatedAt: Date;

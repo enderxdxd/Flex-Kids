@@ -7,9 +7,9 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+    <div className="min-h-screen bg-slate-50">
       <Navbar />
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="ml-[240px] p-6 min-h-screen">
         {children}
       </main>
     </div>

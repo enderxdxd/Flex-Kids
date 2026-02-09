@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import { Customer, Child } from '../../../../shared/types';
 import { customersService } from '../../../../shared/firebase/services/customers.service';
 import { packagesServiceOffline } from '../../../../shared/firebase/services/packages.service.offline';
+import { useUnit } from '../../contexts/UnitContext';
 
 interface PackageModalProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface PackageModalProps {
 }
 
 const PackageModal: React.FC<PackageModalProps> = ({ isOpen, onClose, onSuccess }) => {
+  const { currentUnit } = useUnit();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [children, setChildren] = useState<Child[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<string>('');
@@ -75,7 +77,7 @@ const PackageModal: React.FC<PackageModalProps> = ({ isOpen, onClose, onSuccess 
 
       await packagesServiceOffline.createPackage({
         customerId: selectedCustomer,
-        childId: selectedChild,
+        childId: selectedChild || undefined,
         type: 'hours',
         hours,
         usedHours: 0,
@@ -83,6 +85,7 @@ const PackageModal: React.FC<PackageModalProps> = ({ isOpen, onClose, onSuccess 
         expiresAt,
         active: true,
         sharedAcrossUnits,
+        unitId: currentUnit,
       });
 
       toast.success('✅ Pacote criado com sucesso!');
@@ -110,97 +113,51 @@ const PackageModal: React.FC<PackageModalProps> = ({ isOpen, onClose, onSuccess 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-gradient-to-r from-purple-500 to-purple-600 text-white p-6 rounded-t-2xl">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="text-4xl">📦</span>
-              <div>
-                <h3 className="text-2xl font-bold">Novo Pacote de Horas</h3>
-                <p className="text-purple-100 text-sm">Criar pacote para cliente</p>
-              </div>
-            </div>
-            <button
-              onClick={handleClose}
-              className="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-all"
-            >
-              <span className="text-2xl">✕</span>
-            </button>
-          </div>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-5 border-b border-slate-200">
+          <h2 className="text-lg font-bold text-slate-800">Novo Pacote de Horas</h2>
+          <button onClick={handleClose} className="p-1 rounded-md hover:bg-slate-100 text-slate-400">✕</button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Busca de Cliente */}
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          {/* Search */}
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
-              🔍 Buscar Cliente
-            </label>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Digite nome ou telefone..."
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-purple-500 text-lg"
-            />
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Buscar Cliente</label>
+            <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Nome ou telefone..." className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
           </div>
 
-          {/* Lista de Clientes */}
+          {/* Customer List */}
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
-              👤 Selecione o Cliente
-            </label>
-            <div className="space-y-2 max-h-48 overflow-y-auto border-2 border-gray-200 rounded-xl p-2">
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Cliente</label>
+            <div className="space-y-1 max-h-36 overflow-y-auto border border-slate-200 rounded-lg p-1.5">
               {filteredCustomers.length === 0 ? (
-                <p className="text-center text-gray-400 py-4">Nenhum cliente encontrado</p>
+                <p className="text-center text-slate-400 py-3 text-xs">Nenhum cliente encontrado</p>
               ) : (
                 filteredCustomers.map(customer => (
-                  <button
-                    key={customer.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedCustomer(customer.id);
-                      setSelectedChild('');
-                    }}
-                    className={`w-full text-left p-4 rounded-lg transition-all ${
-                      selectedCustomer === customer.id
-                        ? 'bg-purple-100 border-2 border-purple-500'
-                        : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
-                    }`}
-                  >
-                    <p className="font-bold text-gray-800">{customer.name}</p>
-                    <p className="text-sm text-gray-600">{customer.phone}</p>
+                  <button key={customer.id} type="button" onClick={() => { setSelectedCustomer(customer.id); setSelectedChild(''); }}
+                    className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${selectedCustomer === customer.id ? 'bg-violet-50 border border-violet-300' : 'hover:bg-slate-50 border border-transparent'}`}>
+                    <p className="font-semibold text-slate-800">{customer.name}</p>
+                    <p className="text-xs text-slate-500">{customer.phone}</p>
                   </button>
                 ))
               )}
             </div>
           </div>
 
-          {/* Lista de Crianças */}
+          {/* Children */}
           {selectedCustomer && (
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                👶 Selecione a Criança
-              </label>
-              <div className="space-y-2">
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Criança</label>
+              <div className="space-y-1">
                 {customerChildren.length === 0 ? (
-                  <p className="text-center text-gray-400 py-4 bg-gray-50 rounded-lg">
-                    Este cliente não tem crianças cadastradas
-                  </p>
+                  <p className="text-center text-slate-400 py-3 text-xs bg-slate-50 rounded-lg">Sem crianças cadastradas</p>
                 ) : (
                   customerChildren.map(child => (
-                    <button
-                      key={child.id}
-                      type="button"
-                      onClick={() => setSelectedChild(child.id)}
-                      className={`w-full text-left p-4 rounded-lg transition-all ${
-                        selectedChild === child.id
-                          ? 'bg-purple-100 border-2 border-purple-500'
-                          : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
-                      }`}
-                    >
-                      <p className="font-bold text-gray-800">{child.name}</p>
-                      <p className="text-sm text-gray-600">{child.age} anos</p>
+                    <button key={child.id} type="button" onClick={() => setSelectedChild(child.id)}
+                      className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${selectedChild === child.id ? 'bg-emerald-50 border border-emerald-300' : 'hover:bg-slate-50 border border-transparent'}`}>
+                      <p className="font-semibold text-slate-800">{child.name}</p>
+                      <p className="text-xs text-slate-500">{child.age} anos</p>
                     </button>
                   ))
                 )}
@@ -208,85 +165,36 @@ const PackageModal: React.FC<PackageModalProps> = ({ isOpen, onClose, onSuccess 
             </div>
           )}
 
-          {/* Configurações do Pacote */}
+          {/* Package Config */}
           {selectedChild && (
-            <div className="space-y-4 bg-purple-50 p-4 rounded-xl">
-              <h4 className="font-bold text-gray-800 flex items-center gap-2">
-                <span>⚙️</span> Configurações do Pacote
-              </h4>
-
-              <div className="grid grid-cols-2 gap-4">
+            <div className="bg-violet-50 border border-violet-200 rounded-lg p-4 space-y-3">
+              <p className="text-xs font-semibold text-violet-700 uppercase tracking-wider">Configurações</p>
+              <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">
-                    ⏱️ Horas
-                  </label>
-                  <input
-                    type="number"
-                    value={hours}
-                    onChange={(e) => setHours(Number(e.target.value))}
-                    min="1"
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-purple-500 text-lg"
-                  />
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Horas</label>
+                  <input type="number" value={hours} onChange={(e) => setHours(Number(e.target.value))} min="1" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
                 </div>
-
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">
-                    💰 Preço (R$)
-                  </label>
-                  <input
-                    type="number"
-                    value={price}
-                    onChange={(e) => setPrice(Number(e.target.value))}
-                    min="0"
-                    step="0.01"
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-purple-500 text-lg"
-                  />
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Preço (R$)</label>
+                  <input type="number" value={price} onChange={(e) => setPrice(Number(e.target.value))} min="0" step="0.01" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Validade (dias)</label>
+                  <input type="number" value={expiresInDays} onChange={(e) => setExpiresInDays(Number(e.target.value))} min="1" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
                 </div>
               </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  📅 Validade (dias)
-                </label>
-                <input
-                  type="number"
-                  value={expiresInDays}
-                  onChange={(e) => setExpiresInDays(Number(e.target.value))}
-                  min="1"
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-purple-500 text-lg"
-                />
-              </div>
-
-              <div className="flex items-center gap-3 bg-white p-4 rounded-lg">
-                <input
-                  type="checkbox"
-                  id="sharedUnits"
-                  checked={sharedAcrossUnits}
-                  onChange={(e) => setSharedAcrossUnits(e.target.checked)}
-                  className="w-5 h-5 text-purple-600"
-                />
-                <label htmlFor="sharedUnits" className="text-sm font-medium text-gray-700 cursor-pointer">
-                  🔄 Permitir uso em todas as unidades
-                </label>
-              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="sharedUnits" checked={sharedAcrossUnits} onChange={(e) => setSharedAcrossUnits(e.target.checked)} className="w-4 h-4 text-violet-600 rounded focus:ring-violet-500" />
+                <span className="text-sm text-slate-600">Uso em todas as unidades</span>
+              </label>
             </div>
           )}
 
-          {/* Botões */}
-          <div className="flex gap-3 pt-4 border-t-2 border-gray-200">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-xl hover:bg-gray-300 transition-all font-medium"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={!selectedChild || loading}
-              className="flex-1 bg-gradient-to-r from-purple-500 to-purple-600 text-white py-3 rounded-xl hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-bold shadow-lg"
-            >
-              {loading ? '⏳ Criando...' : '✓ Criar Pacote'}
+          {/* Buttons */}
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={handleClose} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
+            <button type="submit" disabled={!selectedChild || loading} className="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors disabled:opacity-50">
+              {loading ? '⏳ Criando...' : 'Criar Pacote'}
             </button>
           </div>
         </form>

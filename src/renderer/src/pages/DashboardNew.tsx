@@ -11,6 +11,7 @@ import CheckInModal from '../components/modals/CheckInModal';
 import CustomerModal from '../components/modals/CustomerModal';
 import PackageModal from '../components/modals/PackageModal';
 import CheckOutModal from '../components/modals/CheckOutModal';
+import CancelCheckInModal from '../components/modals/CancelCheckInModal';
 
 const DashboardNew: React.FC = () => {
   const { currentUnit, getCurrentUnitInfo } = useUnit();
@@ -28,6 +29,7 @@ const DashboardNew: React.FC = () => {
   const [showCheckInModal, setShowCheckInModal] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [showPackageModal, setShowPackageModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
   const loadingRef = useRef(false);
 
@@ -89,11 +91,25 @@ const DashboardNew: React.FC = () => {
 
   useEffect(() => {
     loadStats();
+    
+    // Auto-refresh a cada 1 minuto (60000ms)
+    const intervalId = setInterval(() => {
+      console.log('[DASHBOARD] Auto-refresh executado');
+      loadStats(true);
+    }, 60000);
+    
+    // Cleanup ao desmontar componente
+    return () => clearInterval(intervalId);
   }, [loadStats]);
 
   const handleCheckOut = async (visit: Visit) => {
     setSelectedVisit(visit);
     setShowCheckOutModal(true);
+  };
+
+  const handleCancelCheckIn = (visit: Visit) => {
+    setSelectedVisit(visit);
+    setShowCancelModal(true);
   };
 
   const handleCheckOutSuccess = () => {
@@ -102,120 +118,122 @@ const DashboardNew: React.FC = () => {
     loadStats(true);
   };
 
+  const handleCancelSuccess = () => {
+    setShowCancelModal(false);
+    setSelectedVisit(null);
+    loadStats(true);
+  };
+
   const unitInfo = getCurrentUnitInfo();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+    <div className="min-h-screen bg-slate-50">
       <Navbar onRefresh={() => loadStats(true)} loading={loading} />
 
-      <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
+      <div className="ml-[240px] p-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800">Principal</h1>
+            <p className="text-sm text-slate-500">{unitInfo?.name} &middot; {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+          </div>
+          <button
+            onClick={() => setShowCheckInModal(true)}
+            className="bg-violet-600 hover:bg-violet-700 text-white px-5 py-2.5 rounded-lg font-semibold transition-colors flex items-center gap-2 shadow-sm"
+          >
+            <span>➕</span> Novo Check-In
+          </button>
+        </div>
+
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-xl p-6 text-white transform hover:scale-105 transition-all">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-5xl">🎯</span>
-              {loading && isInitialLoad ? (
-                <div className="animate-spin text-3xl">⏳</div>
-              ) : null}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                <span className="text-xl">🎯</span>
+              </div>
+              {loading && isInitialLoad && <div className="animate-spin text-sm">⏳</div>}
             </div>
-            <p className="text-blue-100 text-sm font-medium mb-1">Visitas Ativas</p>
-            <p className="text-5xl font-bold">{stats.activeVisits}</p>
+            <p className="text-sm text-slate-500 font-medium">Visitas Ativas</p>
+            <p className="text-3xl font-bold text-slate-800 mt-1">{stats.activeVisits}</p>
           </div>
 
-          <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-xl p-6 text-white transform hover:scale-105 transition-all">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-5xl">💰</span>
+          <div className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition-shadow">
+            <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center mb-3">
+              <span className="text-xl">💰</span>
             </div>
-            <p className="text-green-100 text-sm font-medium mb-1">Receita Hoje</p>
-            <p className="text-4xl font-bold">R$ {stats.todayRevenue.toFixed(2)}</p>
+            <p className="text-sm text-slate-500 font-medium">Receita Hoje</p>
+            <p className="text-3xl font-bold text-slate-800 mt-1">R$ {stats.todayRevenue.toFixed(2)}</p>
           </div>
 
-          <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl shadow-xl p-6 text-white transform hover:scale-105 transition-all">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-5xl">📊</span>
+          <div className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition-shadow">
+            <div className="w-10 h-10 bg-violet-100 rounded-lg flex items-center justify-center mb-3">
+              <span className="text-xl">📊</span>
             </div>
-            <p className="text-purple-100 text-sm font-medium mb-1">Total Visitas Hoje</p>
-            <p className="text-5xl font-bold">{stats.todayVisits}</p>
+            <p className="text-sm text-slate-500 font-medium">Total Visitas Hoje</p>
+            <p className="text-3xl font-bold text-slate-800 mt-1">{stats.todayVisits}</p>
           </div>
 
-          <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl shadow-xl p-6 text-white transform hover:scale-105 transition-all">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-5xl">📦</span>
+          <div className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition-shadow">
+            <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center mb-3">
+              <span className="text-xl">📦</span>
             </div>
-            <p className="text-orange-100 text-sm font-medium mb-1">Pacotes Ativos</p>
-            <p className="text-5xl font-bold">{stats.activePackages}</p>
+            <p className="text-sm text-slate-500 font-medium">Pacotes Ativos</p>
+            <p className="text-3xl font-bold text-slate-800 mt-1">{stats.activePackages}</p>
           </div>
         </div>
 
-        {/* Main Content - 2 Columns */}
+        {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Visitas Ativas (2/3) */}
-          <div className="lg:col-span-2 bg-white rounded-2xl shadow-xl p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                <span>🎯</span> Visitas Ativas em {unitInfo?.name}
-              </h2>
-              <button
-                onClick={() => setShowCheckInModal(true)}
-                className="bg-gradient-to-r from-green-500 to-green-600 text-white px-6 py-3 rounded-xl hover:opacity-90 transition-all shadow-lg font-medium flex items-center gap-2"
-              >
-                <span className="text-xl">➕</span>
-                Novo Check-In
-              </button>
-            </div>
+          {/* Visitas Ativas */}
+          <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-5">
+            <h2 className="text-lg font-bold text-slate-800 mb-4">Visitas Ativas</h2>
 
-            <div className="space-y-3 max-h-[600px] overflow-y-auto">
+            <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
               {loading && isInitialLoad ? (
-                <>
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="animate-pulse bg-gray-100 rounded-xl p-4">
-                      <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
-                      <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                    </div>
-                  ))}
-                </>
+                [1, 2, 3].map((i) => (
+                  <div key={i} className="animate-pulse bg-slate-100 rounded-lg p-4">
+                    <div className="h-5 bg-slate-200 rounded w-3/4 mb-2"></div>
+                    <div className="h-4 bg-slate-200 rounded w-1/2"></div>
+                  </div>
+                ))
               ) : activeVisits.length === 0 ? (
-                <div className="text-center py-16 text-gray-400">
-                  <p className="text-6xl mb-4">🎮</p>
-                  <p className="text-xl font-medium">Nenhuma visita ativa</p>
-                  <p className="text-sm mt-2">Faça um check-in para começar</p>
+                <div className="text-center py-12 text-slate-400">
+                  <p className="text-5xl mb-3">🎮</p>
+                  <p className="font-medium">Nenhuma visita ativa</p>
+                  <p className="text-sm mt-1">Faça um check-in para começar</p>
                 </div>
               ) : (
                 activeVisits.map((visit) => (
-                  <div
-                    key={visit.id}
-                    className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-5 border-2 border-blue-200 hover:border-blue-400 transition-all"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <span className="text-2xl">👶</span>
-                          <div>
-                            <p className="font-bold text-lg text-gray-800">
-                              {visit.child?.name || 'Criança'}
-                            </p>
-                            <p className="text-sm text-gray-600">
-                              Check-in: {new Date(visit.checkIn).toLocaleTimeString('pt-BR', {
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4 text-sm">
-                          <span className="bg-blue-200 text-blue-800 px-3 py-1 rounded-full font-medium">
-                            ⏱️ {Math.floor((Date.now() - new Date(visit.checkIn).getTime()) / 60000)} min
-                          </span>
-                          <span className="text-gray-600">
-                            👤 {visit.child?.customer?.name || 'Cliente'}
-                          </span>
+                  <div key={visit.id} className="flex items-center justify-between bg-slate-50 rounded-lg p-4 border border-slate-100 hover:border-violet-200 transition-colors">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="w-10 h-10 bg-violet-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-lg">👶</span>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-slate-800 truncate">{visit.child?.name || 'Criança'}</p>
+                        <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                          <span>Check-in: {new Date(visit.checkIn).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                          <span className="text-slate-300">|</span>
+                          <span className="text-violet-600 font-semibold">{Math.floor((Date.now() - new Date(visit.checkIn).getTime()) / 60000)} min</span>
+                          <span className="text-slate-300">|</span>
+                          <span className="truncate">{visit.child?.customer?.name || 'Cliente'}</span>
                         </div>
                       </div>
+                    </div>
+                    <div className="flex gap-1.5 flex-shrink-0 ml-3">
+                      <button
+                        onClick={() => handleCancelCheckIn(visit)}
+                        className="p-2 rounded-lg bg-slate-200 hover:bg-red-100 text-slate-600 hover:text-red-600 transition-colors"
+                        title="Cancelar check-in"
+                      >
+                        ❌
+                      </button>
                       <button
                         onClick={() => handleCheckOut(visit)}
-                        className="bg-gradient-to-r from-red-500 to-red-600 text-white px-6 py-3 rounded-xl hover:opacity-90 transition-all shadow-lg font-bold"
+                        className="px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white font-semibold text-sm transition-colors"
                       >
-                        ✓ Check-Out
+                        Check-Out
                       </button>
                     </div>
                   </div>
@@ -224,87 +242,51 @@ const DashboardNew: React.FC = () => {
             </div>
           </div>
 
-          {/* Right Column - Ações Rápidas e Pagamentos (1/3) */}
-          <div className="space-y-6">
+          {/* Sidebar */}
+          <div className="space-y-5">
             {/* Ações Rápidas */}
-            <div className="bg-white rounded-2xl shadow-xl p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <span>⚡</span> Ações Rápidas
-              </h2>
-              <div className="space-y-3">
+            <div className="bg-white rounded-xl border border-slate-200 p-5">
+              <h2 className="text-lg font-bold text-slate-800 mb-3">Ações Rápidas</h2>
+              <div className="space-y-2">
                 <button
                   onClick={() => setShowCheckInModal(true)}
-                  className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white p-4 rounded-xl hover:opacity-90 transition-all shadow-lg text-left"
+                  className="w-full flex items-center gap-3 p-3 rounded-lg bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-colors text-left"
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="text-3xl">➕</span>
-                    <div>
-                      <p className="font-bold">Check-In</p>
-                      <p className="text-sm opacity-90">Registrar entrada</p>
-                    </div>
+                  <span className="text-xl">➕</span>
+                  <div>
+                    <p className="font-semibold text-sm text-slate-800">Check-In</p>
+                    <p className="text-xs text-slate-500">Registrar entrada</p>
                   </div>
                 </button>
-
                 <button
                   onClick={() => setShowCustomerModal(true)}
-                  className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 rounded-xl hover:opacity-90 transition-all shadow-lg text-left"
+                  className="w-full flex items-center gap-3 p-3 rounded-lg bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors text-left"
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="text-3xl">👥</span>
-                    <div>
-                      <p className="font-bold">Novo Cliente</p>
-                      <p className="text-sm opacity-90">Cadastrar</p>
-                    </div>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => setShowPackageModal(true)}
-                  className="w-full bg-gradient-to-r from-purple-500 to-purple-600 text-white p-4 rounded-xl hover:opacity-90 transition-all shadow-lg text-left"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-3xl">📦</span>
-                    <div>
-                      <p className="font-bold">Novo Pacote</p>
-                      <p className="text-sm opacity-90">Criar pacote</p>
-                    </div>
+                  <span className="text-xl">👥</span>
+                  <div>
+                    <p className="font-semibold text-sm text-slate-800">Novo Cliente</p>
+                    <p className="text-xs text-slate-500">Cadastrar responsável</p>
                   </div>
                 </button>
               </div>
             </div>
 
             {/* Pagamentos Recentes */}
-            <div className="bg-white rounded-2xl shadow-xl p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <span>💳</span> Pagamentos Recentes
-              </h2>
+            <div className="bg-white rounded-xl border border-slate-200 p-5">
+              <h2 className="text-lg font-bold text-slate-800 mb-3">Pagamentos Recentes</h2>
               <div className="space-y-2">
                 {recentPayments.length === 0 ? (
-                  <p className="text-center text-gray-400 py-4 text-sm">
-                    Nenhum pagamento hoje
-                  </p>
+                  <p className="text-center text-slate-400 py-4 text-sm">Nenhum pagamento hoje</p>
                 ) : (
                   recentPayments.map((payment) => (
-                    <div
-                      key={payment.id}
-                      className="bg-green-50 rounded-lg p-3 border border-green-200"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-800 text-sm">
-                            {payment.customer?.name || 'Cliente'}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {new Date(payment.createdAt).toLocaleTimeString('pt-BR', {
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </p>
-                        </div>
-                        <p className="font-bold text-green-600">
-                          R$ {payment.amount.toFixed(2)}
+                    <div key={payment.id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
+                      <div>
+                        <p className="font-medium text-sm text-slate-700">{payment.childName || payment.description || 'Pagamento'}</p>
+                        <p className="text-xs text-slate-400">
+                          {new Date(payment.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
+                      <p className="font-bold text-sm text-emerald-600">R$ {payment.amount.toFixed(2)}</p>
                     </div>
                   ))
                 )}
@@ -342,6 +324,19 @@ const DashboardNew: React.FC = () => {
             setSelectedVisit(null);
           }}
           onSuccess={handleCheckOutSuccess}
+          visit={selectedVisit}
+        />
+      )}
+
+      {/* Modal de Cancelar Check-In */}
+      {selectedVisit && (
+        <CancelCheckInModal
+          isOpen={showCancelModal}
+          onClose={() => {
+            setShowCancelModal(false);
+            setSelectedVisit(null);
+          }}
+          onSuccess={handleCancelSuccess}
           visit={selectedVisit}
         />
       )}

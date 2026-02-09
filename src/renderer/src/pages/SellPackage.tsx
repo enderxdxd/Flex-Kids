@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import { Child, Customer } from '../../../shared/types';
+import { Customer } from '../../../shared/types';
 import { customersServiceOffline } from '../../../shared/firebase/services/customers.service.offline';
+import { settingsServiceOffline } from '../../../shared/firebase/services/settings.service.offline';
 import PackagePaymentModal from '../components/modals/PackagePaymentModal';
 
 interface PackageOption {
@@ -11,22 +12,13 @@ interface PackageOption {
   expiryDays: number;
 }
 
-const PACKAGE_OPTIONS: PackageOption[] = [
-  { name: 'Pacote 5h', hours: 5, price: 150, expiryDays: 30 },
-  { name: 'Pacote 10h', hours: 10, price: 300, expiryDays: 30 },
-  { name: 'Pacote 20h', hours: 20, price: 550, expiryDays: 60 },
-  { name: 'Pacote 30h', hours: 30, price: 800, expiryDays: 90 },
-];
-
 const SellPackage: React.FC = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [children, setChildren] = useState<Child[]>([]);
-  const [filteredChildren, setFilteredChildren] = useState<Child[]>([]);
+  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
+  const [packageOptions, setPackageOptions] = useState<PackageOption[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [loading, setLoading] = useState(false);
 
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
-  const [selectedChildId, setSelectedChildId] = useState<string>('');
   const [selectedPackage, setSelectedPackage] = useState<PackageOption | null>(null);
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -37,43 +29,34 @@ const SellPackage: React.FC = () => {
 
   useEffect(() => {
     if (searchTerm.trim() === '') {
-      setFilteredChildren(children);
+      setFilteredCustomers(customers);
     } else {
       const term = searchTerm.toLowerCase();
-      const filtered = children.filter(child => {
-        const customer = customers.find(c => c.id === child.customerId);
-        const childName = child.name.toLowerCase();
-        const customerName = customer?.name.toLowerCase() || '';
-        return childName.includes(term) || customerName.includes(term);
-      });
-      setFilteredChildren(filtered);
+      const filtered = customers.filter(c => c.name.toLowerCase().includes(term));
+      setFilteredCustomers(filtered);
     }
-  }, [searchTerm, children, customers]);
+  }, [searchTerm, customers]);
 
   const loadData = async () => {
     try {
-      setLoading(true);
-      const [allCustomers, allChildren] = await Promise.all([
+      const [allCustomers, plans] = await Promise.all([
         customersServiceOffline.getAllCustomers(),
-        customersServiceOffline.getAllChildren(),
+        settingsServiceOffline.getPackagePlans(),
       ]);
       setCustomers(allCustomers);
-      setChildren(allChildren);
-      setFilteredChildren(allChildren);
+      setFilteredCustomers(allCustomers);
+      setPackageOptions(plans);
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Erro ao carregar dados');
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleSelectPackage = (pkg: PackageOption) => {
-    if (!selectedChildId) {
-      toast.warning('Selecione uma criança primeiro');
+    if (!selectedCustomerId) {
+      toast.warning('Selecione um responsável primeiro');
       return;
     }
-
     setSelectedPackage(pkg);
     setShowPaymentModal(true);
   };
@@ -82,129 +65,118 @@ const SellPackage: React.FC = () => {
     setShowPaymentModal(false);
     setSelectedPackage(null);
     setSelectedCustomerId('');
-    setSelectedChildId('');
     setSearchTerm('');
-    toast.success('🎉 Pacote vendido com sucesso!');
+    toast.success('Pacote vendido com sucesso!');
   };
 
-  const selectedChild = children.find(c => c.id === selectedChildId);
   const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">🛒 Vender Pacote</h1>
-          <p className="text-gray-500">Selecione a criança e o pacote para realizar a venda</p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-slate-800">Vender Pacote</h1>
+        <p className="text-sm text-slate-500">Selecione o responsável e o pacote para realizar a venda</p>
       </div>
 
-      {/* Seleção de Cliente/Criança */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h2 className="text-xl font-bold text-gray-800 mb-4">1️⃣ Selecione o Cliente e a Criança</h2>
-        
-        {/* Busca */}
-        <div className="mb-4">
-          <label className="block text-sm font-bold text-gray-700 mb-2">
-            🔍 Buscar Criança ou Responsável
-          </label>
-          <input
-            type="text"
-            placeholder="Digite o nome..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-purple-500 text-lg"
-          />
-        </div>
-
-        {/* Seletor de Criança */}
-        <div>
-          <label className="block text-sm font-bold text-gray-700 mb-2">
-            👶 Criança
-          </label>
-          <select
-            value={selectedChildId}
-            onChange={(e) => {
-              setSelectedChildId(e.target.value);
-              const child = children.find(c => c.id === e.target.value);
-              if (child) {
-                setSelectedCustomerId(child.customerId);
-              }
-            }}
-            className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-purple-500 text-lg"
-          >
-            <option value="">Selecione uma criança...</option>
-            {filteredChildren.map((child) => {
-              const customer = customers.find(c => c.id === child.customerId);
-              return (
-                <option key={child.id} value={child.id}>
-                  {child.name} ({child.age} anos) - Responsável: {customer?.name || 'N/A'}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left - Seleção */}
+        <div className="space-y-5">
+          {/* Busca e Seleção de Responsável */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <h2 className="text-sm font-bold text-slate-600 uppercase tracking-wider mb-3">1. Responsável</h2>
+            <input
+              type="text"
+              placeholder="Buscar por nome..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm mb-3"
+            />
+            <select
+              value={selectedCustomerId}
+              onChange={(e) => setSelectedCustomerId(e.target.value)}
+              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
+            >
+              <option value="">Selecione...</option>
+              {filteredCustomers.map((customer) => (
+                <option key={customer.id} value={customer.id}>
+                  {customer.name} {customer.phone ? `- ${customer.phone}` : ''}
                 </option>
-              );
-            })}
-          </select>
+              ))}
+            </select>
+
+            {selectedCustomer && (
+              <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+                <p className="text-sm font-semibold text-emerald-800">{selectedCustomer.name}</p>
+                <p className="text-xs text-emerald-600 mt-0.5">
+                  Pacote será vinculado a este responsável
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Info */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+            <h3 className="font-semibold text-sm text-slate-700 mb-2">Informações</h3>
+            <ul className="text-xs text-slate-500 space-y-1">
+              <li>- Pacote pertence ao responsável</li>
+              <li>- Pode ser usado por qualquer criança dele</li>
+              <li>- Ativado após confirmação do pagamento</li>
+              <li>- Validade conta a partir da compra</li>
+            </ul>
+          </div>
         </div>
 
-        {selectedChild && selectedCustomer && (
-          <div className="mt-4 p-4 bg-green-50 border-2 border-green-200 rounded-xl">
-            <p className="text-sm text-green-800">
-              <span className="font-bold">✅ Selecionado:</span> {selectedChild.name} - Responsável: {selectedCustomer.name}
-            </p>
-          </div>
-        )}
-      </div>
+        {/* Right - Pacotes */}
+        <div className="lg:col-span-2">
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <h2 className="text-sm font-bold text-slate-600 uppercase tracking-wider mb-4">2. Escolha o Pacote</h2>
 
-      {/* Seleção de Pacote */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h2 className="text-xl font-bold text-gray-800 mb-4">2️⃣ Escolha o Pacote</h2>
-        
-        {!selectedChildId ? (
-          <div className="text-center py-8 text-gray-400">
-            <p className="text-4xl mb-2">👆</p>
-            <p>Selecione uma criança primeiro</p>
+            {!selectedCustomerId ? (
+              <div className="text-center py-12 text-slate-400">
+                <p className="text-4xl mb-2">�</p>
+                <p className="text-sm">Selecione um responsável primeiro</p>
+              </div>
+            ) : packageOptions.length === 0 ? (
+              <div className="text-center py-12 text-slate-400">
+                <p className="text-4xl mb-2">📦</p>
+                <p className="text-sm">Nenhum plano configurado</p>
+                <p className="text-xs mt-1">Configure os planos na Gestão de Pacotes</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {packageOptions.map((pkg) => (
+                  <button
+                    key={pkg.name}
+                    onClick={() => handleSelectPackage(pkg)}
+                    className="text-left border border-slate-200 rounded-xl p-5 hover:border-violet-400 hover:shadow-md transition-all group"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h3 className="font-bold text-slate-800 group-hover:text-violet-700 transition-colors">{pkg.name}</h3>
+                        <p className="text-xs text-slate-500 mt-0.5">{pkg.hours}h &middot; {pkg.expiryDays} dias</p>
+                      </div>
+                      <div className="w-8 h-8 bg-violet-100 rounded-lg flex items-center justify-center group-hover:bg-violet-200 transition-colors">
+                        <span className="text-sm">📦</span>
+                      </div>
+                    </div>
+                    <div className="flex items-end justify-between">
+                      <div>
+                        <p className="text-2xl font-bold text-violet-600">R$ {pkg.price.toFixed(2)}</p>
+                        <p className="text-[11px] text-slate-400">R$ {(pkg.price / pkg.hours).toFixed(2)}/hora</p>
+                      </div>
+                      <span className="text-xs font-medium text-violet-500 bg-violet-50 px-2 py-1 rounded">Selecionar</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {PACKAGE_OPTIONS.map((pkg) => (
-              <button
-                key={pkg.name}
-                onClick={() => handleSelectPackage(pkg)}
-                className="border-2 border-purple-200 rounded-xl p-6 hover:border-purple-500 hover:shadow-lg transition-all bg-gradient-to-br from-purple-50 to-white"
-              >
-                <div className="text-center">
-                  <div className="text-4xl mb-3">📦</div>
-                  <h3 className="font-bold text-xl text-gray-800 mb-2">{pkg.name}</h3>
-                  <div className="space-y-1 text-sm text-gray-600 mb-3">
-                    <p>⏱️ {pkg.hours} horas</p>
-                    <p>📅 Válido por {pkg.expiryDays} dias</p>
-                  </div>
-                  <div className="text-3xl font-bold text-purple-600">
-                    R$ {pkg.price.toFixed(2)}
-                  </div>
-                  <div className="mt-3 text-xs text-gray-500">
-                    R$ {(pkg.price / pkg.hours).toFixed(2)}/hora
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Informações */}
-      <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6">
-        <h3 className="font-bold text-blue-800 mb-2">ℹ️ Informações Importantes</h3>
-        <ul className="text-sm text-blue-700 space-y-1">
-          <li>• O pagamento deve ser processado imediatamente após a seleção do pacote</li>
-          <li>• O pacote só será ativado após a confirmação do pagamento</li>
-          <li>• A validade do pacote começa a contar a partir da data de compra</li>
-          <li>• Para editar ou desativar pacotes, acesse a área administrativa (Gestão de Pacotes)</li>
-        </ul>
+        </div>
       </div>
 
       {/* Modal de Pagamento */}
-      {showPaymentModal && selectedPackage && selectedChild && selectedCustomer && (
+      {showPaymentModal && selectedPackage && selectedCustomer && (
         <PackagePaymentModal
           isOpen={showPaymentModal}
           onClose={() => {
@@ -214,13 +186,11 @@ const SellPackage: React.FC = () => {
           onSuccess={handlePaymentSuccess}
           packageData={{
             customerId: selectedCustomer.id,
-            childId: selectedChild.id,
             type: selectedPackage.name,
             hours: selectedPackage.hours,
             price: selectedPackage.price,
             expiryDays: selectedPackage.expiryDays,
           }}
-          child={selectedChild}
           customer={selectedCustomer}
         />
       )}

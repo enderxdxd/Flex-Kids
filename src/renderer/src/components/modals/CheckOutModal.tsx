@@ -15,10 +15,14 @@ interface CheckOutModalProps {
   visit: Visit;
 }
 
+const ADMIN_PASSWORD = 'pactoflex123';
+
 const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSuccess, visit }) => {
   const [child, setChild] = useState<Child | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
+  const [allPackages, setAllPackages] = useState<Package[]>([]);
   const [selectedPackage, setSelectedPackage] = useState<string>('');
   const [hourlyRate, setHourlyRate] = useState(30);
   const [minimumTime, setMinimumTime] = useState(30);
@@ -28,6 +32,8 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
   const [loading, setLoading] = useState(false);
   const [printFiscalNote, setPrintFiscalNote] = useState(true);
   const [fiscalConfig, setFiscalConfig] = useState<FiscalConfig | null>(null);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
 
   useEffect(() => {
     if (isOpen && visit) {
@@ -42,10 +48,13 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
 
   const loadData = async () => {
     try {
-      const [childData, settings] = await Promise.all([
+      const [childData, settings, allCustomers] = await Promise.all([
         customersServiceOffline.getChildById(visit.childId),
         settingsServiceOffline.getSettings(),
+        customersServiceOffline.getAllCustomers(),
       ]);
+      
+      setCustomers(allCustomers);
 
       if (childData) {
         setChild(childData);
@@ -53,11 +62,17 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
         setCustomer(customerData);
 
         // Buscar pacotes ativos do cliente
-        const allPackages = await packagesServiceOffline.getAllPackages();
-        const activePackages = allPackages.filter(
+        const allPackagesData = await packagesServiceOffline.getAllPackages();
+        const activePackages = allPackagesData.filter(
           p => p.customerId === childData.customerId && p.active && p.usedHours < p.hours
         );
         setPackages(activePackages);
+        
+        // Guardar todos os pacotes para opção de admin
+        const otherActivePackages = allPackagesData.filter(
+          p => p.customerId !== childData.customerId && p.active && p.usedHours < p.hours
+        );
+        setAllPackages(otherActivePackages);
       } else {
         // Fallback: tenta buscar via getAllChildren
         console.warn('[CHECKOUT] Criança não encontrada via getChildById, tentando fallback...');
@@ -137,7 +152,6 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
       }
 
       // 3. Se houver pagamento, registrar
-      let paymentId: string | undefined;
       if (totalValue > 0 && paymentMethod !== 'package' && customer && child) {
         console.log('[CHECKOUT] Criando pagamento:', {
           customerId: customer.id,
@@ -156,7 +170,6 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
           type: 'visit',
           description: `Pagamento visita - ${child.name} - ${duration} min`,
         });
-        paymentId = payment.id;
         console.log('[CHECKOUT] Pagamento criado:', payment.id);
       }
 
@@ -252,6 +265,8 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
   const handleClose = () => {
     setSelectedPackage('');
     setPaymentMethod('cash');
+    setIsAdminAuthenticated(false);
+    setAdminPassword('');
     onClose();
   };
 
@@ -264,94 +279,53 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-gradient-to-r from-red-500 to-red-600 text-white p-6 rounded-t-2xl">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="text-4xl">✓</span>
-              <div>
-                <h3 className="text-2xl font-bold">Check-Out</h3>
-                <p className="text-red-100 text-sm">Finalizar visita e processar pagamento</p>
-              </div>
-            </div>
-            <button
-              onClick={handleClose}
-              className="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-all"
-            >
-              <span className="text-2xl">✕</span>
-            </button>
-          </div>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-5 border-b border-slate-200">
+          <h2 className="text-lg font-bold text-slate-800">Check-Out</h2>
+          <button onClick={handleClose} className="p-1 rounded-md hover:bg-slate-100 text-slate-400">✕</button>
         </div>
 
-        <div className="p-6 space-y-6">
-          {/* Informações da Visita */}
-          <div className="bg-blue-50 p-4 rounded-xl">
-            <h4 className="font-bold text-gray-800 mb-3">📋 Informações da Visita</h4>
-            <div className="space-y-2">
+        <div className="p-5 space-y-4">
+          {/* Visit Info */}
+          <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+            <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600">Criança:</span>
-                <span className="font-semibold">{child?.name || 'Carregando...'}</span>
+                <span className="text-slate-500">Criança</span>
+                <span className="font-semibold text-slate-800">{child?.name || 'Carregando...'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Cliente:</span>
-                <span className="font-semibold">{customer?.name || 'Carregando...'}</span>
+                <span className="text-slate-500">Responsável</span>
+                <span className="font-semibold text-slate-800">{customer?.name || 'Carregando...'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Duração:</span>
-                <span className="font-semibold text-blue-600">{formatTime(duration)}</span>
+                <span className="text-slate-500">Duração</span>
+                <span className="font-bold text-violet-600">{formatTime(duration)}</span>
               </div>
             </div>
           </div>
 
-          {/* Pacotes Disponíveis */}
+          {/* Packages */}
           {packages.length > 0 && (
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-3">
-                📦 Pacotes Disponíveis
-              </label>
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedPackage('')}
-                  className={`w-full text-left p-4 rounded-lg transition-all ${
-                    !selectedPackage
-                      ? 'bg-green-100 border-2 border-green-500'
-                      : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
-                  }`}
-                >
-                  <p className="font-bold">💰 Pagamento Avulso</p>
-                  <p className="text-sm text-gray-600">Pagar por esta visita</p>
+              <label className="block text-xs font-semibold text-slate-600 mb-2">Usar Pacote</label>
+              <div className="space-y-1">
+                <button type="button" onClick={() => setSelectedPackage('')}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all ${!selectedPackage ? 'bg-violet-50 border border-violet-300' : 'hover:bg-slate-50 border border-transparent'}`}>
+                  <p className="font-semibold text-slate-800">Pagamento Avulso</p>
                 </button>
                 {packages.map(pkg => {
                   const remainingHours = pkg.hours - pkg.usedHours;
                   const canUse = remainingHours >= duration / 60;
                   return (
-                    <button
-                      key={pkg.id}
-                      type="button"
-                      onClick={() => canUse && setSelectedPackage(pkg.id)}
-                      disabled={!canUse}
-                      className={`w-full text-left p-4 rounded-lg transition-all ${
-                        selectedPackage === pkg.id
-                          ? 'bg-green-100 border-2 border-green-500'
-                          : canUse
-                          ? 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
-                          : 'bg-gray-200 opacity-50 cursor-not-allowed border-2 border-transparent'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start">
+                    <button key={pkg.id} type="button" onClick={() => canUse && setSelectedPackage(pkg.id)} disabled={!canUse}
+                      className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all ${selectedPackage === pkg.id ? 'bg-emerald-50 border border-emerald-300' : canUse ? 'hover:bg-slate-50 border border-transparent' : 'opacity-40 cursor-not-allowed border border-transparent'}`}>
+                      <div className="flex justify-between items-center">
                         <div>
-                          <p className="font-bold">📦 Pacote {pkg.type === 'hours' ? 'de Horas' : 'Mensal'}</p>
-                          <p className="text-sm text-gray-600">
-                            {remainingHours.toFixed(1)}h disponíveis de {pkg.hours}h
-                          </p>
+                          <p className="font-semibold text-slate-800">{pkg.type}</p>
+                          <p className="text-xs text-slate-500">{remainingHours.toFixed(1)}h de {pkg.hours}h</p>
                         </div>
-                        {!canUse && (
-                          <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded">
-                            Horas insuficientes
-                          </span>
-                        )}
+                        {!canUse && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded">Insuficiente</span>}
                       </div>
                     </button>
                   );
@@ -360,100 +334,74 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
             </div>
           )}
 
-          {/* Valor a Pagar */}
-          <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-6 rounded-xl">
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-green-100 text-sm">Valor Total</p>
-                <p className="text-4xl font-bold">
-                  {selectedPackage ? 'PACOTE' : `R$ ${totalValue.toFixed(2)}`}
-                </p>
-              </div>
-              <span className="text-6xl">💰</span>
+          {/* Admin Packages */}
+          {allPackages.length > 0 && (
+            <div className="border border-amber-200 rounded-lg p-3 bg-amber-50">
+              <p className="text-xs font-semibold text-amber-800 mb-2">Pacote de Outro Cliente (Admin)</p>
+              {!isAdminAuthenticated ? (
+                <div className="flex gap-2">
+                  <input type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="Senha admin" className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                  <button onClick={() => { if (adminPassword === ADMIN_PASSWORD) { setIsAdminAuthenticated(true); toast.success('Autenticado'); } else { toast.error('Senha incorreta'); setAdminPassword(''); } }} className="bg-amber-500 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-amber-600">Entrar</button>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-[11px] text-emerald-700 font-medium">Admin autenticado</span>
+                    <button onClick={() => { setIsAdminAuthenticated(false); setAdminPassword(''); if (allPackages.find(p => p.id === selectedPackage)) setSelectedPackage(''); }} className="text-[11px] text-slate-500 hover:text-slate-700">Sair</button>
+                  </div>
+                  {allPackages.map(pkg => {
+                    const remainingHours = pkg.hours - pkg.usedHours;
+                    const canUse = remainingHours >= duration / 60;
+                    return (
+                      <button key={pkg.id} type="button" onClick={() => canUse && setSelectedPackage(pkg.id)} disabled={!canUse}
+                        className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${selectedPackage === pkg.id ? 'bg-amber-100 border border-amber-400' : canUse ? 'hover:bg-white border border-transparent' : 'opacity-40 cursor-not-allowed border border-transparent'}`}>
+                        <p className="font-semibold text-slate-800">{pkg.type} <span className="text-xs text-amber-700">({customers.find(c => c.id === pkg.customerId)?.name || '-'})</span></p>
+                        <p className="text-xs text-slate-500">{remainingHours.toFixed(1)}h de {pkg.hours}h</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
+          )}
+
+          {/* Total */}
+          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex justify-between items-center">
+            <span className="text-sm font-semibold text-slate-700">Total</span>
+            <span className="text-2xl font-bold text-emerald-600">
+              {selectedPackage ? 'PACOTE' : `R$ ${totalValue.toFixed(2)}`}
+            </span>
           </div>
 
-          {/* Nota Fiscal */}
+          {/* Print */}
           {fiscalConfig?.enableFiscalPrint && (
-            <div className="bg-blue-50 p-4 rounded-xl">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={printFiscalNote}
-                  onChange={(e) => setPrintFiscalNote(e.target.checked)}
-                  className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                />
-                <div>
-                  <span className="font-bold text-gray-800">📄 Emitir Nota Fiscal</span>
-                  <p className="text-xs text-gray-600">Impressora: {fiscalConfig.printerModel}</p>
-                </div>
-              </label>
-            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={printFiscalNote} onChange={(e) => setPrintFiscalNote(e.target.checked)} className="w-4 h-4 text-violet-600 rounded focus:ring-violet-500" />
+              <span className="text-sm text-slate-600">Imprimir comprovante</span>
+            </label>
           )}
 
-          {/* Forma de Pagamento */}
+          {/* Payment Method */}
           {!selectedPackage && totalValue > 0 && (
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-3">
-                💳 Forma de Pagamento
-              </label>
-              <div className="grid grid-cols-3 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('cash')}
-                  className={`p-4 rounded-lg transition-all ${
-                    paymentMethod === 'cash'
-                      ? 'bg-green-100 border-2 border-green-500'
-                      : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
-                  }`}
-                >
-                  <div className="text-3xl mb-2">💵</div>
-                  <div className="font-semibold text-sm">Dinheiro</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('card')}
-                  className={`p-4 rounded-lg transition-all ${
-                    paymentMethod === 'card'
-                      ? 'bg-green-100 border-2 border-green-500'
-                      : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
-                  }`}
-                >
-                  <div className="text-3xl mb-2">💳</div>
-                  <div className="font-semibold text-sm">Cartão</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('pix')}
-                  className={`p-4 rounded-lg transition-all ${
-                    paymentMethod === 'pix'
-                      ? 'bg-green-100 border-2 border-green-500'
-                      : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
-                  }`}
-                >
-                  <div className="text-3xl mb-2">📱</div>
-                  <div className="font-semibold text-sm">PIX</div>
-                </button>
+              <label className="block text-xs font-semibold text-slate-600 mb-2">Forma de Pagamento</label>
+              <div className="grid grid-cols-3 gap-2">
+                {(['cash', 'card', 'pix'] as const).map(method => (
+                  <button key={method} type="button" onClick={() => setPaymentMethod(method)}
+                    className={`p-3 rounded-lg border text-center transition-all ${paymentMethod === method ? 'border-violet-500 bg-violet-50' : 'border-slate-200 hover:border-violet-300'}`}>
+                    <div className="text-xl mb-1">{method === 'cash' ? '💵' : method === 'card' ? '💳' : '📱'}</div>
+                    <div className="text-xs font-medium text-slate-700">{method === 'cash' ? 'Dinheiro' : method === 'card' ? 'Cartão' : 'PIX'}</div>
+                  </button>
+                ))}
               </div>
             </div>
           )}
 
-          {/* Botões */}
-          <div className="flex gap-3 pt-4 border-t-2 border-gray-200">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-xl hover:bg-gray-300 transition-all font-medium"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={handleCheckOut}
-              disabled={loading || !child}
-              className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white py-3 rounded-xl hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-bold shadow-lg"
-            >
-              {loading ? '⏳ Processando...' : !child ? '⏳ Carregando...' : '✓ Confirmar Check-Out'}
+          {/* Buttons */}
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={handleClose} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
+            <button type="button" onClick={handleCheckOut} disabled={loading || !child} className="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors disabled:opacity-50">
+              {loading ? '⏳ Processando...' : !child ? '⏳ Carregando...' : 'Confirmar Check-Out'}
             </button>
           </div>
         </div>

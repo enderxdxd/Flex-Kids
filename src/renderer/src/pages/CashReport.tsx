@@ -121,6 +121,10 @@ const CashReport: React.FC = () => {
     cartao: payments.filter(p => ['card', 'cartao'].includes(p.method.toLowerCase())).reduce((sum, p) => sum + p.amount, 0),
   };
 
+  const handlePrintNormal = () => {
+    window.print();
+  };
+
   const handlePrint = async () => {
     try {
       setPrinting(true);
@@ -215,157 +219,106 @@ const CashReport: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">📊 Relatório de Caixa</h1>
-          <p className="text-gray-500">Fechamento diário com impressão</p>
+          <h1 className="text-2xl font-bold text-slate-800">Relatório de Caixa</h1>
+          <p className="text-sm text-slate-500">Fechamento diário</p>
         </div>
-        <button
-          onClick={handlePrint}
-          disabled={printing || payments.length === 0}
-          className="bg-gradient-to-r from-green-500 to-green-600 text-white px-6 py-3 rounded-lg font-bold hover:opacity-90 transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg"
-        >
-          {printing ? '⏳ Imprimindo...' : '🖨️ Imprimir Relatório'}
-        </button>
+        <div className="flex gap-2">
+          <button onClick={handlePrintNormal} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors no-print">
+            🖨️ Imprimir
+          </button>
+          <button onClick={handlePrint} disabled={printing || payments.length === 0} className="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors shadow-sm disabled:opacity-50 no-print">
+            {printing ? '⏳ Imprimindo...' : '🧾 Imprimir Fiscal'}
+          </button>
+        </div>
       </div>
 
-      {/* Seletor de Data */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <label className="block text-sm font-bold text-gray-700 mb-3">
-          📅 Selecione a Data
-        </label>
+      {/* Date + Summary */}
+      <div className="flex items-center gap-4">
         <input
           type="date"
           value={selectedDate}
           onChange={(e) => setSelectedDate(e.target.value)}
-          className="w-full md:w-auto px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 text-lg"
+          className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 no-print"
         />
+        <span className="text-sm text-slate-500">{format(new Date(selectedDate + 'T12:00:00'), "EEEE, dd 'de' MMMM", { locale: ptBR })}</span>
       </div>
 
-      {/* Cards de Resumo */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl shadow-lg p-5">
-          <p className="text-purple-100 text-sm font-medium mb-1">📦 Pacotes</p>
-          <p className="text-3xl font-bold">R$ {totalPackages.toFixed(2)}</p>
-          <p className="text-purple-200 text-sm mt-1">
-            {payments.filter(p => p.type === 'package').length} vendas
-          </p>
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <p className="text-xs text-slate-500 font-medium">Pacotes</p>
+          <p className="text-2xl font-bold text-slate-800 mt-1">R$ {totalPackages.toFixed(2)}</p>
+          <p className="text-xs text-slate-400 mt-0.5">{payments.filter(p => p.type === 'package').length} vendas</p>
         </div>
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl shadow-lg p-5">
-          <p className="text-blue-100 text-sm font-medium mb-1">🎫 Visitas</p>
-          <p className="text-3xl font-bold">R$ {totalVisits.toFixed(2)}</p>
-          <p className="text-blue-200 text-sm mt-1">
-            {payments.filter(p => p.type === 'visit').length} visitas
-          </p>
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <p className="text-xs text-slate-500 font-medium">Visitas</p>
+          <p className="text-2xl font-bold text-slate-800 mt-1">R$ {totalVisits.toFixed(2)}</p>
+          <p className="text-xs text-slate-400 mt-0.5">{payments.filter(p => p.type === 'visit').length} visitas</p>
         </div>
-        <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl shadow-lg p-5">
-          <p className="text-green-100 text-sm font-medium mb-1">💰 Total Geral</p>
-          <p className="text-3xl font-bold">R$ {totalGeneral.toFixed(2)}</p>
-          <p className="text-green-200 text-sm mt-1">{payments.length} pagamentos</p>
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <p className="text-xs text-slate-500 font-medium">Total Geral</p>
+          <p className="text-2xl font-bold text-emerald-600 mt-1">R$ {totalGeneral.toFixed(2)}</p>
+          <p className="text-xs text-slate-400 mt-0.5">{payments.length} pagamentos</p>
         </div>
-        <div className="bg-gradient-to-br from-gray-600 to-gray-700 text-white rounded-xl shadow-lg p-5">
-          <p className="text-gray-300 text-sm font-medium mb-1">📊 Por Método</p>
-          <div className="text-sm space-y-1">
-            <div className="flex justify-between">
-              <span>💵 Dinheiro:</span>
-              <span className="font-bold">R$ {totalByMethod.dinheiro.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>📱 PIX:</span>
-              <span className="font-bold">R$ {totalByMethod.pix.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>💳 Cartão:</span>
-              <span className="font-bold">R$ {totalByMethod.cartao.toFixed(2)}</span>
-            </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <p className="text-xs text-slate-500 font-medium mb-2">Por Método</p>
+          <div className="text-xs space-y-1">
+            <div className="flex justify-between"><span className="text-slate-500">Dinheiro</span><span className="font-semibold text-slate-800">R$ {totalByMethod.dinheiro.toFixed(2)}</span></div>
+            <div className="flex justify-between"><span className="text-slate-500">PIX</span><span className="font-semibold text-slate-800">R$ {totalByMethod.pix.toFixed(2)}</span></div>
+            <div className="flex justify-between"><span className="text-slate-500">Cartão</span><span className="font-semibold text-slate-800">R$ {totalByMethod.cartao.toFixed(2)}</span></div>
           </div>
         </div>
       </div>
 
-      {/* Tabela de Pagamentos */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold text-gray-800">
-            📋 Detalhamento - {format(new Date(selectedDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-          </h2>
-          <button
-            onClick={loadPayments}
-            disabled={loading}
-            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
-          >
+      {/* Table */}
+      <div className="bg-white rounded-xl border border-slate-200">
+        <div className="flex justify-between items-center p-4 border-b border-slate-100 no-print">
+          <h2 className="text-sm font-bold text-slate-600 uppercase tracking-wider">Detalhamento</h2>
+          <button onClick={loadPayments} disabled={loading} className="text-sm text-violet-600 hover:text-violet-700 font-medium disabled:opacity-50">
             {loading ? '⏳' : '🔄'} Atualizar
           </button>
         </div>
 
         {loading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="animate-pulse p-4 border border-gray-200 rounded-lg">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-              </div>
-            ))}
+          <div className="p-5 space-y-3">
+            {[1, 2, 3].map(i => <div key={i} className="animate-pulse h-10 bg-slate-100 rounded-lg" />)}
           </div>
         ) : payments.length === 0 ? (
-          <div className="text-center py-16 text-gray-400">
-            <p className="text-6xl mb-4">📊</p>
-            <p className="text-xl font-medium">Nenhum pagamento nesta data</p>
-            <p className="text-sm mt-2">Selecione outra data ou aguarde novos pagamentos</p>
+          <div className="text-center py-12 text-slate-400">
+            <p className="text-4xl mb-2">📊</p>
+            <p className="font-medium">Nenhum pagamento nesta data</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-100">
-                  <th className="text-left p-3 rounded-tl-lg font-bold text-gray-700">Nome</th>
-                  <th className="text-left p-3 font-bold text-gray-700">Tipo</th>
-                  <th className="text-left p-3 font-bold text-gray-700">Pagamento</th>
-                  <th className="text-right p-3 rounded-tr-lg font-bold text-gray-700">Valor</th>
+                <tr className="border-b border-slate-200 bg-slate-50">
+                  <th className="text-left p-3 font-semibold text-slate-600">Nome</th>
+                  <th className="text-left p-3 font-semibold text-slate-600">Tipo</th>
+                  <th className="text-left p-3 font-semibold text-slate-600">Método</th>
+                  <th className="text-left p-3 font-semibold text-slate-600">Hora</th>
+                  <th className="text-right p-3 font-semibold text-slate-600">Valor</th>
                 </tr>
               </thead>
-              <tbody>
-                {payments.map((payment, index) => (
-                  <tr
-                    key={payment.id}
-                    className={`border-b border-gray-100 hover:bg-gray-50 ${
-                      index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                    }`}
-                  >
+              <tbody className="divide-y divide-slate-100">
+                {payments.map((payment) => (
+                  <tr key={payment.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-3 font-medium text-slate-800">{payment.childName || payment.description || '-'}</td>
                     <td className="p-3">
-                      <span className="font-medium text-gray-800">
-                        {payment.childName || 'N/A'}
-                      </span>
-                    </td>
-                    <td className="p-3">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-bold ${
-                          payment.type === 'package'
-                            ? 'bg-purple-100 text-purple-800'
-                            : 'bg-blue-100 text-blue-800'
-                        }`}
-                      >
+                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${payment.type === 'package' ? 'bg-violet-100 text-violet-700' : 'bg-blue-100 text-blue-700'}`}>
                         {getTypeLabel(payment)}
                       </span>
                     </td>
-                    <td className="p-3">
-                      <span className="text-gray-700">
-                        {getPaymentMethodLabel(payment.method)}
-                      </span>
-                    </td>
-                    <td className="p-3 text-right">
-                      <span className="font-bold text-green-600 text-lg">
-                        R$ {payment.amount.toFixed(2)}
-                      </span>
-                    </td>
+                    <td className="p-3 text-slate-600">{getPaymentMethodLabel(payment.method)}</td>
+                    <td className="p-3 text-slate-500">{new Date(payment.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</td>
+                    <td className="p-3 text-right font-bold text-emerald-600">R$ {payment.amount.toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
-                <tr className="bg-gray-800 text-white">
-                  <td colSpan={3} className="p-3 rounded-bl-lg font-bold">
-                    TOTAL DO DIA
-                  </td>
-                  <td className="p-3 text-right rounded-br-lg font-bold text-2xl">
-                    R$ {totalGeneral.toFixed(2)}
-                  </td>
+                <tr className="bg-slate-800 text-white">
+                  <td colSpan={4} className="p-3 font-bold text-sm">TOTAL DO DIA</td>
+                  <td className="p-3 text-right font-bold text-lg">R$ {totalGeneral.toFixed(2)}</td>
                 </tr>
               </tfoot>
             </table>

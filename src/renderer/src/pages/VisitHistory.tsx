@@ -110,160 +110,87 @@ const VisitHistory: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">📋 Histórico de Visitas</h1>
-          <p className="text-gray-500">Visualize visitas e saldo de pacotes</p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-slate-800">Histórico de Visitas</h1>
+        <p className="text-sm text-slate-500">Visualize visitas e saldo de pacotes</p>
       </div>
 
-      {/* Busca e Seletor de Criança */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <label className="block text-sm font-bold text-gray-700 mb-3">
-          � Buscar e Selecionar Criança
-        </label>
-        
-        {/* Campo de Busca */}
-        <input
-          type="text"
-          placeholder="Digite o nome da criança ou responsável..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 text-lg mb-3"
-        />
-        
-        {/* Seletor */}
-        <select
-          value={selectedChildId}
-          onChange={(e) => setSelectedChildId(e.target.value)}
-          className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 text-lg"
-        >
-          <option value="">Selecione uma criança...</option>
-          {filteredChildren.map((child) => {
-            const customer = customers.find(c => c.id === child.customerId);
-            const customerName = customer?.name || 'Responsável desconhecido';
-            return (
-              <option key={child.id} value={child.id}>
-                {child.name} ({child.age} anos) - Responsável: {customerName}
-              </option>
-            );
-          })}
-        </select>
-        
+      {/* Search + Select */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <input
+            type="text"
+            placeholder="Buscar criança ou responsável..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+          />
+          <select
+            value={selectedChildId}
+            onChange={(e) => setSelectedChildId(e.target.value)}
+            className="px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+          >
+            <option value="">Selecione uma criança...</option>
+            {filteredChildren.map((child) => {
+              const customer = customers.find((c: any) => c.id === child.customerId);
+              return (
+                <option key={child.id} value={child.id}>
+                  {child.name} ({child.age}a) - {customer?.name || '-'}
+                </option>
+              );
+            })}
+          </select>
+        </div>
         {searchTerm && filteredChildren.length === 0 && (
-          <p className="text-sm text-gray-500 mt-2">
-            Nenhuma criança encontrada com "{searchTerm}"
-          </p>
-        )}
-        
-        {searchTerm && filteredChildren.length > 0 && (
-          <p className="text-sm text-green-600 mt-2">
-            {filteredChildren.length} criança(s) encontrada(s)
-          </p>
+          <p className="text-xs text-slate-400 mt-2">Nenhuma criança encontrada</p>
         )}
       </div>
 
       {selectedChildId && (
         <>
-          {/* Cards de Resumo */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl shadow-lg p-6">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-blue-100 text-sm font-medium">Total de Visitas</p>
-                <span className="text-3xl">📊</span>
-              </div>
-              <p className="text-4xl font-bold">{totalVisits}</p>
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <p className="text-xs text-slate-500 font-medium">Total Visitas</p>
+              <p className="text-2xl font-bold text-slate-800 mt-1">{totalVisits}</p>
             </div>
-            <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl shadow-lg p-6">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-green-100 text-sm font-medium">Tempo Total</p>
-                <span className="text-3xl">⏱️</span>
-              </div>
-              <p className="text-4xl font-bold">{formatDuration(totalMinutes)}</p>
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <p className="text-xs text-slate-500 font-medium">Tempo Total</p>
+              <p className="text-2xl font-bold text-slate-800 mt-1">{formatDuration(totalMinutes)}</p>
             </div>
-            <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl shadow-lg p-6">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-purple-100 text-sm font-medium">Pacotes Ativos</p>
-                <span className="text-3xl">📦</span>
-              </div>
-              <p className="text-4xl font-bold">{packages.length}</p>
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <p className="text-xs text-slate-500 font-medium">Pacotes Ativos</p>
+              <p className="text-2xl font-bold text-slate-800 mt-1">{packages.length}</p>
             </div>
           </div>
 
-          {/* Saldo dos Pacotes */}
+          {/* Packages */}
           {packages.length > 0 && (
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h2 className="text-2xl font-bold text-gray-800 mb-4">📦 Saldo dos Pacotes</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white rounded-xl border border-slate-200 p-5">
+              <h2 className="text-sm font-bold text-slate-600 uppercase tracking-wider mb-3">Saldo dos Pacotes</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {packages.map((pkg) => {
                   const remaining = Math.max(pkg.hours - pkg.usedHours, 0);
                   const progress = (pkg.usedHours / pkg.hours) * 100;
                   const isExpired = pkg.expiresAt && new Date(pkg.expiresAt) < new Date();
-                  
                   return (
-                    <div
-                      key={pkg.id}
-                      className={`border-2 rounded-xl p-5 ${
-                        pkg.active && !isExpired ? 'border-purple-200 bg-purple-50' : 'border-gray-200 bg-gray-50'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start mb-3">
+                    <div key={pkg.id} className={`border rounded-lg p-4 ${pkg.active && !isExpired ? 'border-violet-200' : 'border-slate-200 opacity-60'}`}>
+                      <div className="flex justify-between items-start mb-2">
                         <div>
-                          <h3 className="font-bold text-lg text-gray-800">{pkg.type}</h3>
-                          <p className="text-sm text-gray-500">
-                            Comprado em {format(new Date(pkg.createdAt), 'dd/MM/yyyy', { locale: ptBR })}
-                          </p>
+                          <p className="font-semibold text-sm text-slate-800">{pkg.type}</p>
+                          <p className="text-xs text-slate-500">{format(new Date(pkg.createdAt), 'dd/MM/yyyy', { locale: ptBR })}</p>
                         </div>
-                        <span
-                          className={`px-3 py-1 text-xs font-bold rounded-full ${
-                            pkg.active && !isExpired
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}
-                        >
-                          {isExpired ? '⚠️ Expirado' : pkg.active ? '✓ Ativo' : '✗ Inativo'}
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${pkg.active && !isExpired ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                          {isExpired ? 'Expirado' : pkg.active ? 'Ativo' : 'Inativo'}
                         </span>
                       </div>
-
-                      {/* Barra de Progresso */}
-                      <div className="mb-3">
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="text-gray-600">Utilizado</span>
-                          <span className="font-bold text-gray-800">
-                            {pkg.usedHours.toFixed(1)}h / {pkg.hours}h
-                          </span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
-                          <div
-                            className={`h-4 rounded-full transition-all ${
-                              progress >= 90 ? 'bg-red-500' : progress >= 70 ? 'bg-yellow-500' : 'bg-purple-500'
-                            }`}
-                            style={{ width: `${Math.min(progress, 100)}%` }}
-                          />
-                        </div>
+                      <div className="flex justify-between text-[11px] text-slate-500 mb-1">
+                        <span>{pkg.usedHours.toFixed(1)}h / {pkg.hours}h</span>
+                        <span className="font-semibold">{remaining.toFixed(1)}h restam</span>
                       </div>
-
-                      {/* Saldo Restante */}
-                      <div className="bg-white rounded-lg p-3 border border-purple-200">
-                        <div className="flex items-center justify-between">
-                          <span className="text-gray-700 font-medium">Saldo Restante:</span>
-                          <span className={`text-2xl font-bold ${remaining > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {remaining.toFixed(1)}h
-                          </span>
-                        </div>
-                        {remaining > 0 && (
-                          <p className="text-sm text-gray-500 mt-1">
-                            ≈ {Math.floor(remaining)} visitas de 1h restantes
-                          </p>
-                        )}
+                      <div className="w-full bg-slate-200 rounded-full h-1.5">
+                        <div className={`h-1.5 rounded-full ${progress >= 90 ? 'bg-red-500' : progress >= 70 ? 'bg-amber-500' : 'bg-violet-500'}`} style={{ width: `${Math.min(progress, 100)}%` }} />
                       </div>
-
-                      {pkg.expiresAt && (
-                        <p className={`text-sm mt-2 ${isExpired ? 'text-red-600' : 'text-blue-600'}`}>
-                          {isExpired ? '⚠️ Expirou em: ' : '📅 Expira em: '}
-                          {format(new Date(pkg.expiresAt), 'dd/MM/yyyy', { locale: ptBR })}
-                        </p>
-                      )}
                     </div>
                   );
                 })}
@@ -271,86 +198,51 @@ const VisitHistory: React.FC = () => {
             </div>
           )}
 
-          {/* Lista de Visitas */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-gray-800">📜 Histórico de Visitas</h2>
-              <button
-                onClick={loadChildData}
-                disabled={loading}
-                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
-              >
+          {/* Visits List */}
+          <div className="bg-white rounded-xl border border-slate-200">
+            <div className="flex justify-between items-center p-4 border-b border-slate-100">
+              <h2 className="text-sm font-bold text-slate-600 uppercase tracking-wider">Visitas</h2>
+              <button onClick={loadChildData} disabled={loading} className="text-sm text-violet-600 hover:text-violet-700 font-medium disabled:opacity-50">
                 {loading ? '⏳' : '🔄'} Atualizar
               </button>
             </div>
 
             {loading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="animate-pulse p-4 border border-gray-200 rounded-lg">
-                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                    <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                  </div>
-                ))}
+              <div className="p-5 space-y-3">
+                {[1, 2, 3].map(i => <div key={i} className="animate-pulse h-12 bg-slate-100 rounded-lg" />)}
               </div>
             ) : visits.length === 0 ? (
-              <div className="text-center py-16 text-gray-400">
-                <p className="text-6xl mb-4">📋</p>
-                <p className="text-xl font-medium">Nenhuma visita encontrada</p>
-                <p className="text-sm mt-2">Esta criança ainda não tem visitas registradas</p>
+              <div className="text-center py-12 text-slate-400">
+                <p className="text-4xl mb-2">📋</p>
+                <p className="font-medium">Nenhuma visita encontrada</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="divide-y divide-slate-100">
                 {visits.map((visit) => {
                   const checkInDate = visit.checkIn instanceof Date ? visit.checkIn : new Date(visit.checkIn);
-                  const checkOutDate = visit.checkOut 
-                    ? (visit.checkOut instanceof Date ? visit.checkOut : new Date(visit.checkOut))
-                    : null;
+                  const checkOutDate = visit.checkOut ? (visit.checkOut instanceof Date ? visit.checkOut : new Date(visit.checkOut)) : null;
                   const duration = checkOutDate ? calculateDuration(checkInDate, checkOutDate) : null;
                   const isActive = !visit.checkOut;
-
                   return (
-                    <div
-                      key={visit.id}
-                      className={`border-2 rounded-xl p-4 transition-all ${
-                        isActive 
-                          ? 'border-green-300 bg-green-50' 
-                          : 'border-gray-200 hover:border-blue-300'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <span className="text-2xl">{isActive ? '🟢' : '✅'}</span>
-                            <div>
-                              <p className="font-bold text-lg text-gray-800">
-                                {format(checkInDate, "EEEE, dd 'de' MMMM", { locale: ptBR })}
-                              </p>
-                              <p className="text-sm text-gray-500">
-                                Check-in: {format(checkInDate, 'HH:mm')}
-                                {checkOutDate && ` → Check-out: ${format(checkOutDate, 'HH:mm')}`}
-                              </p>
-                            </div>
+                    <div key={visit.id} className={`flex items-center justify-between p-4 ${isActive ? 'bg-emerald-50' : 'hover:bg-slate-50'} transition-colors`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isActive ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                        <div>
+                          <p className="font-medium text-sm text-slate-800">{format(checkInDate, "EEEE, dd/MM", { locale: ptBR })}</p>
+                          <p className="text-xs text-slate-500">
+                            {format(checkInDate, 'HH:mm')}{checkOutDate ? ` → ${format(checkOutDate, 'HH:mm')}` : ''}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        {isActive ? (
+                          <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">Em andamento</span>
+                        ) : (
+                          <div>
+                            <p className="font-bold text-sm text-slate-800">{duration ? formatDuration(duration) : '-'}</p>
+                            {visit.value && visit.value > 0 && <p className="text-xs text-emerald-600 font-medium">R$ {visit.value.toFixed(2)}</p>}
                           </div>
-                        </div>
-                        <div className="text-right">
-                          {isActive ? (
-                            <span className="px-4 py-2 bg-green-500 text-white rounded-full font-bold text-sm">
-                              🟢 Em andamento
-                            </span>
-                          ) : (
-                            <div>
-                              <p className="text-2xl font-bold text-blue-600">
-                                {duration ? formatDuration(duration) : '-'}
-                              </p>
-                              {visit.value && visit.value > 0 && (
-                                <p className="text-sm text-green-600 font-medium">
-                                  R$ {visit.value.toFixed(2)}
-                                </p>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                        )}
                       </div>
                     </div>
                   );

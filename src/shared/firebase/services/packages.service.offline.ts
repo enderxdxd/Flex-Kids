@@ -204,8 +204,11 @@ export const packagesServiceOffline = {
           usedHours: data.usedHours || 0,
           price: data.price,
           expiresAt: data.expiresAt?.toDate(),
+          expiryDays: data.expiryDays,
           active: data.active,
           sharedAcrossUnits: data.sharedAcrossUnits ?? true,
+          unitId: data.unitId || '',
+          paymentId: data.paymentId,
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
         };

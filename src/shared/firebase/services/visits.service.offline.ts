@@ -170,7 +170,7 @@ export const visitsServiceOffline = {
     }
   },
 
-  async fetchActiveVisitsFromFirebase(unitId?: string, limit?: number): Promise<Visit[]> {
+  async fetchActiveVisitsFromFirebase(_unitId?: string, _limit?: number): Promise<Visit[]> {
     try {
       const db = getDb();
       const q = query(

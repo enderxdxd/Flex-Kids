@@ -204,4 +204,26 @@ export const settingsServiceOffline = {
       throw error;
     }
   },
+
+  async getPackagePlans(): Promise<{ name: string; hours: number; price: number; expiryDays: number }[]> {
+    try {
+      const plansStr = await this.getSetting('packagePlans');
+      if (!plansStr) {
+        return [
+          { name: 'Pacote 5h', hours: 5, price: 150, expiryDays: 30 },
+          { name: 'Pacote 10h', hours: 10, price: 300, expiryDays: 30 },
+          { name: 'Pacote 20h', hours: 20, price: 550, expiryDays: 60 },
+          { name: 'Pacote 30h', hours: 30, price: 800, expiryDays: 90 },
+        ];
+      }
+      return JSON.parse(plansStr);
+    } catch (error) {
+      console.error('Error getting package plans:', error);
+      return [];
+    }
+  },
+
+  async savePackagePlans(plans: { name: string; hours: number; price: number; expiryDays: number }[]): Promise<void> {
+    await this.setSetting('packagePlans', JSON.stringify(plans));
+  },
 };
