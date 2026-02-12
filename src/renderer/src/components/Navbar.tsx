@@ -15,15 +15,17 @@ const navItems = [
   { href: '#/payments', icon: '💳', label: 'Pagamentos' },
   { href: '#/history', icon: '📋', label: 'Histórico' },
   { href: '#/cash-report', icon: '📊', label: 'Caixa' },
+  { href: '#/cancellations', icon: '🚫', label: 'Cancelamentos' },
   { href: '#/settings', icon: '⚙️', label: 'Configurações' },
 ];
 
 const Navbar: React.FC<NavbarProps> = ({ onRefresh, loading }) => {
-  const { currentUnit, units, setCurrentUnit } = useUnit();
-  const { isAuthenticated, logout } = useAuth();
+  const { currentUnit, isUnitLocked, getCurrentUnitInfo } = useUnit();
+  const { logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
 
   const currentPath = window.location.hash;
+  const unitInfo = getCurrentUnitInfo();
 
   return (
     <aside className={`no-print fixed left-0 top-0 h-screen bg-slate-900 text-white flex flex-col transition-all duration-300 z-40 ${collapsed ? 'w-[68px]' : 'w-[240px]'}`}>
@@ -40,22 +42,20 @@ const Navbar: React.FC<NavbarProps> = ({ onRefresh, loading }) => {
         )}
       </div>
 
-      {/* Unit Selector */}
+      {/* Unit Display (locked) */}
       <div className="px-3 py-3 border-b border-slate-700/50">
         {collapsed ? (
-          <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center text-xs font-bold text-violet-400 mx-auto">
-            {units.find(u => u.id === currentUnit)?.name?.charAt(0) || 'U'}
+          <div className="w-10 h-10 bg-violet-600/20 rounded-lg flex items-center justify-center text-xs font-bold text-violet-400 mx-auto">
+            {unitInfo?.name?.charAt(0) || 'U'}
           </div>
         ) : (
-          <select
-            value={currentUnit}
-            onChange={(e) => setCurrentUnit(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-700 text-sm font-medium text-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500 cursor-pointer"
-          >
-            {units.map(unit => (
-              <option key={unit.id} value={unit.id}>{unit.name}</option>
-            ))}
-          </select>
+          <div className="bg-violet-600/15 border border-violet-500/30 rounded-lg px-3 py-2.5 flex items-center gap-2">
+            <span className="text-violet-400 text-sm">🏢</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-violet-300 truncate">{unitInfo?.name || currentUnit}</p>
+              {isUnitLocked && <p className="text-[10px] text-violet-400/70">Unidade vinculada</p>}
+            </div>
+          </div>
         )}
       </div>
 
@@ -100,16 +100,14 @@ const Navbar: React.FC<NavbarProps> = ({ onRefresh, loading }) => {
           </button>
         )}
 
-        {isAuthenticated && (
-          <button
-            onClick={logout}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-400 hover:bg-red-500/10 transition-all ${collapsed ? 'justify-center' : ''}`}
-            title="Sair da área administrativa"
-          >
-            <span className="text-lg">🔓</span>
-            {!collapsed && <span>Sair Admin</span>}
-          </button>
-        )}
+        <button
+          onClick={logout}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-400 hover:bg-red-500/10 transition-all ${collapsed ? 'justify-center' : ''}`}
+          title="Sair do sistema"
+        >
+          <span className="text-lg">�</span>
+          {!collapsed && <span>Sair</span>}
+        </button>
 
         <button
           onClick={() => setCollapsed(!collapsed)}

@@ -159,7 +159,7 @@ class SyncService {
     const itemWithId = { ...data, id, synced: false };
 
     if (operation === 'create') {
-      await localDb.add(collection as any, itemWithId);
+      await localDb.upsert(collection as any, itemWithId);
     } else {
       await localDb.update(collection as any, id, itemWithId);
     }

@@ -2,19 +2,26 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  login: (username: string, password: string) => boolean;
+  authenticatedUnit: string | null;
+  login: (unitId: string, password: string) => boolean;
+  loginAdmin: (password: string) => boolean;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const ADMIN_CREDENTIALS = {
-  username: 'admin',
-  password: 'pactoflex123',
+// Senha por unidade
+const UNIT_PASSWORDS: Record<string, string> = {
+  alphaville: 'alpha2024',
+  marista: 'marista2024',
+  palmas: 'palmas2024',
+  buenavista: 'buena2024',
 };
 
+const ADMIN_PASSWORD = 'pactoflex123';
+
 const AUTH_STORAGE_KEY = 'flex-kids-auth';
-const AUTH_EXPIRY_HOURS = 8; // Sessão expira em 8 horas
+const AUTH_EXPIRY_HOURS = 8;
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -24,8 +31,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const { timestamp } = JSON.parse(stored);
         const now = new Date().getTime();
         const expiryTime = AUTH_EXPIRY_HOURS * 60 * 60 * 1000;
-        
-        // Verifica se a sessão ainda é válida
         if (now - timestamp < expiryTime) {
           return true;
         } else {
@@ -38,12 +43,46 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return false;
   });
 
-  const login = (username: string, password: string): boolean => {
-    if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
+  const [authenticatedUnit, setAuthenticatedUnit] = useState<string | null>(() => {
+    try {
+      const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+      if (stored) {
+        const { unitId, timestamp } = JSON.parse(stored);
+        const now = new Date().getTime();
+        const expiryTime = AUTH_EXPIRY_HOURS * 60 * 60 * 1000;
+        if (now - timestamp < expiryTime) {
+          return unitId || null;
+        }
+      }
+    } catch (error) {
+      console.error('Error loading auth unit:', error);
+    }
+    return null;
+  });
+
+  const login = (unitId: string, password: string): boolean => {
+    const unitPassword = UNIT_PASSWORDS[unitId];
+    if (unitPassword && password === unitPassword) {
       setIsAuthenticated(true);
+      setAuthenticatedUnit(unitId);
       try {
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
           timestamp: new Date().getTime(),
+          unitId,
+        }));
+      } catch (error) {
+        console.error('Error saving auth state:', error);
+      }
+      return true;
+    }
+    // Admin password works for any unit
+    if (password === ADMIN_PASSWORD) {
+      setIsAuthenticated(true);
+      setAuthenticatedUnit(unitId);
+      try {
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+          timestamp: new Date().getTime(),
+          unitId,
         }));
       } catch (error) {
         console.error('Error saving auth state:', error);
@@ -53,8 +92,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return false;
   };
 
+  const loginAdmin = (password: string): boolean => {
+    return password === ADMIN_PASSWORD;
+  };
+
   const logout = () => {
     setIsAuthenticated(false);
+    setAuthenticatedUnit(null);
     try {
       localStorage.removeItem(AUTH_STORAGE_KEY);
     } catch (error) {
@@ -63,7 +107,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, authenticatedUnit, login, loginAdmin, logout }}>
       {children}
     </AuthContext.Provider>
   );

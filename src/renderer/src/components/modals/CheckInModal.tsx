@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { Customer, Child } from '../../../../shared/types';
 import { customersService } from '../../../../shared/firebase/services/customers.service';
@@ -13,6 +13,7 @@ interface CheckInModalProps {
 
 const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const { currentUnit } = useUnit();
+  const processingRef = useRef(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [children, setChildren] = useState<Child[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<string>('');
@@ -54,6 +55,8 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
       toast.error('Selecione uma criança');
       return;
     }
+    if (processingRef.current) return;
+    processingRef.current = true;
 
     try {
       setLoading(true);
@@ -63,6 +66,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
       if (hasActiveCheckIn) {
         toast.error('❌ Esta criança já possui um check-in ativo!');
         setLoading(false);
+        processingRef.current = false;
         return;
       }
 
@@ -77,6 +81,45 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
     } catch (error) {
       console.error('Error during check-in:', error);
       toast.error('Erro ao realizar check-in');
+      processingRef.current = false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCheckInAll = async () => {
+    if (customerChildren.length === 0) return;
+    if (processingRef.current) return;
+    processingRef.current = true;
+
+    try {
+      setLoading(true);
+      let success = 0;
+      let skipped = 0;
+
+      for (const child of customerChildren) {
+        const hasActive = await visitsServiceOffline.hasActiveVisit(child.id, currentUnit);
+        if (hasActive) {
+          skipped++;
+          continue;
+        }
+        await visitsServiceOffline.checkIn({ childId: child.id, unitId: currentUnit });
+        success++;
+      }
+
+      if (success > 0) {
+        toast.success(`✅ Check-in realizado para ${success} criança(s)!`);
+      }
+      if (skipped > 0) {
+        toast.info(`${skipped} criança(s) já tinham check-in ativo`);
+      }
+
+      onSuccess();
+      handleClose();
+    } catch (error) {
+      console.error('Error during check-in all:', error);
+      toast.error('Erro ao realizar check-in');
+      processingRef.current = false;
     } finally {
       setLoading(false);
     }
@@ -86,6 +129,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
     setSelectedCustomer('');
     setSelectedChild('');
     setSearchTerm('');
+    processingRef.current = false;
     onClose();
   };
 
@@ -127,7 +171,15 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
           {/* Children */}
           {selectedCustomer && (
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Criança</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold text-slate-600">Criança</label>
+                {customerChildren.length > 1 && (
+                  <button type="button" onClick={handleCheckInAll} disabled={loading}
+                    className="text-xs font-semibold text-violet-600 hover:text-violet-700 disabled:opacity-50 transition-colors">
+                    Check-in em Todos ({customerChildren.length})
+                  </button>
+                )}
+              </div>
               <div className="space-y-1">
                 {customerChildren.length === 0 ? (
                   <p className="text-center text-slate-400 py-3 text-xs bg-slate-50 rounded-lg">Sem crianças cadastradas</p>

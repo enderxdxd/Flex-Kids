@@ -6,8 +6,10 @@ import { Visit, Child, Package } from '../../../shared/types';
 import { visitsServiceOffline } from '../../../shared/firebase/services/visits.service.offline';
 import { customersServiceOffline } from '../../../shared/firebase/services/customers.service.offline';
 import { packagesServiceOffline } from '../../../shared/firebase/services/packages.service.offline';
+import { useUnit } from '../contexts/UnitContext';
 
 const VisitHistory: React.FC = () => {
+  const { currentUnit } = useUnit();
   const [children, setChildren] = useState<Child[]>([]);
   const [filteredChildren, setFilteredChildren] = useState<Child[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -66,7 +68,7 @@ const VisitHistory: React.FC = () => {
       // Buscar visitas da criança
       const allVisits = await visitsServiceOffline.getAllVisits();
       const childVisits = allVisits
-        .filter(v => v.childId === selectedChildId)
+        .filter(v => v.childId === selectedChildId && v.unitId === currentUnit)
         .sort((a, b) => {
           const aTime = a.checkIn instanceof Date ? a.checkIn.getTime() : new Date(a.checkIn).getTime();
           const bTime = b.checkIn instanceof Date ? b.checkIn.getTime() : new Date(b.checkIn).getTime();
@@ -223,14 +225,22 @@ const VisitHistory: React.FC = () => {
                   const checkOutDate = visit.checkOut ? (visit.checkOut instanceof Date ? visit.checkOut : new Date(visit.checkOut)) : null;
                   const duration = checkOutDate ? calculateDuration(checkInDate, checkOutDate) : null;
                   const isActive = !visit.checkOut;
+                  const isCancelled = (visit as any).paymentMethod === 'cancelled';
+                  const usedPackage = !!visit.packageId;
+                  const paymentMethodLabel = isCancelled ? 'Cancelado' : usedPackage ? 'Pacote' : (visit as any).paymentMethod === 'pix' ? 'PIX' : (visit as any).paymentMethod === 'credit' ? 'Crédito' : (visit as any).paymentMethod === 'debit' ? 'Débito' : visit.value && visit.value > 0 ? 'Pagamento' : '';
                   return (
-                    <div key={visit.id} className={`flex items-center justify-between p-4 ${isActive ? 'bg-emerald-50' : 'hover:bg-slate-50'} transition-colors`}>
+                    <div key={visit.id} className={`flex items-center justify-between p-4 ${isActive ? 'bg-emerald-50' : isCancelled ? 'bg-red-50/50' : 'hover:bg-slate-50'} transition-colors`}>
                       <div className="flex items-center gap-3">
-                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isActive ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isActive ? 'bg-emerald-500' : isCancelled ? 'bg-red-400' : 'bg-slate-300'}`} />
                         <div>
-                          <p className="font-medium text-sm text-slate-800">{format(checkInDate, "EEEE, dd/MM", { locale: ptBR })}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-sm text-slate-800">{format(checkInDate, "EEEE, dd/MM", { locale: ptBR })}</p>
+                            {isCancelled && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600">Cancelado</span>}
+                            {usedPackage && !isCancelled && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-600">Pacote</span>}
+                          </div>
                           <p className="text-xs text-slate-500">
                             {format(checkInDate, 'HH:mm')}{checkOutDate ? ` → ${format(checkOutDate, 'HH:mm')}` : ''}
+                            {!isActive && !isCancelled && paymentMethodLabel ? ` · ${paymentMethodLabel}` : ''}
                           </p>
                         </div>
                       </div>
@@ -239,8 +249,9 @@ const VisitHistory: React.FC = () => {
                           <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">Em andamento</span>
                         ) : (
                           <div>
-                            <p className="font-bold text-sm text-slate-800">{duration ? formatDuration(duration) : '-'}</p>
-                            {visit.value && visit.value > 0 && <p className="text-xs text-emerald-600 font-medium">R$ {visit.value.toFixed(2)}</p>}
+                            <p className={`font-bold text-sm ${isCancelled ? 'text-red-500 line-through' : 'text-slate-800'}`}>{duration !== null ? formatDuration(duration) : '-'}</p>
+                            {!isCancelled && visit.value && visit.value > 0 && <p className="text-xs text-emerald-600 font-medium">R$ {visit.value.toFixed(2)}</p>}
+                            {usedPackage && !isCancelled && <p className="text-[10px] text-violet-500 font-medium">via pacote</p>}
                           </div>
                         )}
                       </div>

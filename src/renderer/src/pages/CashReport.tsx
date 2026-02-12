@@ -5,8 +5,10 @@ import { ptBR } from 'date-fns/locale';
 import { Payment } from '../../../shared/types';
 import { paymentsServiceOffline } from '../../../shared/firebase/services/payments.service.offline';
 import { settingsServiceOffline } from '../../../shared/firebase/services/settings.service.offline';
+import { useUnit } from '../contexts/UnitContext';
 
 const CashReport: React.FC = () => {
+  const { currentUnit } = useUnit();
   const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
@@ -14,7 +16,7 @@ const CashReport: React.FC = () => {
 
   useEffect(() => {
     loadPayments();
-  }, [selectedDate]);
+  }, [selectedDate, currentUnit]);
 
   const loadPayments = async () => {
     try {
@@ -36,7 +38,9 @@ const CashReport: React.FC = () => {
 
       const dayPayments = allPayments.filter(p => {
         const paymentDate = p.createdAt instanceof Date ? p.createdAt : new Date(p.createdAt);
-        return paymentDate >= startOfDay && paymentDate <= endOfDay;
+        const matchesDate = paymentDate >= startOfDay && paymentDate <= endOfDay;
+        const matchesUnit = !p.unitId || p.unitId === currentUnit;
+        return matchesDate && matchesUnit;
       });
 
       console.log('[CASH REPORT] Pagamentos do dia (antes do enriquecimento):', dayPayments.length);

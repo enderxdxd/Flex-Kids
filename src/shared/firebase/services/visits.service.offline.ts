@@ -62,20 +62,26 @@ export const visitsServiceOffline = {
   },
 
   async checkOut(data: CheckOutData): Promise<Visit> {
-    const updateData = {
+    const updateData: any = {
       checkOut: new Date(),
       updatedAt: new Date(),
     };
+    if (data.duration !== undefined) updateData.duration = data.duration;
+    if (data.value !== undefined) updateData.value = data.value;
+    if (data.paymentMethod) updateData.paymentMethod = data.paymentMethod;
 
     if (syncService.isOnline()) {
       try {
         const db = getDb();
         const visitRef = doc(db, COLLECTION, data.visitId);
         
-        const firestoreData = {
+        const firestoreData: any = {
           checkOut: Timestamp.now(),
           updatedAt: Timestamp.now(),
         };
+        if (data.duration !== undefined) firestoreData.duration = data.duration;
+        if (data.value !== undefined) firestoreData.value = data.value;
+        if (data.paymentMethod) firestoreData.paymentMethod = data.paymentMethod;
 
         await updateDoc(visitRef, firestoreData);
         

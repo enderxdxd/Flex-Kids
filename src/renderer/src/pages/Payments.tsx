@@ -3,8 +3,10 @@ import { toast } from 'react-toastify';
 import { Payment } from '../../../shared/types';
 import { format } from 'date-fns';
 import { paymentsServiceOffline } from '../../../shared/firebase/services/payments.service.offline';
+import { useUnit } from '../contexts/UnitContext';
 
 const Payments: React.FC = () => {
+  const { currentUnit } = useUnit();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
   const [filterType, setFilterType] = useState<'today' | 'month' | 'all'>('today');
@@ -13,7 +15,7 @@ const Payments: React.FC = () => {
 
   useEffect(() => {
     loadPayments();
-  }, [filterType, selectedMonth]);
+  }, [filterType, selectedMonth, currentUnit]);
 
   const loadPayments = async () => {
     try {
@@ -28,7 +30,8 @@ const Payments: React.FC = () => {
         allPayments = await paymentsServiceOffline.getAllPayments();
       }
       
-      setPayments(allPayments);
+      const unitPayments = allPayments.filter(p => !p.unitId || p.unitId === currentUnit);
+      setPayments(unitPayments);
     } catch (error) {
       console.error('Error loading payments:', error);
       toast.error('Erro ao carregar pagamentos');

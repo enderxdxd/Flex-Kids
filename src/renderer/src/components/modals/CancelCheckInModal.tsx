@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Visit } from '../../../../shared/types';
 import { visitsServiceOffline } from '../../../../shared/firebase/services/visits.service.offline';
 import { toast } from 'react-toastify';
@@ -20,117 +20,135 @@ const CancelCheckInModal: React.FC<CancelCheckInModalProps> = ({
   visit,
 }) => {
   const [password, setPassword] = useState('');
+  const [minutesToDeduct, setMinutesToDeduct] = useState('');
   const [loading, setLoading] = useState(false);
+  const processingRef = useRef(false);
 
   if (!isOpen) return null;
 
   const checkInTime = visit.checkIn instanceof Date ? visit.checkIn : new Date(visit.checkIn);
   const timeSinceCheckIn = Date.now() - checkInTime.getTime();
   const requiresPassword = timeSinceCheckIn > CANCEL_TIME_LIMIT_MS;
+  const minutesSinceCheckIn = Math.floor(timeSinceCheckIn / 60000);
 
   const handleCancel = async () => {
-    try {
-      // Se passou de 5 minutos, exige senha
-      if (requiresPassword) {
-        if (!password) {
-          toast.error('Digite a senha de administrador');
-          return;
-        }
-        if (password !== ADMIN_PASSWORD) {
-          toast.error('Senha incorreta');
-          setPassword('');
-          return;
-        }
+    if (processingRef.current) return;
+
+    if (requiresPassword) {
+      if (!password) {
+        toast.error('Digite a senha de administrador');
+        return;
       }
+      if (password !== ADMIN_PASSWORD) {
+        toast.error('Senha incorreta');
+        setPassword('');
+        return;
+      }
+    }
 
-      setLoading(true);
+    const deductMin = minutesToDeduct ? parseInt(minutesToDeduct) : 0;
+    if (deductMin < 0) {
+      toast.error('Minutos não pode ser negativo');
+      return;
+    }
 
-      // Marcar visita como cancelada (fazer checkout imediato com 0 minutos)
+    processingRef.current = true;
+    setLoading(true);
+
+    try {
       await visitsServiceOffline.checkOut({
         visitId: visit.id,
-        duration: 0,
+        duration: deductMin,
         value: 0,
         paymentMethod: 'cancelled',
       });
 
-      toast.success('✅ Check-in cancelado com sucesso');
-      onSuccess();
+      toast.success(`Check-in cancelado${deductMin > 0 ? ` (${deductMin} min registrados)` : ''}`);
       onClose();
+      onSuccess();
     } catch (error) {
       console.error('Error canceling check-in:', error);
       toast.error('Erro ao cancelar check-in');
+      processingRef.current = false;
     } finally {
       setLoading(false);
     }
   };
 
-  const minutesSinceCheckIn = Math.floor(timeSinceCheckIn / 60000);
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full overflow-hidden">
         {/* Header */}
-        <div className="text-center mb-6">
-          <div className="bg-red-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-4xl">⚠️</span>
-          </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Cancelar Check-In</h2>
-          <p className="text-gray-600">
-            Tem certeza que deseja cancelar o check-in de <span className="font-bold">{visit.child?.name || 'Criança'}</span>?
-          </p>
+        <div className="flex items-center justify-between p-5 border-b border-slate-200">
+          <h2 className="text-lg font-bold text-slate-800">Cancelar Check-In</h2>
+          <button onClick={onClose} disabled={loading} className="p-1 rounded-md hover:bg-slate-100 text-slate-400">✕</button>
         </div>
 
-        {/* Info */}
-        <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 mb-4">
-          <p className="text-sm text-blue-800">
-            <span className="font-bold">⏱️ Tempo desde check-in:</span> {minutesSinceCheckIn} minuto(s)
-          </p>
-          {requiresPassword && (
-            <p className="text-sm text-red-700 mt-2">
-              <span className="font-bold">🔒 Atenção:</span> Passou de 5 minutos. É necessária senha de administrador.
+        <div className="p-5 space-y-4">
+          {/* Info */}
+          <div className="text-center">
+            <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+              <span className="text-2xl">⚠️</span>
+            </div>
+            <p className="text-sm text-slate-600">
+              Cancelar check-in de <span className="font-bold text-slate-800">{visit.child?.name || 'Criança'}</span>?
             </p>
-          )}
-        </div>
-
-        {/* Campo de Senha (se necessário) */}
-        {requiresPassword && (
-          <div className="mb-4">
-            <label className="block text-sm font-bold text-gray-700 mb-2">
-              🔑 Senha de Administrador
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Digite a senha"
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-red-500"
-              autoFocus
-            />
           </div>
-        )}
 
-        {/* Aviso */}
-        <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4 mb-6">
-          <p className="text-sm text-yellow-800">
-            <span className="font-bold">⚠️ Atenção:</span> Esta ação não pode ser desfeita. O check-in será removido permanentemente.
-          </p>
+          {/* Time info */}
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-500">Tempo desde check-in</span>
+              <span className="font-semibold text-slate-800">{minutesSinceCheckIn} min</span>
+            </div>
+            {requiresPassword && (
+              <p className="text-xs text-amber-600 font-medium mt-2">Passou de 5 min — senha de admin necessária</p>
+            )}
+          </div>
+
+          {/* Minutes to deduct */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Minutos a registrar (opcional)</label>
+            <input
+              type="number"
+              value={minutesToDeduct}
+              onChange={(e) => setMinutesToDeduct(e.target.value)}
+              placeholder="0 (cancelamento total)"
+              min="0"
+              max={minutesSinceCheckIn}
+              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+            />
+            <p className="text-[11px] text-slate-400 mt-1">Ex: 13 min se a criança ficou 13 min antes de cancelar</p>
+          </div>
+
+          {/* Password */}
+          {requiresPassword && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Senha Admin</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Senha de administrador..."
+                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                autoFocus
+              />
+            </div>
+          )}
+
+          {/* Warning */}
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            <p className="text-xs text-amber-700">Esta ação não pode ser desfeita.</p>
+          </div>
         </div>
 
-        {/* Botões */}
-        <div className="flex gap-3">
-          <button
-            onClick={onClose}
-            disabled={loading}
-            className="flex-1 bg-gray-500 text-white py-3 rounded-xl font-bold hover:bg-gray-600 transition-colors disabled:opacity-50"
-          >
+        {/* Footer */}
+        <div className="p-5 pt-0 flex gap-3">
+          <button onClick={onClose} disabled={loading} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50">
             Voltar
           </button>
-          <button
-            onClick={handleCancel}
-            disabled={loading}
-            className="flex-1 bg-red-500 text-white py-3 rounded-xl font-bold hover:bg-red-600 transition-colors disabled:opacity-50"
-          >
-            {loading ? '⏳ Cancelando...' : '🗑️ Confirmar Cancelamento'}
+          <button onClick={handleCancel} disabled={loading} className="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors disabled:opacity-50">
+            {loading ? '⏳ Cancelando...' : 'Confirmar Cancelamento'}
           </button>
         </div>
       </div>

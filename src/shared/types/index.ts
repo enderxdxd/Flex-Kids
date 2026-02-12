@@ -50,6 +50,7 @@ export interface Payment {
   status: string;
   type: 'visit' | 'package'; // Tipo: visita avulsa ou pacote
   packageId?: string; // ID do pacote se for pagamento de pacote
+  unitId?: string; // Unidade onde o pagamento foi realizado
   description?: string;
   createdAt: Date;
   updatedAt: Date;

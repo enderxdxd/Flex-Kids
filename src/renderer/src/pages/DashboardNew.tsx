@@ -4,7 +4,6 @@ import { DashboardStats, Visit, Payment } from '../../../shared/types';
 import { visitsServiceOffline } from '../../../shared/firebase/services/visits.service.offline';
 import { paymentsServiceOffline } from '../../../shared/firebase/services/payments.service.offline';
 import { packagesServiceOffline } from '../../../shared/firebase/services/packages.service.offline';
-import { statsCache } from '../../../shared/cache/statsCache';
 import { toast } from 'react-toastify';
 import Navbar from '../components/Navbar';
 import CheckInModal from '../components/modals/CheckInModal';
@@ -32,32 +31,20 @@ const DashboardNew: React.FC = () => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
   const loadingRef = useRef(false);
+  const [now, setNow] = useState(Date.now());
 
-  const loadStats = useCallback(async (forceRefresh = false) => {
+  // Atualiza o relógio a cada 30s para mostrar duração em tempo real
+  useEffect(() => {
+    const tickInterval = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(tickInterval);
+  }, []);
+
+  const loadStats = useCallback(async (showLoader = true) => {
     if (loadingRef.current) return;
-    
-    const cacheKey = `dashboard-stats-${currentUnit}`;
-    
-    if (!forceRefresh) {
-      const cached = statsCache.get<DashboardStats>(cacheKey);
-      if (cached) {
-        setStats(cached);
-        setLoading(false);
-        setIsInitialLoad(false);
-        
-        const cacheAge = statsCache.getAge(cacheKey);
-        if (cacheAge && cacheAge > 10000) {
-          setTimeout(() => loadStats(true), 100);
-        }
-        return;
-      }
-    }
 
     try {
       loadingRef.current = true;
-      if (stats.activeVisits === 0 && stats.todayRevenue === 0) {
-        setLoading(true);
-      }
+      if (showLoader) setLoading(true);
       
       const [visits, payments, packages] = await Promise.all([
         visitsServiceOffline.getActiveVisits(currentUnit),
@@ -65,21 +52,20 @@ const DashboardNew: React.FC = () => {
         packagesServiceOffline.getActivePackages(),
       ]);
 
+      const unitPayments = payments.filter(p => !p.unitId || p.unitId === currentUnit);
+
       setActiveVisits(visits);
-      setRecentPayments(payments.slice(0, 5));
+      setRecentPayments(unitPayments.slice(0, 5));
 
-      const todayRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
+      const todayRevenue = unitPayments.reduce((sum, p) => sum + p.amount, 0);
 
-      const newStats = {
+      setStats({
         activeVisits: visits.length,
         todayRevenue,
         todayVisits: visits.length,
         activePackages: packages.length,
-      };
-
-      setStats(newStats);
+      });
       setIsInitialLoad(false);
-      statsCache.set(cacheKey, newStats, 30000);
     } catch (error) {
       console.error('Error loading stats:', error);
       toast.error('Erro ao carregar dados');
@@ -87,18 +73,16 @@ const DashboardNew: React.FC = () => {
       setLoading(false);
       loadingRef.current = false;
     }
-  }, [currentUnit, stats.activeVisits, stats.todayRevenue]);
+  }, [currentUnit]);
 
   useEffect(() => {
-    loadStats();
+    loadStats(true);
     
-    // Auto-refresh a cada 1 minuto (60000ms)
+    // Auto-refresh a cada 30 segundos
     const intervalId = setInterval(() => {
-      console.log('[DASHBOARD] Auto-refresh executado');
-      loadStats(true);
-    }, 60000);
+      loadStats(false);
+    }, 30000);
     
-    // Cleanup ao desmontar componente
     return () => clearInterval(intervalId);
   }, [loadStats]);
 
@@ -215,7 +199,7 @@ const DashboardNew: React.FC = () => {
                         <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
                           <span>Check-in: {new Date(visit.checkIn).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
                           <span className="text-slate-300">|</span>
-                          <span className="text-violet-600 font-semibold">{Math.floor((Date.now() - new Date(visit.checkIn).getTime()) / 60000)} min</span>
+                          <span className="text-violet-600 font-semibold">{Math.floor((now - new Date(visit.checkIn).getTime()) / 60000)} min</span>
                           <span className="text-slate-300">|</span>
                           <span className="truncate">{visit.child?.customer?.name || 'Cliente'}</span>
                         </div>

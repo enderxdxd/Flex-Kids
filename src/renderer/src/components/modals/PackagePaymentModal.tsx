@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { format } from 'date-fns';
 import { Child, Customer } from '../../../../shared/types';
@@ -32,9 +32,10 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
   customer,
 }) => {
   const { currentUnit } = useUnit();
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'pix'>('pix');
+  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit' | 'debit'>('pix');
   const [loading, setLoading] = useState(false);
   const [printReceipt, setPrintReceipt] = useState(true);
+  const processingRef = useRef(false);
 
   if (!isOpen) return null;
 
@@ -47,7 +48,7 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
       const initialized = await bematechService.initialize(fiscalConfig);
       if (!initialized) return;
 
-      const methodLabel = paymentMethod === 'pix' ? 'PIX' : paymentMethod === 'card' ? 'CARTAO' : 'DINHEIRO';
+      const methodLabel = paymentMethod === 'pix' ? 'PIX' : paymentMethod === 'credit' ? 'CREDITO' : 'DEBITO';
       const now = new Date();
       const lines: string[] = [
         '================================',
@@ -80,9 +81,11 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
   };
 
   const handleConfirmPayment = async () => {
-    try {
-      setLoading(true);
+    if (processingRef.current) return;
+    processingRef.current = true;
+    setLoading(true);
 
+    try {
       const payment = await paymentsServiceOffline.createPayment({
         customerId: customer.id,
         childId: child?.id,
@@ -91,6 +94,7 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
         method: paymentMethod,
         status: 'paid',
         type: 'package',
+        unitId: currentUnit,
         description: `${packageData.type} - ${customer.name}`,
       });
 
@@ -108,11 +112,12 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
       }
 
       toast.success('Pagamento confirmado e pacote ativado!');
-      onSuccess();
       onClose();
+      onSuccess();
     } catch (error) {
       console.error('Error processing payment:', error);
       toast.error('Erro ao processar pagamento');
+      processingRef.current = false;
     } finally {
       setLoading(false);
     }
@@ -167,7 +172,7 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-2">Forma de Pagamento</label>
             <div className="grid grid-cols-3 gap-2">
-              {(['pix', 'card', 'cash'] as const).map((method) => (
+              {(['pix', 'credit', 'debit'] as const).map((method) => (
                 <button
                   key={method}
                   type="button"
@@ -178,9 +183,9 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
                       : 'border-slate-200 hover:border-violet-300'
                   }`}
                 >
-                  <div className="text-xl mb-1">{method === 'pix' ? '📱' : method === 'card' ? '💳' : '💵'}</div>
+                  <div className="text-xl mb-1">{method === 'pix' ? '📱' : '💳'}</div>
                   <div className="text-xs font-medium text-slate-700">
-                    {method === 'pix' ? 'PIX' : method === 'card' ? 'Cartão' : 'Dinheiro'}
+                    {method === 'pix' ? 'PIX' : method === 'credit' ? 'Crédito' : 'Débito'}
                   </div>
                 </button>
               ))}

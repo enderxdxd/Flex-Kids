@@ -6,11 +6,11 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { isAuthenticated, login } = useAuth();
-  const [username, setUsername] = useState('');
+  const { loginAdmin } = useAuth();
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isUnlocked, setIsUnlocked] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,84 +18,59 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     setIsLoading(true);
 
     setTimeout(() => {
-      const success = login(username, password);
-      if (!success) {
-        setError('Usuário ou senha incorretos');
+      const success = loginAdmin(password);
+      if (success) {
+        setIsUnlocked(true);
+      } else {
+        setError('Senha de administrador incorreta');
         setPassword('');
       }
       setIsLoading(false);
-    }, 500);
+    }, 400);
   };
 
-  if (isAuthenticated) {
+  if (isUnlocked) {
     return <>{children}</>;
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="bg-gradient-to-br from-purple-500 to-purple-600 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <span className="text-4xl">🔒</span>
+    <div className="flex items-center justify-center py-16">
+      <div className="bg-white rounded-xl border border-slate-200 max-w-sm w-full p-6">
+        <div className="text-center mb-5">
+          <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+            <span className="text-2xl">🔒</span>
           </div>
-          <h2 className="text-3xl font-bold text-gray-800 mb-2">Área Restrita</h2>
-          <p className="text-gray-500">Acesso exclusivo para administradores</p>
+          <h2 className="text-lg font-bold text-slate-800">Área Administrativa</h2>
+          <p className="text-xs text-slate-500 mt-1">Digite a senha de administrador</p>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-3">
           {error && (
-            <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 flex items-center gap-3">
-              <span className="text-2xl">⚠️</span>
-              <p className="text-red-700 font-medium">{error}</p>
+            <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm text-red-700 font-medium">
+              {error}
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
-              👤 Usuário
-            </label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Digite o usuário"
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-purple-500 transition-colors"
-              required
-              autoFocus
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
-              🔑 Senha
-            </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Digite a senha"
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-purple-500 transition-colors"
+              placeholder="Senha admin..."
+              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
               required
+              autoFocus
             />
           </div>
 
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-gradient-to-r from-purple-500 to-purple-600 text-white py-4 rounded-xl font-bold text-lg hover:opacity-90 transition-all disabled:opacity-50 shadow-lg"
+            className="w-full py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors disabled:opacity-50"
           >
-            {isLoading ? '⏳ Verificando...' : '🔓 Entrar'}
+            {isLoading ? '⏳ Verificando...' : 'Desbloquear'}
           </button>
         </form>
-
-        {/* Info */}
-        <div className="mt-6 p-4 bg-blue-50 border-2 border-blue-200 rounded-xl">
-          <p className="text-sm text-blue-800">
-            <span className="font-bold">ℹ️ Informação:</span> Esta área contém funcionalidades administrativas sensíveis. Entre em contato com o administrador do sistema se precisar de acesso.
-          </p>
-        </div>
       </div>
     </div>
   );

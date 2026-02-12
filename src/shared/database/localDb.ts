@@ -135,6 +135,13 @@ class LocalDatabase {
     }
   }
 
+  async upsert(store: keyof FlexKidsDB, data: any): Promise<string> {
+    const db = this.ensureDb();
+    const id = data.id || this.generateId();
+    await db.put(store as any, { ...data, id, synced: false });
+    return id;
+  }
+
   async delete(store: keyof FlexKidsDB, id: string): Promise<void> {
     const db = this.ensureDb();
     await db.delete(store as any, id);

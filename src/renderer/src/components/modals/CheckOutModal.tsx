@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { Visit, Package, Child, Customer, FiscalConfig } from '../../../../shared/types';
 import { visitsServiceOffline } from '../../../../shared/firebase/services/visits.service.offline';
@@ -28,12 +28,13 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
   const [minimumTime, setMinimumTime] = useState(30);
   const [duration, setDuration] = useState(0);
   const [totalValue, setTotalValue] = useState(0);
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'pix' | 'package'>('cash');
+  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit' | 'debit' | 'package'>('pix');
   const [loading, setLoading] = useState(false);
   const [printFiscalNote, setPrintFiscalNote] = useState(true);
   const [fiscalConfig, setFiscalConfig] = useState<FiscalConfig | null>(null);
   const [adminPassword, setAdminPassword] = useState('');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const processingRef = useRef(false);
 
   useEffect(() => {
     if (isOpen && visit) {
@@ -131,6 +132,8 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
       toast.error('Selecione um pacote ou escolha outra forma de pagamento');
       return;
     }
+    if (processingRef.current) return;
+    processingRef.current = true;
 
     try {
       setLoading(true);
@@ -168,6 +171,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
           method: paymentMethod,
           status: 'paid',
           type: 'visit',
+          unitId: visit.unitId,
           description: `Pagamento visita - ${child.name} - ${duration} min`,
         });
         console.log('[CHECKOUT] Pagamento criado:', payment.id);
@@ -198,6 +202,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
     } catch (error) {
       console.error('Error during checkout:', error);
       toast.error('Erro ao realizar check-out');
+      processingRef.current = false;
     } finally {
       setLoading(false);
     }
@@ -264,7 +269,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
 
   const handleClose = () => {
     setSelectedPackage('');
-    setPaymentMethod('cash');
+    setPaymentMethod('pix');
     setIsAdminAuthenticated(false);
     setAdminPassword('');
     onClose();
@@ -386,11 +391,11 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-2">Forma de Pagamento</label>
               <div className="grid grid-cols-3 gap-2">
-                {(['cash', 'card', 'pix'] as const).map(method => (
+                {(['pix', 'credit', 'debit'] as const).map(method => (
                   <button key={method} type="button" onClick={() => setPaymentMethod(method)}
                     className={`p-3 rounded-lg border text-center transition-all ${paymentMethod === method ? 'border-violet-500 bg-violet-50' : 'border-slate-200 hover:border-violet-300'}`}>
-                    <div className="text-xl mb-1">{method === 'cash' ? '💵' : method === 'card' ? '💳' : '📱'}</div>
-                    <div className="text-xs font-medium text-slate-700">{method === 'cash' ? 'Dinheiro' : method === 'card' ? 'Cartão' : 'PIX'}</div>
+                    <div className="text-xl mb-1">{method === 'pix' ? '�' : method === 'credit' ? '💳' : '�'}</div>
+                    <div className="text-xs font-medium text-slate-700">{method === 'pix' ? 'PIX' : method === 'credit' ? 'Crédito' : 'Débito'}</div>
                   </button>
                 ))}
               </div>
