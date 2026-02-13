@@ -113,7 +113,29 @@ export const customersServiceOffline = {
         console.error('Failed to delete from Firebase:', error);
       }
     }
-    // Note: Local deletion not supported yet - requires sync queue implementation
+    try {
+      const { localDb } = await import('../../database/localDb');
+      await localDb.delete('customers', id);
+    } catch (error) {
+      console.error('Failed to delete from local cache:', error);
+    }
+  },
+
+  async deleteChild(id: string): Promise<void> {
+    if (syncService.isOnline()) {
+      try {
+        const db = getDb();
+        await deleteDoc(doc(db, CHILDREN_COLLECTION, id));
+      } catch (error) {
+        console.error('Failed to delete child from Firebase:', error);
+      }
+    }
+    try {
+      const { localDb } = await import('../../database/localDb');
+      await localDb.delete('children', id);
+    } catch (error) {
+      console.error('Failed to delete child from local cache:', error);
+    }
   },
 
   async getAllCustomers(): Promise<Customer[]> {

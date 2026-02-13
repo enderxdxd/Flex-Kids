@@ -1,4 +1,4 @@
-import { collection, addDoc, updateDoc, doc, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
 import { Package } from '../../types';
 import { syncService } from '../../database/syncService';
@@ -76,6 +76,23 @@ export const packagesServiceOffline = {
 
     const localPkg = await syncService.getFromLocal(COLLECTION, id);
     await syncService.saveLocally(COLLECTION, 'update', { ...localPkg, ...updateData });
+  },
+
+  async deletePackage(id: string): Promise<void> {
+    if (syncService.isOnline()) {
+      try {
+        const db = getDb();
+        await deleteDoc(doc(db, COLLECTION, id));
+      } catch (error) {
+        console.error('Failed to delete package from Firebase:', error);
+      }
+    }
+    try {
+      const { localDb } = await import('../../database/localDb');
+      await localDb.delete('packages', id);
+    } catch (error) {
+      console.error('Failed to delete package from local cache:', error);
+    }
   },
 
   async getPackagesByCustomer(customerId: string): Promise<Package[]> {

@@ -6,11 +6,10 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { loginAdmin } = useAuth();
+  const { isAdmin, loginAdmin } = useAuth();
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isUnlocked, setIsUnlocked] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,7 +19,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     setTimeout(() => {
       const success = loginAdmin(password);
       if (success) {
-        setIsUnlocked(true);
+        setPassword('');
       } else {
         setError('Senha de administrador incorreta');
         setPassword('');
@@ -29,7 +28,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     }, 400);
   };
 
-  if (isUnlocked) {
+  if (isAdmin) {
     return <>{children}</>;
   }
 

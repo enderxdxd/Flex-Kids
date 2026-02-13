@@ -16,6 +16,7 @@ const navItems = [
   { href: '#/history', icon: '📋', label: 'Histórico' },
   { href: '#/cash-report', icon: '📊', label: 'Caixa' },
   { href: '#/cancellations', icon: '🚫', label: 'Cancelamentos' },
+  { href: '#/import', icon: '📥', label: 'Importar Dados', admin: true },
   { href: '#/settings', icon: '⚙️', label: 'Configurações' },
 ];
 

@@ -16,6 +16,7 @@ import Settings from './pages/Settings';
 import VisitHistory from './pages/VisitHistory';
 import CashReport from './pages/CashReport';
 import CancellationReport from './pages/CancellationReport';
+import ImportData from './pages/ImportData';
 import LoginPage from './pages/LoginPage';
 import { OnlineStatusBadge } from './components/OnlineStatusBadge';
 import { syncService } from '../../shared/database/syncService';
@@ -53,6 +54,13 @@ function AppRoutes({ initError }: { initError: string | null }) {
           <Route path="/history" element={<Layout><VisitHistory /></Layout>} />
           <Route path="/cash-report" element={<Layout><CashReport /></Layout>} />
           <Route path="/cancellations" element={<Layout><CancellationReport /></Layout>} />
+          <Route path="/import" element={
+            <Layout>
+              <ProtectedRoute>
+                <ImportData />
+              </ProtectedRoute>
+            </Layout>
+          } />
           <Route path="/settings" element={<Layout><Settings /></Layout>} />
         </Routes>
       </Router>

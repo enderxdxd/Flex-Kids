@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 interface AuthContextType {
   isAuthenticated: boolean;
+  isAdmin: boolean;
   authenticatedUnit: string | null;
   login: (unitId: string, password: string) => boolean;
   loginAdmin: (password: string) => boolean;
@@ -21,7 +22,9 @@ const UNIT_PASSWORDS: Record<string, string> = {
 const ADMIN_PASSWORD = 'pactoflex123';
 
 const AUTH_STORAGE_KEY = 'flex-kids-auth';
+const ADMIN_STORAGE_KEY = 'flex-kids-admin';
 const AUTH_EXPIRY_HOURS = 8;
+const ADMIN_EXPIRY_HOURS = 2;
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -39,6 +42,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     } catch (error) {
       console.error('Error loading auth state:', error);
+    }
+    return false;
+  });
+
+  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem(ADMIN_STORAGE_KEY);
+      if (stored) {
+        const { timestamp } = JSON.parse(stored);
+        const now = new Date().getTime();
+        const expiryTime = ADMIN_EXPIRY_HOURS * 60 * 60 * 1000;
+        if (now - timestamp < expiryTime) {
+          return true;
+        } else {
+          localStorage.removeItem(ADMIN_STORAGE_KEY);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading admin state:', error);
     }
     return false;
   });
@@ -93,21 +115,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const loginAdmin = (password: string): boolean => {
-    return password === ADMIN_PASSWORD;
+    if (password === ADMIN_PASSWORD) {
+      setIsAdmin(true);
+      try {
+        localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify({
+          timestamp: new Date().getTime(),
+        }));
+      } catch (error) {
+        console.error('Error saving admin state:', error);
+      }
+      return true;
+    }
+    return false;
   };
 
   const logout = () => {
     setIsAuthenticated(false);
+    setIsAdmin(false);
     setAuthenticatedUnit(null);
     try {
       localStorage.removeItem(AUTH_STORAGE_KEY);
+      localStorage.removeItem(ADMIN_STORAGE_KEY);
     } catch (error) {
       console.error('Error clearing auth state:', error);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, authenticatedUnit, login, loginAdmin, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, isAdmin, authenticatedUnit, login, loginAdmin, logout }}>
       {children}
     </AuthContext.Provider>
   );
