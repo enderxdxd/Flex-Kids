@@ -5,6 +5,8 @@ import { syncService } from '../../database/syncService';
 
 const COLLECTION = 'visits';
 
+let _checkInLock = false;
+
 export const visitsServiceOffline = {
   async hasActiveVisit(childId: string, unitId: string): Promise<boolean> {
     try {
@@ -20,6 +22,19 @@ export const visitsServiceOffline = {
   },
 
   async checkIn(data: CheckInData): Promise<Visit> {
+    if (_checkInLock) {
+      throw new Error('Check-in já em andamento, aguarde.');
+    }
+    _checkInLock = true;
+
+    try {
+      return await this._doCheckIn(data);
+    } finally {
+      setTimeout(() => { _checkInLock = false; }, 2000);
+    }
+  },
+
+  async _doCheckIn(data: CheckInData): Promise<Visit> {
     const visitData = {
       childId: data.childId,
       unitId: data.unitId,

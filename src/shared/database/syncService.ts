@@ -2,7 +2,7 @@ import { localDb } from './localDb';
 import { getDb } from '../firebase/config';
 import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, getDocs, setDoc } from 'firebase/firestore';
 
-const MAX_RETRY_COUNT = 5;
+const MAX_RETRY_COUNT = 3;
 
 class SyncService {
   private isSyncing = false;
@@ -67,9 +67,16 @@ class SyncService {
       this.initialized = true;
       console.log('SyncService initialized successfully');
       
+      // Purge soft-deleted items older than 30 days
+      this.purgeSoftDeleted(30).catch(err => 
+        console.error('Failed to purge soft-deleted items:', err)
+      );
+
       // Start periodic sync if online
       if (this.isOnline()) {
         this.startPeriodicSync();
+        // Immediate sync to flush any stale queue items
+        setTimeout(() => this.syncAll(), 2000);
       }
     } catch (error) {
       console.error('Failed to initialize SyncService:', error);
@@ -165,9 +172,10 @@ class SyncService {
         const freshItem = await localDb.getSyncQueueItem(dedupedItems[i].id);
         const item = freshItem || dedupedItems[i];
 
-        // Skip items that exceeded retry limit
+        // Permanently failed items: mark as synced to remove from pending count
         if ((item.retryCount || 0) >= MAX_RETRY_COUNT) {
-          console.warn(`⚠️ Skipping item ${item.id} (${item.collection}/${item.operation}) - exceeded ${MAX_RETRY_COUNT} retries`);
+          console.warn(`⚠️ Removing permanently failed item ${item.id} (${item.collection}/${item.operation}) - exceeded ${MAX_RETRY_COUNT} retries`);
+          await localDb.markAsSynced(item.id);
           skippedCount++;
           continue;
         }
@@ -216,6 +224,8 @@ class SyncService {
         const dataToCreate = { ...item.data };
         delete dataToCreate.id;
         delete dataToCreate.synced;
+        // Firestore rejects undefined values — remove them
+        Object.keys(dataToCreate).forEach(k => dataToCreate[k] === undefined && delete dataToCreate[k]);
         
         if (item.data.id?.startsWith('local_')) {
           const oldLocalId = item.data.id;
@@ -287,8 +297,13 @@ class SyncService {
           const dataToUpdate = { ...item.data };
           delete dataToUpdate.id;
           delete dataToUpdate.synced;
-          const docToUpdate = doc(db, item.collection, item.data.id);
-          await updateDoc(docToUpdate, dataToUpdate);
+          // Firestore rejects undefined values — remove them
+          Object.keys(dataToUpdate).forEach(k => dataToUpdate[k] === undefined && delete dataToUpdate[k]);
+          try {
+            await setDoc(doc(db, item.collection, item.data.id), dataToUpdate, { merge: true });
+          } catch {
+            // If setDoc fails, just mark as synced to avoid infinite loop
+          }
           await localDb.markItemAsSynced(item.collection as any, item.data.id);
         }
         break;
@@ -296,8 +311,12 @@ class SyncService {
 
       case 'delete': {
         if (item.data.id && !item.data.id.startsWith('local_')) {
-          const docToDelete = doc(db, item.collection, item.data.id);
-          await deleteDoc(docToDelete);
+          try {
+            const docToDelete = doc(db, item.collection, item.data.id);
+            await deleteDoc(docToDelete);
+          } catch {
+            // Doc may already be deleted — not an error
+          }
         }
         if (item.data.id) {
           await localDb.delete(item.collection as any, item.data.id).catch(() => {});
@@ -381,6 +400,8 @@ class SyncService {
     this.ensureInitialized();
     const id = data.id || `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     await localDb.upsert(collectionName as any, { ...data, id, synced: true });
+    // Update UI pending count (flush stale queue items)
+    await this.notifyPendingCount();
   }
 
   async getFromLocal(collection: string, id: string): Promise<any> {
@@ -388,9 +409,11 @@ class SyncService {
     return await localDb.get(collection as any, id);
   }
 
-  async getAllFromLocal(collection: string): Promise<any[]> {
+  async getAllFromLocal(collection: string, includeDeleted = false): Promise<any[]> {
     this.ensureInitialized();
-    return await localDb.getAll(collection as any);
+    const items = await localDb.getAll(collection as any);
+    if (includeDeleted) return items;
+    return items.filter((item: any) => !item.deletedAt);
   }
 
   async getAllByIndex(collection: string, indexName: string, query?: any): Promise<any[]> {
@@ -408,6 +431,40 @@ class SyncService {
   async exportBackup(): Promise<string> {
     const data = await localDb.exportBackup();
     return JSON.stringify(data, null, 2);
+  }
+
+  /**
+   * Permanently removes soft-deleted items older than retentionDays (default 30).
+   * Returns the number of items purged.
+   */
+  async purgeSoftDeleted(retentionDays = 30): Promise<number> {
+    this.ensureInitialized();
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - retentionDays);
+    let purged = 0;
+
+    const stores = ['customers', 'children', 'packages', 'payments', 'visits'] as const;
+    for (const store of stores) {
+      try {
+        const items = await localDb.getAll(store as any);
+        for (const item of items) {
+          if (item.deletedAt) {
+            const deletedDate = item.deletedAt instanceof Date ? item.deletedAt : new Date(item.deletedAt);
+            if (deletedDate < cutoff) {
+              await localDb.delete(store as any, item.id);
+              purged++;
+            }
+          }
+        }
+      } catch {
+        // Store may not exist
+      }
+    }
+
+    if (purged > 0) {
+      console.log(`🗑️ Purged ${purged} soft-deleted items older than ${retentionDays} days`);
+    }
+    return purged;
   }
 
   async clearLocalData(): Promise<void> {

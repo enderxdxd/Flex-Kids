@@ -64,16 +64,16 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
         const customerData = await customersServiceOffline.getCustomerById(childData.customerId);
         setCustomer(customerData);
 
-        // Buscar pacotes ativos do cliente
-        const allPackagesData = await packagesServiceOffline.getAllPackages();
-        const activePackages = allPackagesData.filter(
-          p => p.customerId === childData.customerId && p.active && p.usedHours < p.hours
+        // Buscar pacotes ativos do cliente (filtrado pela unidade)
+        const unitPackages = await packagesServiceOffline.getActivePackages(undefined, currentUnit);
+        const activePackages = unitPackages.filter(
+          p => p.customerId === childData.customerId
         );
         setPackages(activePackages);
         
-        // Guardar todos os pacotes para opção de admin
-        const otherActivePackages = allPackagesData.filter(
-          p => p.customerId !== childData.customerId && p.active && p.usedHours < p.hours
+        // Guardar pacotes de outros clientes da mesma unidade para opção de admin
+        const otherActivePackages = unitPackages.filter(
+          p => p.customerId !== childData.customerId
         );
         setAllPackages(otherActivePackages);
       } else {

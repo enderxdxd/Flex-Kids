@@ -1,6 +1,7 @@
 import { app, BrowserWindow } from 'electron';
 import path from 'path';
 import { registerPrinterIPC } from './printer.service';
+import { initAutoUpdater } from './updater';
 
 // Log para debug - vai aparecer no terminal/arquivo de log
 console.log('[MAIN] ====================================');
@@ -59,6 +60,16 @@ app.whenReady().then(() => {
   }
   
   createWindow();
+
+  // Inicializa auto-updater (apenas em produção)
+  if (!isDev && mainWindow) {
+    try {
+      initAutoUpdater(mainWindow);
+      console.log('[MAIN] Auto-updater inicializado');
+    } catch (error) {
+      console.error('[MAIN] ERRO ao inicializar auto-updater:', error);
+    }
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

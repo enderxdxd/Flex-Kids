@@ -5,8 +5,23 @@ import { syncService } from '../../database/syncService';
 
 const COLLECTION = 'payments';
 
+let _createPaymentLock = false;
+
 export const paymentsServiceOffline = {
   async createPayment(data: Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>): Promise<Payment> {
+    if (_createPaymentLock) {
+      throw new Error('Criação de pagamento já em andamento, aguarde.');
+    }
+    _createPaymentLock = true;
+
+    try {
+      return await this._doCreatePayment(data);
+    } finally {
+      setTimeout(() => { _createPaymentLock = false; }, 2000);
+    }
+  },
+
+  async _doCreatePayment(data: Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>): Promise<Payment> {
     const paymentData = {
       ...data,
       createdAt: new Date(),
@@ -16,11 +31,13 @@ export const paymentsServiceOffline = {
     if (syncService.isOnline()) {
       try {
         const db = getDb();
-        const firestoreData = {
+        const firestoreData: Record<string, any> = {
           ...data,
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
         };
+        // Firestore rejects undefined values — remove them
+        Object.keys(firestoreData).forEach(k => firestoreData[k] === undefined && delete firestoreData[k]);
 
         const docRef = await addDoc(collection(db, COLLECTION), firestoreData);
         const payment = {
@@ -116,6 +133,7 @@ export const paymentsServiceOffline = {
           status: data.status,
           type: data.type || 'visit',
           packageId: data.packageId,
+          unitId: data.unitId,
           description: data.description,
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
@@ -257,6 +275,7 @@ export const paymentsServiceOffline = {
           status: data.status,
           type: data.type || 'visit',
           packageId: data.packageId,
+          unitId: data.unitId,
           description: data.description,
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),

@@ -80,18 +80,17 @@ const Dashboard: React.FC = () => {
       const [activeVisits, todayPayments, activePackages] = await Promise.all([
         visitsServiceOffline.getActiveVisits(currentUnit),
         paymentsServiceOffline.getTodayPayments(),
-        packagesServiceOffline.getActivePackages(),
+        packagesServiceOffline.getActivePackages(undefined, currentUnit),
       ]);
 
-      const unitPayments = todayPayments.filter(p => !p.unitId || p.unitId === currentUnit);
-      const unitPackages = activePackages.filter(p => p.unitId === currentUnit || p.sharedAcrossUnits);
+      const unitPayments = todayPayments.filter(p => p.unitId === currentUnit);
       const todayRevenue = unitPayments.reduce((sum, p) => sum + p.amount, 0);
 
       const newStats = {
         activeVisits: activeVisits.length,
         todayRevenue,
         todayVisits: activeVisits.length,
-        activePackages: unitPackages.length,
+        activePackages: activePackages.length,
       };
 
       setStats(newStats);

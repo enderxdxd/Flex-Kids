@@ -27,6 +27,7 @@ const Customers: React.FC = () => {
   const [packages, setPackages] = useState<Package[]>([]);
   const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [showChildModal, setShowChildModal] = useState(false);
@@ -53,12 +54,11 @@ const Customers: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [allCustomers, allChildren, allPackages] = await Promise.all([
+      const [allCustomers, allChildren, unitPackages] = await Promise.all([
         customersServiceOffline.getAllCustomers(currentUnit),
         customersServiceOffline.getAllChildren(currentUnit),
-        packagesServiceOffline.getAllPackages(),
+        packagesServiceOffline.getActivePackages(undefined, currentUnit),
       ]);
-      const unitPackages = allPackages.filter(p => p.unitId === currentUnit || p.sharedAcrossUnits);
       setCustomers(allCustomers);
       setChildren(allChildren);
       setPackages(unitPackages);
@@ -102,12 +102,14 @@ const Customers: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     
     if (!formData.name || !formData.phone) {
       toast.error('Nome e telefone são obrigatórios');
       return;
     }
 
+    setSaving(true);
     try {
       if (editingCustomer) {
         await customersServiceOffline.updateCustomer(editingCustomer.id, formData);
@@ -121,6 +123,8 @@ const Customers: React.FC = () => {
     } catch (error) {
       console.error('Error saving customer:', error);
       toast.error('Erro ao salvar cliente');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -132,12 +136,14 @@ const Customers: React.FC = () => {
 
   const handleChildSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     
     if (!childFormData.name || !childFormData.birthDate) {
       toast.error('Nome e data de nascimento são obrigatórios');
       return;
     }
 
+    setSaving(true);
     const birthDateObj = new Date(childFormData.birthDate + 'T00:00:00');
     const age = getChildAge({ age: 0, birthDate: birthDateObj });
 
@@ -155,6 +161,8 @@ const Customers: React.FC = () => {
     } catch (error) {
       console.error('Error adding child:', error);
       toast.error('Erro ao cadastrar criança');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -351,7 +359,7 @@ const Customers: React.FC = () => {
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
-                <button type="submit" className="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors">{editingCustomer ? 'Salvar' : 'Cadastrar'}</button>
+                <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">{saving ? 'Salvando...' : (editingCustomer ? 'Salvar' : 'Cadastrar')}</button>
               </div>
             </form>
           </div>
@@ -380,7 +388,7 @@ const Customers: React.FC = () => {
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowChildModal(false)} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
-                <button type="submit" className="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors">Adicionar</button>
+                <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">{saving ? 'Salvando...' : 'Adicionar'}</button>
               </div>
             </form>
           </div>

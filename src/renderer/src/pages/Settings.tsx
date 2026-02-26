@@ -6,6 +6,7 @@ import { syncService } from '../../../shared/database/syncService';
 import { localDb } from '../../../shared/database/localDb';
 import { useUnit } from '../contexts/UnitContext';
 import { Customer, Payment, Visit, Package, Child } from '../../../shared/types';
+import UpdateChecker from '../components/UpdateChecker';
 
 const Settings: React.FC = () => {
   const { currentUnit } = useUnit();
@@ -486,6 +487,9 @@ const Settings: React.FC = () => {
                 <div className="flex justify-between"><span>Banco</span><span className="font-medium text-slate-700">Cloud Firestore</span></div>
               </div>
             </div>
+
+            {/* Atualizações */}
+            <UpdateChecker />
 
             {/* Danger Zone - Password Protected */}
             <div className="bg-red-50 rounded-xl border border-red-200 p-5">

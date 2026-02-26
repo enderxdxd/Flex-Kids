@@ -1,12 +1,28 @@
-import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
 import { Package } from '../../types';
 import { syncService } from '../../database/syncService';
 
 const COLLECTION = 'packages';
 
+let _createLock = false;
+
 export const packagesServiceOffline = {
   async createPackage(data: Omit<Package, 'id' | 'createdAt' | 'updatedAt'>): Promise<Package> {
+    // Throttle: prevent duplicate creation from double-clicks
+    if (_createLock) {
+      throw new Error('Criação de pacote já em andamento, aguarde.');
+    }
+    _createLock = true;
+
+    try {
+      return await this._doCreatePackage(data);
+    } finally {
+      setTimeout(() => { _createLock = false; }, 2000);
+    }
+  },
+
+  async _doCreatePackage(data: Omit<Package, 'id' | 'createdAt' | 'updatedAt'>): Promise<Package> {
     const packageData = {
       ...data,
       createdAt: new Date(),
@@ -16,13 +32,15 @@ export const packagesServiceOffline = {
     if (syncService.isOnline()) {
       try {
         const db = getDb();
-        const firestoreData = {
+        const firestoreData: Record<string, any> = {
           ...data,
-          sharedAcrossUnits: data.sharedAcrossUnits ?? true, // Por padrão, compartilhado
+          sharedAcrossUnits: data.sharedAcrossUnits ?? false,
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
           expiresAt: data.expiresAt ? Timestamp.fromDate(data.expiresAt) : null,
         };
+        // Firestore rejects undefined values — remove them
+        Object.keys(firestoreData).forEach(k => firestoreData[k] === undefined && delete firestoreData[k]);
 
         const docRef = await addDoc(collection(db, COLLECTION), firestoreData);
         const pkg = {
@@ -55,7 +73,7 @@ export const packagesServiceOffline = {
         const db = getDb();
         const packageRef = doc(db, COLLECTION, id);
         
-        const firestoreData: any = {
+        const firestoreData: Record<string, any> = {
           ...data,
           updatedAt: Timestamp.now(),
         };
@@ -63,6 +81,8 @@ export const packagesServiceOffline = {
         if (data.expiresAt) {
           firestoreData.expiresAt = Timestamp.fromDate(data.expiresAt);
         }
+        // Firestore rejects undefined values — remove them
+        Object.keys(firestoreData).forEach(k => firestoreData[k] === undefined && delete firestoreData[k]);
 
         await updateDoc(packageRef, firestoreData);
         
@@ -79,19 +99,27 @@ export const packagesServiceOffline = {
   },
 
   async deletePackage(id: string): Promise<void> {
+    const softDeleteData = { deletedAt: new Date(), updatedAt: new Date() };
+
     if (syncService.isOnline()) {
       try {
         const db = getDb();
-        await deleteDoc(doc(db, COLLECTION, id));
+        await updateDoc(doc(db, COLLECTION, id), {
+          deletedAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        });
       } catch (error) {
-        console.error('Failed to delete package from Firebase:', error);
+        console.error('Failed to soft-delete package from Firebase:', error);
       }
     }
+
     try {
-      const { localDb } = await import('../../database/localDb');
-      await localDb.delete('packages', id);
+      const existing = await syncService.getFromLocal(COLLECTION, id);
+      if (existing) {
+        await syncService.saveToCacheOnly(COLLECTION, { ...existing, ...softDeleteData });
+      }
     } catch (error) {
-      console.error('Failed to delete package from local cache:', error);
+      console.error('Failed to soft-delete package from local cache:', error);
     }
   },
 
@@ -106,19 +134,23 @@ export const packagesServiceOffline = {
         );
 
         const snapshot = await getDocs(q);
-        const packages = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate(),
-          updatedAt: doc.data().updatedAt?.toDate(),
-          expiresAt: doc.data().expiresAt?.toDate(),
-        })) as Package[];
+        const packages: any[] = snapshot.docs.map(d => {
+          const data = d.data();
+          return {
+            id: d.id,
+            ...data,
+            createdAt: data.createdAt?.toDate(),
+            updatedAt: data.updatedAt?.toDate(),
+            expiresAt: data.expiresAt?.toDate(),
+            deletedAt: data.deletedAt?.toDate() || null,
+          };
+        });
 
         for (const pkg of packages) {
           await syncService.saveToCacheOnly(COLLECTION, pkg);
         }
 
-        return packages;
+        return packages.filter(p => !p.deletedAt) as Package[];
       } catch (error) {
         console.error('Failed to fetch from Firebase, using local data:', error);
       }
@@ -128,10 +160,11 @@ export const packagesServiceOffline = {
     return allPackages.filter((pkg: Package) => pkg.customerId === customerId);
   },
 
-  async getAllPackages(): Promise<Package[]> {
+  async getAllPackages(unitId?: string): Promise<Package[]> {
     try {
-      const localPackages = await syncService.getAllFromLocal(COLLECTION);
-      return localPackages as Package[];
+      const localPackages = await syncService.getAllFromLocal(COLLECTION) as Package[];
+      if (!unitId) return localPackages;
+      return localPackages.filter(pkg => pkg.unitId === unitId || pkg.sharedAcrossUnits);
     } catch (error) {
       console.error('Error getting all packages:', error);
       return [];
@@ -158,14 +191,15 @@ export const packagesServiceOffline = {
     }
   },
 
-  async getActivePackages(customerId?: string): Promise<Package[]> {
+  async getActivePackages(customerId?: string, unitId?: string): Promise<Package[]> {
     try {
       // 1. SEMPRE busca do cache primeiro
       const localPackages = await syncService.getAllFromLocal(COLLECTION);
       const cachedPackages = localPackages
         .filter((pkg: Package) => {
           const matchesCustomer = !customerId || pkg.customerId === customerId;
-          return matchesCustomer && pkg.active && pkg.usedHours < pkg.hours;
+          const matchesUnit = !unitId || pkg.unitId === unitId || pkg.sharedAcrossUnits;
+          return matchesCustomer && matchesUnit && pkg.active && pkg.usedHours < pkg.hours;
         })
         .sort((a: Package, b: Package) => {
           const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime();
@@ -180,7 +214,7 @@ export const packagesServiceOffline = {
 
       // 3. Sempre retorna cache primeiro e busca Firebase em background
       if (syncService.isOnline()) {
-        this.fetchActivePackagesFromFirebase(customerId)
+        this.fetchActivePackagesFromFirebase(customerId, unitId)
           .then(packages => {
             if (typeof window !== 'undefined') {
               window.dispatchEvent(new CustomEvent('packages-updated', { 
@@ -198,14 +232,15 @@ export const packagesServiceOffline = {
     }
   },
 
-  async fetchActivePackagesFromFirebase(customerId?: string): Promise<Package[]> {
+  async fetchActivePackagesFromFirebase(customerId?: string, unitId?: string): Promise<Package[]> {
     try {
       const db = getDb();
-      const q = query(
-        collection(db, COLLECTION),
-        where('active', '==', true),
-        orderBy('createdAt', 'desc')
-      );
+      const constraints: any[] = [where('active', '==', true)];
+      if (unitId) {
+        constraints.push(where('unitId', '==', unitId));
+      }
+      constraints.push(orderBy('createdAt', 'desc'));
+      const q = query(collection(db, COLLECTION), ...constraints);
 
       const snapshot = await getDocs(q);
       const packages: Package[] = [];
@@ -223,7 +258,7 @@ export const packagesServiceOffline = {
           expiresAt: data.expiresAt?.toDate(),
           expiryDays: data.expiryDays,
           active: data.active,
-          sharedAcrossUnits: data.sharedAcrossUnits ?? true,
+          sharedAcrossUnits: data.sharedAcrossUnits ?? false,
           unitId: data.unitId || '',
           paymentId: data.paymentId,
           createdAt: data.createdAt?.toDate() || new Date(),

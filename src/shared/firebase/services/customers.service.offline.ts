@@ -1,4 +1,4 @@
-import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, query, where, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, getDocs, getDoc, query, where, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
 import { Customer, Child } from '../../types';
 import { syncService } from '../../database/syncService';
@@ -6,8 +6,24 @@ import { syncService } from '../../database/syncService';
 const CUSTOMERS_COLLECTION = 'customers';
 const CHILDREN_COLLECTION = 'children';
 
+let _createCustomerLock = false;
+let _addChildLock = false;
+
 export const customersServiceOffline = {
   async createCustomer(data: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>): Promise<Customer> {
+    if (_createCustomerLock) {
+      throw new Error('Criação de cliente já em andamento, aguarde.');
+    }
+    _createCustomerLock = true;
+
+    try {
+      return await this._doCreateCustomer(data);
+    } finally {
+      setTimeout(() => { _createCustomerLock = false; }, 2000);
+    }
+  },
+
+  async _doCreateCustomer(data: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>): Promise<Customer> {
     console.log('🔵 createCustomer called with:', data);
     
     const customerData = {
@@ -20,11 +36,13 @@ export const customersServiceOffline = {
       console.log('🌐 Online - attempting Firebase save with timeout');
       try {
         const db = getDb();
-        const firestoreData = {
+        const firestoreData: Record<string, any> = {
           ...data,
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
         };
+        // Firestore rejects undefined values — remove them
+        Object.keys(firestoreData).forEach(k => firestoreData[k] === undefined && delete firestoreData[k]);
 
         console.log('📤 Saving to Firebase...');
         console.log('📍 Collection:', CUSTOMERS_COLLECTION);
@@ -105,36 +123,53 @@ export const customersServiceOffline = {
   },
 
   async deleteCustomer(id: string): Promise<void> {
+    const softDeleteData = { deletedAt: new Date(), updatedAt: new Date() };
+
     if (syncService.isOnline()) {
       try {
         const db = getDb();
-        await deleteDoc(doc(db, CUSTOMERS_COLLECTION, id));
+        await updateDoc(doc(db, CUSTOMERS_COLLECTION, id), {
+          deletedAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        });
       } catch (error) {
-        console.error('Failed to delete from Firebase:', error);
+        console.error('Failed to soft-delete from Firebase:', error);
       }
     }
+
+    // Mark as deleted locally (keep data for recovery)
     try {
-      const { localDb } = await import('../../database/localDb');
-      await localDb.delete('customers', id);
+      const existing = await syncService.getFromLocal(CUSTOMERS_COLLECTION, id);
+      if (existing) {
+        await syncService.saveToCacheOnly(CUSTOMERS_COLLECTION, { ...existing, ...softDeleteData });
+      }
     } catch (error) {
-      console.error('Failed to delete from local cache:', error);
+      console.error('Failed to soft-delete from local cache:', error);
     }
   },
 
   async deleteChild(id: string): Promise<void> {
+    const softDeleteData = { deletedAt: new Date(), updatedAt: new Date() };
+
     if (syncService.isOnline()) {
       try {
         const db = getDb();
-        await deleteDoc(doc(db, CHILDREN_COLLECTION, id));
+        await updateDoc(doc(db, CHILDREN_COLLECTION, id), {
+          deletedAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        });
       } catch (error) {
-        console.error('Failed to delete child from Firebase:', error);
+        console.error('Failed to soft-delete child from Firebase:', error);
       }
     }
+
     try {
-      const { localDb } = await import('../../database/localDb');
-      await localDb.delete('children', id);
+      const existing = await syncService.getFromLocal(CHILDREN_COLLECTION, id);
+      if (existing) {
+        await syncService.saveToCacheOnly(CHILDREN_COLLECTION, { ...existing, ...softDeleteData });
+      }
     } catch (error) {
-      console.error('Failed to delete child from local cache:', error);
+      console.error('Failed to soft-delete child from local cache:', error);
     }
   },
 
@@ -153,7 +188,7 @@ export const customersServiceOffline = {
       // 3. Sempre retorna cache primeiro e busca Firebase em background
       if (syncService.isOnline()) {
         console.log('🌐 Online - fetching customers from Firebase in background');
-        this.fetchCustomersFromFirebase()
+        this.fetchCustomersFromFirebase(unitId)
           .catch(err => console.error('Background fetch failed:', err));
       }
       
@@ -164,17 +199,20 @@ export const customersServiceOffline = {
     }
   },
 
-  async fetchCustomersFromFirebase(): Promise<Customer[]> {
+  async fetchCustomersFromFirebase(unitId?: string): Promise<Customer[]> {
     try {
       console.log('📥 Fetching customers from Firebase...');
       const db = getDb();
-      const snapshot = await getDocs(collection(db, CUSTOMERS_COLLECTION));
+      const q = unitId
+        ? query(collection(db, CUSTOMERS_COLLECTION), where('unitId', '==', unitId))
+        : collection(db, CUSTOMERS_COLLECTION);
+      const snapshot = await getDocs(q);
       console.log(`📥 Received ${snapshot.docs.length} customers from Firebase`);
       
-      const customers: Customer[] = [];
+      const customers: any[] = [];
       for (const docSnap of snapshot.docs) {
         const data = docSnap.data();
-        const customer: Customer = {
+        const customer: any = {
           id: docSnap.id,
           name: data.name,
           phone: data.phone,
@@ -185,16 +223,18 @@ export const customersServiceOffline = {
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
         };
+        if (data.deletedAt) customer.deletedAt = data.deletedAt.toDate();
         customers.push(customer);
       }
 
-      // Salva em paralelo
+      // Salva em paralelo (including soft-deleted to keep them marked)
       await Promise.all(customers.map(customer => 
         syncService.saveToCacheOnly(CUSTOMERS_COLLECTION, customer).catch(() => {})
       ));
       console.log(`💾 Saved ${customers.length} customers to cache`);
 
-      return customers;
+      // Return only non-deleted
+      return customers.filter(c => !c.deletedAt) as Customer[];
     } catch (error) {
       console.error('Error getting customers:', error);
       return [];
@@ -202,6 +242,19 @@ export const customersServiceOffline = {
   },
 
   async addChild(customerId: string, data: Omit<Child, 'id' | 'customerId' | 'createdAt' | 'updatedAt'> & { unitId?: string }): Promise<Child> {
+    if (_addChildLock) {
+      throw new Error('Criação de criança já em andamento, aguarde.');
+    }
+    _addChildLock = true;
+
+    try {
+      return await this._doAddChild(customerId, data);
+    } finally {
+      setTimeout(() => { _addChildLock = false; }, 2000);
+    }
+  },
+
+  async _doAddChild(customerId: string, data: Omit<Child, 'id' | 'customerId' | 'createdAt' | 'updatedAt'> & { unitId?: string }): Promise<Child> {
     const childData = {
       ...data,
       customerId,
@@ -212,7 +265,7 @@ export const customersServiceOffline = {
     if (syncService.isOnline()) {
       try {
         const db = getDb();
-        const firestoreData = {
+        const firestoreData: Record<string, any> = {
           ...data,
           customerId,
           unitId: data.unitId,
@@ -220,6 +273,8 @@ export const customersServiceOffline = {
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
         };
+        // Firestore rejects undefined values — remove them
+        Object.keys(firestoreData).forEach(k => firestoreData[k] === undefined && delete firestoreData[k]);
 
         const docRef = await addDoc(collection(db, CHILDREN_COLLECTION), firestoreData);
         const child = {
@@ -363,10 +418,10 @@ export const customersServiceOffline = {
       );
       const snapshot = await getDocs(q);
       
-      const children: Child[] = [];
+      const children: any[] = [];
       for (const docSnap of snapshot.docs) {
         const data = docSnap.data();
-        const child: Child = {
+        const child: any = {
           id: docSnap.id,
           name: data.name,
           age: data.age,
@@ -376,6 +431,7 @@ export const customersServiceOffline = {
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
         };
+        if (data.deletedAt) child.deletedAt = data.deletedAt.toDate();
         children.push(child);
       }
 
@@ -384,7 +440,7 @@ export const customersServiceOffline = {
         syncService.saveToCacheOnly(CHILDREN_COLLECTION, child).catch(() => {})
       ));
 
-      return children;
+      return children.filter(c => !c.deletedAt) as Child[];
     } catch (error) {
       console.error('Error fetching children by customer:', error);
       return [];
@@ -403,7 +459,7 @@ export const customersServiceOffline = {
 
       // 3. Sempre retorna cache primeiro e busca Firebase em background
       if (syncService.isOnline()) {
-        this.fetchChildrenFromFirebase()
+        this.fetchChildrenFromFirebase(unitId)
           .catch(err => console.error('Background fetch failed:', err));
       }
       
@@ -414,15 +470,18 @@ export const customersServiceOffline = {
     }
   },
 
-  async fetchChildrenFromFirebase(): Promise<Child[]> {
+  async fetchChildrenFromFirebase(unitId?: string): Promise<Child[]> {
     try {
       const db = getDb();
-      const snapshot = await getDocs(collection(db, CHILDREN_COLLECTION));
+      const q = unitId
+        ? query(collection(db, CHILDREN_COLLECTION), where('unitId', '==', unitId))
+        : collection(db, CHILDREN_COLLECTION);
+      const snapshot = await getDocs(q);
       
-      const children: Child[] = [];
+      const children: any[] = [];
       for (const docSnap of snapshot.docs) {
         const data = docSnap.data();
-        const child: Child = {
+        const child: any = {
           id: docSnap.id,
           name: data.name,
           age: data.age,
@@ -432,6 +491,7 @@ export const customersServiceOffline = {
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
         };
+        if (data.deletedAt) child.deletedAt = data.deletedAt.toDate();
         children.push(child);
       }
 
@@ -440,7 +500,7 @@ export const customersServiceOffline = {
         syncService.saveToCacheOnly(CHILDREN_COLLECTION, child).catch(() => {})
       ));
 
-      return children;
+      return children.filter(c => !c.deletedAt) as Child[];
     } catch (error) {
       console.error('Error getting children:', error);
       return [];

@@ -39,7 +39,7 @@ const CashReport: React.FC = () => {
       const dayPayments = allPayments.filter(p => {
         const paymentDate = p.createdAt instanceof Date ? p.createdAt : new Date(p.createdAt);
         const matchesDate = paymentDate >= startOfDay && paymentDate <= endOfDay;
-        const matchesUnit = !p.unitId || p.unitId === currentUnit;
+        const matchesUnit = p.unitId === currentUnit;
         return matchesDate && matchesUnit;
       });
 

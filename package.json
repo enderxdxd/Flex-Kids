@@ -27,6 +27,7 @@
     "@prisma/client": "^5.8.0",
     "date-fns": "^3.0.6",
     "electron-store": "^8.1.0",
+    "electron-updater": "^6.8.3",
     "firebase": "^10.7.2",
     "idb": "^8.0.3",
     "react": "^18.2.0",
@@ -84,6 +85,11 @@
       }
     ],
     "asar": false,
+    "publish": {
+      "provider": "github",
+      "owner": "enderxdxd",
+      "repo": "Flex-Kids"
+    },
     "win": {
       "target": [
         "nsis"

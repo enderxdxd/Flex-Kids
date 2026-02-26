@@ -102,7 +102,7 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
         ...packageData,
         usedHours: 0,
         active: true,
-        sharedAcrossUnits: true,
+        sharedAcrossUnits: false,
         unitId: currentUnit,
         paymentId: payment.id,
       });

@@ -30,7 +30,7 @@ const Payments: React.FC = () => {
         allPayments = await paymentsServiceOffline.getAllPayments();
       }
       
-      const unitPayments = allPayments.filter(p => !p.unitId || p.unitId === currentUnit);
+      const unitPayments = allPayments.filter(p => p.unitId === currentUnit);
       setPayments(unitPayments);
     } catch (error) {
       console.error('Error loading payments:', error);

@@ -77,8 +77,8 @@ const VisitHistory: React.FC = () => {
         });
       setVisits(childVisits);
 
-      // Buscar pacotes da criança
-      const allPackages = await packagesServiceOffline.getActivePackages();
+      // Buscar pacotes da criança (filtrado pela unidade)
+      const allPackages = await packagesServiceOffline.getActivePackages(undefined, currentUnit);
       const childPackages = allPackages.filter(p => p.childId === selectedChildId);
       setPackages(childPackages);
     } catch (error) {
