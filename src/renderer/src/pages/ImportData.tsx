@@ -297,6 +297,12 @@ const ImportData: React.FC = () => {
 
     const db = !dryRun ? getDb() : null;
 
+    // Suspend sync and notifications during bulk import
+    if (!dryRun) {
+      syncService.startBulkMode();
+    }
+
+    try {
     // ─── 1. Fetch existing customers for duplicate detection ─────────
     addLog({ type: 'info', message: 'Carregando clientes existentes para detecção de duplicatas...' });
     let existingCustomers: { id: string; name: string }[] = [];
@@ -321,7 +327,7 @@ const ImportData: React.FC = () => {
     // Load existing packages for duplicate detection
     let existingPackages: { id: string; customerId: string; type: string; hours: number }[] = [];
     try {
-      const allPkgs = await packagesServiceOffline.getAllPackages();
+      const allPkgs = await packagesServiceOffline.getAllPackages(currentUnit);
       existingPackages = allPkgs.map(p => ({ id: p.id, customerId: p.customerId, type: p.type.toUpperCase().trim(), hours: p.hours }));
       addLog({ type: 'info', message: `${existingPackages.length} pacotes existentes carregados` });
     } catch (e) {
@@ -571,6 +577,12 @@ const ImportData: React.FC = () => {
     } else {
       toast.success(dryRun ? 'Simulação concluída!' : 'Importação concluída!');
     }
+    } finally {
+      // Resume sync and fire a single pending count update
+      if (!dryRun) {
+        await syncService.endBulkMode();
+      }
+    }
   };
 
   // ─── Delete imported data ────────────────────────────────────────────
@@ -676,8 +688,8 @@ const ImportData: React.FC = () => {
     addLog({ type: 'info', message: `Buscando pacotes da unidade ${currentUnit}...` });
     let allPkgs: { id: string }[] = [];
     try {
-      const pkgs = await packagesServiceOffline.getAllPackages();
-      allPkgs = pkgs.filter(p => p.unitId === currentUnit);
+      const pkgs = await packagesServiceOffline.getAllPackages(currentUnit);
+      allPkgs = pkgs;
       addLog({ type: 'info', message: `${allPkgs.length} pacotes encontrados na unidade` });
     } catch (e) {
       addLog({ type: 'error', message: `Erro ao buscar pacotes: ${e}` });

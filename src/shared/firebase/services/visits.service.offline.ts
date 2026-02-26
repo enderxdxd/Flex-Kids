@@ -150,8 +150,7 @@ export const visitsServiceOffline = {
       const localVisits = await syncService.getAllFromLocal(COLLECTION);
       let cachedActiveVisits = localVisits
         .filter((visit: Visit) => {
-          const matchesUnit = !unitId || visit.unitId === unitId;
-          return matchesUnit && !visit.checkOut;
+          return visit.unitId === unitId && !visit.checkOut;
         })
         .sort((a: Visit, b: Visit) => {
           const aTime = a.checkIn instanceof Date ? a.checkIn.getTime() : new Date(a.checkIn).getTime();
@@ -191,14 +190,15 @@ export const visitsServiceOffline = {
     }
   },
 
-  async fetchActiveVisitsFromFirebase(_unitId?: string, _limit?: number): Promise<Visit[]> {
+  async fetchActiveVisitsFromFirebase(unitId?: string, _limit?: number): Promise<Visit[]> {
     try {
       const db = getDb();
-      const q = query(
-        collection(db, COLLECTION),
-        where('checkOut', '==', null),
-        orderBy('checkIn', 'desc')
-      );
+      const constraints: any[] = [where('checkOut', '==', null)];
+      if (unitId) {
+        constraints.push(where('unitId', '==', unitId));
+      }
+      constraints.push(orderBy('checkIn', 'desc'));
+      const q = query(collection(db, COLLECTION), ...constraints);
 
       const snapshot = await getDocs(q);
       const visits: Visit[] = [];
@@ -279,11 +279,16 @@ export const visitsServiceOffline = {
     return allVisits.filter((visit: Visit) => visit.childId === customerId);
   },
 
-  async getAllVisits(): Promise<Visit[]> {
+  async getAllVisits(unitId?: string): Promise<Visit[]> {
     if (syncService.isOnline()) {
       try {
         const db = getDb();
-        const q = query(collection(db, COLLECTION), orderBy('checkIn', 'desc'));
+        const constraints: any[] = [];
+        if (unitId) {
+          constraints.push(where('unitId', '==', unitId));
+        }
+        constraints.push(orderBy('checkIn', 'desc'));
+        const q = query(collection(db, COLLECTION), ...constraints);
         const snapshot = await getDocs(q);
         
         const visits = snapshot.docs.map(doc => ({
@@ -305,6 +310,7 @@ export const visitsServiceOffline = {
       }
     }
 
-    return await syncService.getAllFromLocal(COLLECTION);
+    const all = await syncService.getAllFromLocal(COLLECTION);
+    return unitId ? all.filter((v: Visit) => v.unitId === unitId) : all;
   },
 };

@@ -295,11 +295,16 @@ export const paymentsServiceOffline = {
     }
   },
 
-  async getAllPayments(): Promise<Payment[]> {
+  async getAllPayments(unitId?: string): Promise<Payment[]> {
     if (syncService.isOnline()) {
       try {
         const db = getDb();
-        const q = query(collection(db, COLLECTION), orderBy('createdAt', 'desc'));
+        const constraints: any[] = [];
+        if (unitId) {
+          constraints.push(where('unitId', '==', unitId));
+        }
+        constraints.push(orderBy('createdAt', 'desc'));
+        const q = query(collection(db, COLLECTION), ...constraints);
         const snapshot = await getDocs(q);
         
         const payments = snapshot.docs.map(doc => {
@@ -331,6 +336,7 @@ export const paymentsServiceOffline = {
       }
     }
 
-    return await syncService.getAllFromLocal(COLLECTION);
+    const all = await syncService.getAllFromLocal(COLLECTION);
+    return unitId ? all.filter((p: Payment) => p.unitId === unitId) : all;
   },
 };

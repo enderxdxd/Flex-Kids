@@ -10,6 +10,7 @@ class SyncService {
   private onlineListeners: Array<(online: boolean) => void> = [];
   private pendingCountListeners: Array<(count: number) => void> = [];
   private initialized = false;
+  private bulkMode = false;
 
   constructor() {
     this.setupOnlineListener();
@@ -119,8 +120,21 @@ class SyncService {
     'settings': 6,
   };
 
+  /** Enter bulk mode: suspends sync and pending count notifications. Call endBulkMode() when done. */
+  startBulkMode(): void {
+    console.log('[SYNC] Bulk mode ON — sync and notifications paused');
+    this.bulkMode = true;
+  }
+
+  /** Exit bulk mode: resumes sync and fires a single pending count update. */
+  async endBulkMode(): Promise<void> {
+    console.log('[SYNC] Bulk mode OFF — resuming sync');
+    this.bulkMode = false;
+    await this.notifyPendingCount();
+  }
+
   async syncAll(): Promise<void> {
-    if (this.isSyncing || !this.isOnline()) {
+    if (this.isSyncing || !this.isOnline() || this.bulkMode) {
       return;
     }
 
@@ -400,8 +414,10 @@ class SyncService {
     this.ensureInitialized();
     const id = data.id || `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     await localDb.upsert(collectionName as any, { ...data, id, synced: true });
-    // Update UI pending count (flush stale queue items)
-    await this.notifyPendingCount();
+    // Skip notification during bulk imports to avoid hundreds of UI updates
+    if (!this.bulkMode) {
+      await this.notifyPendingCount();
+    }
   }
 
   async getFromLocal(collection: string, id: string): Promise<any> {

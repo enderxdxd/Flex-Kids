@@ -67,9 +67,9 @@ const VisitHistory: React.FC = () => {
       setLoading(true);
       
       // Buscar visitas da criança
-      const allVisits = await visitsServiceOffline.getAllVisits();
+      const allVisits = await visitsServiceOffline.getAllVisits(currentUnit);
       const childVisits = allVisits
-        .filter(v => v.childId === selectedChildId && v.unitId === currentUnit)
+        .filter(v => v.childId === selectedChildId)
         .sort((a, b) => {
           const aTime = a.checkIn instanceof Date ? a.checkIn.getTime() : new Date(a.checkIn).getTime();
           const bTime = b.checkIn instanceof Date ? b.checkIn.getTime() : new Date(b.checkIn).getTime();

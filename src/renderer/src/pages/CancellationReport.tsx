@@ -21,7 +21,7 @@ const CancellationReport: React.FC = () => {
   const loadCancellations = async () => {
     try {
       setLoading(true);
-      const allVisits = await visitsServiceOffline.getAllVisits();
+      const allVisits = await visitsServiceOffline.getAllVisits(currentUnit);
 
       let startDate: Date;
       let endDate: Date;

@@ -33,7 +33,7 @@ const CashReport: React.FC = () => {
       console.log('[CASH REPORT] Range:', startOfDay, 'até', endOfDay);
 
       // Buscar todos os pagamentos e filtrar pela data
-      const allPayments = await paymentsServiceOffline.getAllPayments();
+      const allPayments = await paymentsServiceOffline.getAllPayments(currentUnit);
       console.log('[CASH REPORT] Total de pagamentos no sistema:', allPayments.length);
 
       const dayPayments = allPayments.filter(p => {

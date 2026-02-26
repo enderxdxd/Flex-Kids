@@ -22,7 +22,7 @@ const PackageModal: React.FC<PackageModalProps> = ({ isOpen, onClose, onSuccess 
   const [hours, setHours] = useState<number>(10);
   const [price, setPrice] = useState<number>(0);
   const [expiresInDays, setExpiresInDays] = useState<number>(30);
-  const [sharedAcrossUnits, setSharedAcrossUnits] = useState<boolean>(true);
+  const [sharedAcrossUnits, setSharedAcrossUnits] = useState<boolean>(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -107,7 +107,7 @@ const PackageModal: React.FC<PackageModalProps> = ({ isOpen, onClose, onSuccess 
     setHours(10);
     setPrice(0);
     setExpiresInDays(30);
-    setSharedAcrossUnits(true);
+    setSharedAcrossUnits(false);
     onClose();
   };
 
@@ -184,10 +184,6 @@ const PackageModal: React.FC<PackageModalProps> = ({ isOpen, onClose, onSuccess 
                   <input type="number" value={expiresInDays} onChange={(e) => setExpiresInDays(Number(e.target.value))} min="1" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
                 </div>
               </div>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" id="sharedUnits" checked={sharedAcrossUnits} onChange={(e) => setSharedAcrossUnits(e.target.checked)} className="w-4 h-4 text-violet-600 rounded focus:ring-violet-500" />
-                <span className="text-sm text-slate-600">Uso em todas as unidades</span>
-              </label>
             </div>
           )}
 

@@ -27,7 +27,7 @@ const Payments: React.FC = () => {
       } else if (filterType === 'month') {
         allPayments = await paymentsServiceOffline.getMonthPayments(selectedMonth);
       } else {
-        allPayments = await paymentsServiceOffline.getAllPayments();
+        allPayments = await paymentsServiceOffline.getAllPayments(currentUnit);
       }
       
       const unitPayments = allPayments.filter(p => p.unitId === currentUnit);

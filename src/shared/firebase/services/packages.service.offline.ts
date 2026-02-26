@@ -164,7 +164,7 @@ export const packagesServiceOffline = {
     try {
       const localPackages = await syncService.getAllFromLocal(COLLECTION) as Package[];
       if (!unitId) return localPackages;
-      return localPackages.filter(pkg => pkg.unitId === unitId || pkg.sharedAcrossUnits);
+      return localPackages.filter(pkg => pkg.unitId === unitId);
     } catch (error) {
       console.error('Error getting all packages:', error);
       return [];
@@ -198,7 +198,7 @@ export const packagesServiceOffline = {
       const cachedPackages = localPackages
         .filter((pkg: Package) => {
           const matchesCustomer = !customerId || pkg.customerId === customerId;
-          const matchesUnit = !unitId || pkg.unitId === unitId || pkg.sharedAcrossUnits;
+          const matchesUnit = pkg.unitId === unitId;
           return matchesCustomer && matchesUnit && pkg.active && pkg.usedHours < pkg.hours;
         })
         .sort((a: Package, b: Package) => {
