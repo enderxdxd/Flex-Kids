@@ -1,16 +1,44 @@
 import { autoUpdater } from 'electron-updater';
-import { BrowserWindow, ipcMain } from 'electron';
+import { BrowserWindow, ipcMain, app } from 'electron';
 
 let mainWindow: BrowserWindow | null = null;
 
+/** Register IPC handlers early (before createWindow) so renderer never gets "no handler" errors */
+export function registerUpdaterIPC(): void {
+  ipcMain.handle('updater:check', async () => {
+    try {
+      const result = await autoUpdater.checkForUpdates();
+      return { success: true, version: result?.updateInfo?.version };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('updater:download', async () => {
+    try {
+      await autoUpdater.downloadUpdate();
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('updater:install', () => {
+    autoUpdater.quitAndInstall(false, true);
+  });
+
+  ipcMain.handle('updater:get-version', () => {
+    return app.getVersion();
+  });
+}
+
+/** Initialize auto-updater listeners and schedule first check (call after createWindow) */
 export function initAutoUpdater(win: BrowserWindow): void {
   mainWindow = win;
 
-  // Configuração
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
 
-  // Logs
   autoUpdater.on('checking-for-update', () => {
     console.log('[UPDATER] Verificando atualizações...');
     sendToRenderer('update-status', { status: 'checking' });
@@ -46,34 +74,6 @@ export function initAutoUpdater(win: BrowserWindow): void {
   autoUpdater.on('error', (error) => {
     console.error('[UPDATER] Erro:', error.message);
     sendToRenderer('update-status', { status: 'error', message: error.message });
-  });
-
-  // IPC handlers
-  ipcMain.handle('updater:check', async () => {
-    try {
-      const result = await autoUpdater.checkForUpdates();
-      return { success: true, version: result?.updateInfo?.version };
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
-  });
-
-  ipcMain.handle('updater:download', async () => {
-    try {
-      await autoUpdater.downloadUpdate();
-      return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
-  });
-
-  ipcMain.handle('updater:install', () => {
-    autoUpdater.quitAndInstall(false, true);
-  });
-
-  ipcMain.handle('updater:get-version', () => {
-    const { app } = require('electron');
-    return app.getVersion();
   });
 
   // Verifica atualizações ao iniciar (após 10s)

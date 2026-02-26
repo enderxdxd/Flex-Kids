@@ -1,7 +1,7 @@
 import { app, BrowserWindow } from 'electron';
 import path from 'path';
 import { registerPrinterIPC } from './printer.service';
-import { initAutoUpdater } from './updater';
+import { registerUpdaterIPC, initAutoUpdater } from './updater';
 
 // Log para debug - vai aparecer no terminal/arquivo de log
 console.log('[MAIN] ====================================');
@@ -58,11 +58,15 @@ app.whenReady().then(() => {
   } catch (error) {
     console.error('[MAIN] ERRO ao registrar IPC handlers:', error);
   }
+
+  // Registra IPC handlers do updater ANTES de criar a janela
+  registerUpdaterIPC();
+  console.log('[MAIN] Updater IPC handlers registrados');
   
   createWindow();
 
-  // Inicializa auto-updater (apenas em produção)
-  if (!isDev && mainWindow) {
+  // Inicializa listeners do auto-updater (precisa de mainWindow)
+  if (mainWindow) {
     try {
       initAutoUpdater(mainWindow);
       console.log('[MAIN] Auto-updater inicializado');

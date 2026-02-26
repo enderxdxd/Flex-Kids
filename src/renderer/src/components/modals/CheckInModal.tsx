@@ -21,6 +21,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
   const [selectedChild, setSelectedChild] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
+  const [searchMode, setSearchMode] = useState<'client' | 'child'>('client');
 
   useEffect(() => {
     if (isOpen) {
@@ -48,6 +49,10 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
   );
 
   const customerChildren = children.filter(c => c.customerId === selectedCustomer);
+
+  const filteredChildrenByName = searchTerm.trim().length > 0
+    ? children.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    : [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,6 +135,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
     setSelectedCustomer('');
     setSelectedChild('');
     setSearchTerm('');
+    setSearchMode('client');
     processingRef.current = false;
     onClose();
   };
@@ -145,63 +151,95 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          {/* Search */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Buscar Cliente</label>
-            <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Nome ou telefone..." className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+          <div className="flex rounded-lg bg-slate-100 p-0.5">
+            <button type="button" onClick={() => { setSearchMode('client'); setSearchTerm(''); setSelectedCustomer(''); setSelectedChild(''); }}
+              className={`flex-1 py-2 text-xs font-semibold rounded-md transition-all ${searchMode === 'client' ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+              Por Cliente
+            </button>
+            <button type="button" onClick={() => { setSearchMode('child'); setSearchTerm(''); setSelectedCustomer(''); setSelectedChild(''); }}
+              className={`flex-1 py-2 text-xs font-semibold rounded-md transition-all ${searchMode === 'child' ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+              Por Criança
+            </button>
           </div>
 
-          {/* Customer List */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Cliente</label>
-            <div className="space-y-1 max-h-36 overflow-y-auto border border-slate-200 rounded-lg p-1.5">
-              {filteredCustomers.length === 0 ? (
-                <p className="text-center text-slate-400 py-3 text-xs">Nenhum cliente encontrado</p>
-              ) : (
-                filteredCustomers.map(customer => (
-                  <button key={customer.id} type="button" onClick={() => { setSelectedCustomer(customer.id); setSelectedChild(''); }}
-                    className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${selectedCustomer === customer.id ? 'bg-violet-50 border border-violet-300' : 'hover:bg-slate-50 border border-transparent'}`}>
-                    <p className="font-semibold text-slate-800">{customer.name}</p>
-                    <p className="text-xs text-slate-500">{customer.phone}</p>
-                  </button>
-                ))
-              )}
-            </div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+              {searchMode === 'client' ? 'Buscar Cliente' : 'Buscar Criança'}
+            </label>
+            <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder={searchMode === 'client' ? 'Nome ou telefone...' : 'Nome da criança...'}
+              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
           </div>
 
-          {/* Children */}
-          {selectedCustomer && (
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-semibold text-slate-600">Criança</label>
-                {customerChildren.length > 1 && (
-                  <button type="button" onClick={handleCheckInAll} disabled={loading}
-                    className="text-xs font-semibold text-violet-600 hover:text-violet-700 disabled:opacity-50 transition-colors">
-                    Check-in em Todos ({customerChildren.length})
-                  </button>
-                )}
+          {searchMode === 'client' && (
+            <>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Cliente</label>
+                <div className="space-y-1 max-h-36 overflow-y-auto border border-slate-200 rounded-lg p-1.5">
+                  {filteredCustomers.length === 0 ? (
+                    <p className="text-center text-slate-400 py-3 text-xs">Nenhum cliente encontrado</p>
+                  ) : filteredCustomers.map(customer => (
+                    <button key={customer.id} type="button" onClick={() => { setSelectedCustomer(customer.id); setSelectedChild(''); }}
+                      className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${selectedCustomer === customer.id ? 'bg-violet-50 border border-violet-300' : 'hover:bg-slate-50 border border-transparent'}`}>
+                      <p className="font-semibold text-slate-800">{customer.name}</p>
+                      <p className="text-xs text-slate-500">{customer.phone}</p>
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="space-y-1">
-                {customerChildren.length === 0 ? (
-                  <p className="text-center text-slate-400 py-3 text-xs bg-slate-50 rounded-lg">Sem crianças cadastradas</p>
-                ) : (
-                  customerChildren.map(child => (
+              {selectedCustomer && (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-600">Criança</label>
+                    {customerChildren.length > 1 && (
+                      <button type="button" onClick={handleCheckInAll} disabled={loading}
+                        className="text-xs font-semibold text-violet-600 hover:text-violet-700 disabled:opacity-50 transition-colors">
+                        Check-in em Todos ({customerChildren.length})
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    {customerChildren.length === 0 ? (
+                      <p className="text-center text-slate-400 py-3 text-xs bg-slate-50 rounded-lg">Sem crianças cadastradas</p>
+                    ) : customerChildren.map(child => (
+                      <button key={child.id} type="button" onClick={() => setSelectedChild(child.id)}
+                        className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${selectedChild === child.id ? 'bg-emerald-50 border border-emerald-300' : 'hover:bg-slate-50 border border-transparent'}`}>
+                        <p className="font-semibold text-slate-800">{child.name}</p>
+                        <p className="text-xs text-slate-500">{getChildAge(child)} anos</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {searchMode === 'child' && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Resultados</label>
+              <div className="space-y-1 max-h-48 overflow-y-auto border border-slate-200 rounded-lg p-1.5">
+                {searchTerm.trim().length === 0 ? (
+                  <p className="text-center text-slate-400 py-3 text-xs">Digite o nome da criança acima</p>
+                ) : filteredChildrenByName.length === 0 ? (
+                  <p className="text-center text-slate-400 py-3 text-xs">Nenhuma criança encontrada</p>
+                ) : filteredChildrenByName.map(child => {
+                  const parent = customers.find(c => c.id === child.customerId);
+                  return (
                     <button key={child.id} type="button" onClick={() => setSelectedChild(child.id)}
                       className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${selectedChild === child.id ? 'bg-emerald-50 border border-emerald-300' : 'hover:bg-slate-50 border border-transparent'}`}>
                       <p className="font-semibold text-slate-800">{child.name}</p>
-                      <p className="text-xs text-slate-500">{getChildAge(child)} anos</p>
+                      <p className="text-xs text-slate-500">{getChildAge(child)} anos {parent ? `- ${parent.name}` : ''}</p>
                     </button>
-                  ))
-                )}
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* Buttons */}
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={handleClose} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
             <button type="submit" disabled={!selectedChild || loading} className="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors disabled:opacity-50">
-              {loading ? '⏳ Processando...' : 'Confirmar Check-In'}
+              {loading ? 'Processando...' : 'Confirmar Check-In'}
             </button>
           </div>
         </form>

@@ -1,6 +1,6 @@
 {
   "name": "flex-kids-manager",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Sistema de gerenciamento para Flex-Kids Playground",
   "main": "dist/main/index.js",
   "author": "Flex-Kids",
@@ -89,6 +89,9 @@
       "provider": "github",
       "owner": "enderxdxd",
       "repo": "Flex-Kids"
+    },
+    "nsis": {
+      "artifactName": "Flex-Kids-Manager-Setup-${version}.${ext}"
     },
     "win": {
       "target": [
