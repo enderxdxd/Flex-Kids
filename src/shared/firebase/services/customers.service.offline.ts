@@ -225,17 +225,41 @@ export const customersServiceOffline = {
 
   async fetchCustomersFromFirebase(unitId?: string): Promise<Customer[]> {
     try {
-      console.log('📥 Fetching customers from Firebase...');
+      console.log('📥 Fetching customers from Firebase... unitId:', unitId);
       const db = getDb();
-      const q = unitId
-        ? query(collection(db, CUSTOMERS_COLLECTION), where('unitId', '==', unitId))
-        : collection(db, CUSTOMERS_COLLECTION);
-      const snapshot = await getDocs(q);
+      let snapshot;
+
+      // Tenta buscar filtrado por unitId
+      if (unitId) {
+        const q = query(collection(db, CUSTOMERS_COLLECTION), where('unitId', '==', unitId));
+        snapshot = await getDocs(q);
+
+        // Fallback: se retornou 0, busca TODOS e migra unitId
+        if (snapshot.docs.length === 0) {
+          console.log('📥 Filtered query returned 0, fetching ALL to migrate unitId...');
+          snapshot = await getDocs(collection(db, CUSTOMERS_COLLECTION));
+        }
+      } else {
+        snapshot = await getDocs(collection(db, CUSTOMERS_COLLECTION));
+      }
+
       console.log(`📥 Received ${snapshot.docs.length} customers from Firebase`);
       
       const customers: any[] = [];
       for (const docSnap of snapshot.docs) {
         const data = docSnap.data();
+        const needsMigration = unitId && !data.unitId;
+
+        // Migra unitId no Firebase para registros antigos
+        if (needsMigration) {
+          try {
+            await updateDoc(doc(db, CUSTOMERS_COLLECTION, docSnap.id), { unitId });
+            console.log(`🔄 Migrated unitId for customer ${docSnap.id}`);
+          } catch (err) {
+            console.error(`Failed to migrate unitId for ${docSnap.id}:`, err);
+          }
+        }
+
         const customer: any = {
           id: docSnap.id,
           name: data.name,
@@ -243,7 +267,7 @@ export const customersServiceOffline = {
           email: data.email,
           cpf: data.cpf,
           address: data.address,
-          unitId: data.unitId,
+          unitId: data.unitId || unitId,
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
         };
@@ -492,21 +516,41 @@ export const customersServiceOffline = {
   async fetchChildrenFromFirebase(unitId?: string): Promise<Child[]> {
     try {
       const db = getDb();
-      const q = unitId
-        ? query(collection(db, CHILDREN_COLLECTION), where('unitId', '==', unitId))
-        : collection(db, CHILDREN_COLLECTION);
-      const snapshot = await getDocs(q);
+      let snapshot;
+
+      if (unitId) {
+        const q = query(collection(db, CHILDREN_COLLECTION), where('unitId', '==', unitId));
+        snapshot = await getDocs(q);
+
+        if (snapshot.docs.length === 0) {
+          console.log('📥 Children filtered query returned 0, fetching ALL to migrate unitId...');
+          snapshot = await getDocs(collection(db, CHILDREN_COLLECTION));
+        }
+      } else {
+        snapshot = await getDocs(collection(db, CHILDREN_COLLECTION));
+      }
       
       const children: any[] = [];
       for (const docSnap of snapshot.docs) {
         const data = docSnap.data();
+        const needsMigration = unitId && !data.unitId;
+
+        if (needsMigration) {
+          try {
+            await updateDoc(doc(db, CHILDREN_COLLECTION, docSnap.id), { unitId });
+            console.log(`🔄 Migrated unitId for child ${docSnap.id}`);
+          } catch (err) {
+            console.error(`Failed to migrate unitId for child ${docSnap.id}:`, err);
+          }
+        }
+
         const child: any = {
           id: docSnap.id,
           name: data.name,
           age: data.age,
           birthDate: data.birthDate?.toDate() || undefined,
           customerId: data.customerId,
-          unitId: data.unitId,
+          unitId: data.unitId || unitId,
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
         };

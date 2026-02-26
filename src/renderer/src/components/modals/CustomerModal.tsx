@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import { Customer } from '../../../../shared/types';
 import { customersServiceOffline } from '../../../../shared/firebase/services/customers.service.offline';
 import { getChildAge } from '../../../../shared/utils/age';
+import { useUnit } from '../../contexts/UnitContext';
 
 interface CustomerModalProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ interface ChildFormData {
 }
 
 const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSuccess, customer }) => {
+  const { currentUnit } = useUnit();
   const [formData, setFormData] = useState<FormData>({
     name: customer?.name || '',
     phone: customer?.phone || '',
@@ -89,7 +91,7 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSucces
         toast.success('✅ Cliente atualizado com sucesso!');
       } else {
         console.log('➕ CustomerModal: Creating new customer...');
-        const result = await customersServiceOffline.createCustomer(formData);
+        const result = await customersServiceOffline.createCustomer({ ...formData, unitId: currentUnit });
         console.log('✅ CustomerModal: Create successful, result:', result);
         
         // Cadastrar crianças
@@ -98,7 +100,7 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSucces
           for (const child of children) {
             const bd = child.birthDate ? new Date(child.birthDate + 'T00:00:00') : undefined;
             const age = bd ? Math.floor((Date.now() - bd.getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : 0;
-            await customersServiceOffline.addChild(result.id, { name: child.name, age, birthDate: bd });
+            await customersServiceOffline.addChild(result.id, { name: child.name, age, birthDate: bd, unitId: currentUnit });
           }
           console.log('✅ Children added successfully');
         }

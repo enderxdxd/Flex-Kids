@@ -240,13 +240,32 @@ export const packagesServiceOffline = {
         constraints.push(where('unitId', '==', unitId));
       }
       constraints.push(orderBy('createdAt', 'desc'));
-      const q = query(collection(db, COLLECTION), ...constraints);
+      let q = query(collection(db, COLLECTION), ...constraints);
 
-      const snapshot = await getDocs(q);
+      let snapshot = await getDocs(q);
+
+      // Fallback: se filtrou por unitId e retornou 0, busca sem filtro de unitId e migra
+      if (unitId && snapshot.docs.length === 0) {
+        console.log('📥 Packages filtered query returned 0, fetching ALL active to migrate unitId...');
+        const fallbackQ = query(collection(db, COLLECTION), where('active', '==', true), orderBy('createdAt', 'desc'));
+        snapshot = await getDocs(fallbackQ);
+      }
+
       const packages: Package[] = [];
 
       for (const docSnap of snapshot.docs) {
         const data = docSnap.data();
+        const needsMigration = unitId && !data.unitId;
+
+        if (needsMigration) {
+          try {
+            await updateDoc(doc(db, COLLECTION, docSnap.id), { unitId });
+            console.log(`🔄 Migrated unitId for package ${docSnap.id}`);
+          } catch (err) {
+            console.error(`Failed to migrate unitId for package ${docSnap.id}:`, err);
+          }
+        }
+
         const pkg: Package = {
           id: docSnap.id,
           customerId: data.customerId,
@@ -259,7 +278,7 @@ export const packagesServiceOffline = {
           expiryDays: data.expiryDays,
           active: data.active,
           sharedAcrossUnits: data.sharedAcrossUnits ?? false,
-          unitId: data.unitId || '',
+          unitId: data.unitId || unitId || '',
           paymentId: data.paymentId,
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),

@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
 import { Payment } from '../../types';
 import { syncService } from '../../database/syncService';
@@ -299,12 +299,31 @@ export const paymentsServiceOffline = {
         }
         constraints.push(orderBy('createdAt', 'desc'));
         const q = query(collection(db, COLLECTION), ...constraints);
-        const snapshot = await getDocs(q);
+        let snapshot = await getDocs(q);
+
+        // Fallback: se filtrou por unitId e retornou 0, busca ALL e migra
+        if (unitId && snapshot.docs.length === 0) {
+          console.log('📥 Payments filtered query returned 0, fetching ALL to migrate unitId...');
+          const fallbackQ = query(collection(db, COLLECTION), orderBy('createdAt', 'desc'));
+          snapshot = await getDocs(fallbackQ);
+        }
         
-        const payments = snapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
+        const payments: Payment[] = [];
+        for (const docSnap of snapshot.docs) {
+          const data = docSnap.data();
+          const needsMigration = unitId && !data.unitId;
+
+          if (needsMigration) {
+            try {
+              await updateDoc(doc(db, COLLECTION, docSnap.id), { unitId });
+              console.log(`🔄 Migrated unitId for payment ${docSnap.id}`);
+            } catch (err) {
+              console.error(`Failed to migrate unitId for payment ${docSnap.id}:`, err);
+            }
+          }
+
+          payments.push({
+            id: docSnap.id,
             customerId: data.customerId,
             childId: data.childId,
             childName: data.childName,
@@ -313,12 +332,12 @@ export const paymentsServiceOffline = {
             status: data.status,
             type: data.type || 'visit',
             packageId: data.packageId,
-            unitId: data.unitId,
+            unitId: data.unitId || unitId,
             description: data.description,
             createdAt: data.createdAt?.toDate(),
             updatedAt: data.updatedAt?.toDate(),
-          } as Payment;
-        });
+          } as Payment);
+        }
 
         await syncService.bulkSaveToCacheOnly(COLLECTION, payments);
 
