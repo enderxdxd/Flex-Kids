@@ -47,7 +47,7 @@ const CashReport: React.FC = () => {
 
       // Enriquecer pagamentos com nome da criança se estiver faltando
       const { customersServiceOffline } = await import('../../../shared/firebase/services/customers.service.offline');
-      const allChildren = await customersServiceOffline.getAllChildren();
+      const allChildren = await customersServiceOffline.getAllChildren(currentUnit);
       
       const enrichedPayments = dayPayments.map(p => {
         // Se já tem childName, retorna como está

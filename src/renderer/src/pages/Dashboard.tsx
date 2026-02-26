@@ -83,13 +83,15 @@ const Dashboard: React.FC = () => {
         packagesServiceOffline.getActivePackages(),
       ]);
 
-      const todayRevenue = todayPayments.reduce((sum, p) => sum + p.amount, 0);
+      const unitPayments = todayPayments.filter(p => !p.unitId || p.unitId === currentUnit);
+      const unitPackages = activePackages.filter(p => p.unitId === currentUnit || p.sharedAcrossUnits);
+      const todayRevenue = unitPayments.reduce((sum, p) => sum + p.amount, 0);
 
       const newStats = {
         activeVisits: activeVisits.length,
         todayRevenue,
         todayVisits: activeVisits.length,
-        activePackages: activePackages.length,
+        activePackages: unitPackages.length,
       };
 
       setStats(newStats);

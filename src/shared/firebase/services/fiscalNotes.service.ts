@@ -28,7 +28,7 @@ export const fiscalNotesService = {
           ...noteData,
         };
 
-        await syncService.saveLocally(COLLECTION, 'create', fiscalNote);
+        await syncService.saveToCacheOnly(COLLECTION, fiscalNote);
         return fiscalNote;
       } catch (error) {
         console.error('Failed to save to Firebase, saving locally:', error);
@@ -65,7 +65,8 @@ export const fiscalNotesService = {
         
         const localNote = await syncService.getFromLocal(COLLECTION, id);
         const updatedNote = { ...localNote, ...updateData };
-        await syncService.saveLocally(COLLECTION, 'update', updatedNote);
+        await syncService.saveToCacheOnly(COLLECTION, updatedNote);
+        return;
       } catch (error) {
         console.error('Failed to update in Firebase, saving locally:', error);
       }
@@ -122,7 +123,7 @@ export const fiscalNotesService = {
         });
 
         for (const note of notes) {
-          await syncService.saveLocally(COLLECTION, 'create', note);
+          await syncService.saveToCacheOnly(COLLECTION, note);
         }
 
         return notes;
@@ -191,7 +192,7 @@ export const fiscalNotesService = {
         });
 
         for (const note of notes) {
-          await syncService.saveLocally(COLLECTION, 'create', note);
+          await syncService.saveToCacheOnly(COLLECTION, note);
         }
 
         return notes;

@@ -57,7 +57,7 @@ export const settingsServiceOffline = {
       const value = snapshot.data().value;
       
       // Salva no cache
-      await syncService.saveLocally(COLLECTION, 'create', {
+      await syncService.saveToCacheOnly(COLLECTION, {
         id: key,
         key,
         value,
@@ -91,7 +91,7 @@ export const settingsServiceOffline = {
           updatedAt: Timestamp.now(),
         }, { merge: true });
 
-        await syncService.saveLocally(COLLECTION, 'update', settingData);
+        await syncService.saveToCacheOnly(COLLECTION, settingData);
         return;
       } catch (error) {
         console.error('Failed to save to Firebase, saving locally:', error);
@@ -139,7 +139,7 @@ export const settingsServiceOffline = {
       })) as Settings[];
 
       await Promise.all(settings.map(setting => 
-        syncService.saveLocally(COLLECTION, 'create', setting).catch(() => {})
+        syncService.saveToCacheOnly(COLLECTION, setting).catch(() => {})
       ));
     } catch (error) {
       console.error('Background refresh failed (non-blocking):', error);

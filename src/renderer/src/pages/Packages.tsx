@@ -7,6 +7,7 @@ import { customersServiceOffline } from '../../../shared/firebase/services/custo
 import { settingsServiceOffline } from '../../../shared/firebase/services/settings.service.offline';
 import PackagePaymentModal from '../components/modals/PackagePaymentModal';
 import { useUnit } from '../contexts/UnitContext';
+import { getChildAge } from '../../../shared/utils/age';
 
 interface PackageFormData {
   customerId: string;
@@ -69,8 +70,8 @@ const Packages: React.FC = () => {
       setLoading(true);
       const [allPackages, allCustomers, allChildren, savedPlans] = await Promise.all([
         packagesServiceOffline.getActivePackages(),
-        customersServiceOffline.getAllCustomers(),
-        customersServiceOffline.getAllChildren(),
+        customersServiceOffline.getAllCustomers(currentUnit),
+        customersServiceOffline.getAllChildren(currentUnit),
         settingsServiceOffline.getPackagePlans(),
       ]);
 
@@ -428,7 +429,7 @@ const Packages: React.FC = () => {
                   <label className="block text-xs font-semibold text-slate-600 mb-1.5">Criança (opcional)</label>
                   <select value={formData.childId || ''} onChange={(e) => setFormData({ ...formData, childId: e.target.value || undefined })} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500">
                     <option value="">Todas as crianças</option>
-                    {getCustomerChildren(formData.customerId).map(ch => <option key={ch.id} value={ch.id}>{ch.name} ({ch.age} anos)</option>)}
+                    {getCustomerChildren(formData.customerId).map(ch => <option key={ch.id} value={ch.id}>{ch.name} ({getChildAge(ch)} anos)</option>)}
                   </select>
                 </div>
               )}

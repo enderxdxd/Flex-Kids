@@ -30,7 +30,7 @@ export const packagesServiceOffline = {
           ...packageData,
         };
 
-        await syncService.saveLocally(COLLECTION, 'create', pkg);
+        await syncService.saveToCacheOnly(COLLECTION, pkg);
         return pkg;
       } catch (error) {
         console.error('Failed to save to Firebase, saving locally:', error);
@@ -67,7 +67,7 @@ export const packagesServiceOffline = {
         await updateDoc(packageRef, firestoreData);
         
         const localPkg = await syncService.getFromLocal(COLLECTION, id);
-        await syncService.saveLocally(COLLECTION, 'update', { ...localPkg, ...updateData });
+        await syncService.saveToCacheOnly(COLLECTION, { ...localPkg, ...updateData });
         return;
       } catch (error) {
         console.error('Failed to update in Firebase, saving locally:', error);
@@ -115,7 +115,7 @@ export const packagesServiceOffline = {
         })) as Package[];
 
         for (const pkg of packages) {
-          await syncService.saveLocally(COLLECTION, 'create', pkg);
+          await syncService.saveToCacheOnly(COLLECTION, pkg);
         }
 
         return packages;
@@ -250,7 +250,7 @@ export const packagesServiceOffline = {
 
       // Salva em paralelo
       await Promise.all(packages.map(pkg => 
-        syncService.saveLocally(COLLECTION, 'create', pkg).catch(() => {})
+        syncService.saveToCacheOnly(COLLECTION, pkg).catch(() => {})
       ));
 
       return packages.filter(pkg => !customerId || pkg.customerId === customerId);

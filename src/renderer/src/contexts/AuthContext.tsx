@@ -6,6 +6,7 @@ interface AuthContextType {
   authenticatedUnit: string | null;
   login: (unitId: string, password: string) => boolean;
   loginAdmin: (password: string) => boolean;
+  logoutAdmin: () => void;
   logout: () => void;
 }
 
@@ -129,6 +130,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return false;
   };
 
+  const logoutAdmin = () => {
+    setIsAdmin(false);
+    try {
+      localStorage.removeItem(ADMIN_STORAGE_KEY);
+    } catch (error) {
+      console.error('Error clearing admin state:', error);
+    }
+  };
+
   const logout = () => {
     setIsAuthenticated(false);
     setIsAdmin(false);
@@ -142,7 +152,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, isAdmin, authenticatedUnit, login, loginAdmin, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, isAdmin, authenticatedUnit, login, loginAdmin, logoutAdmin, logout }}>
       {children}
     </AuthContext.Provider>
   );

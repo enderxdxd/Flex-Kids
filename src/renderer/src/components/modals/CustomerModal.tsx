@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { Customer } from '../../../../shared/types';
 import { customersServiceOffline } from '../../../../shared/firebase/services/customers.service.offline';
+import { getChildAge } from '../../../../shared/utils/age';
 
 interface CustomerModalProps {
   isOpen: boolean;
@@ -20,7 +21,7 @@ interface FormData {
 
 interface ChildFormData {
   name: string;
-  age: number;
+  birthDate: string;
 }
 
 const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSuccess, customer }) => {
@@ -32,7 +33,7 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSucces
     address: customer?.address || '',
   });
   const [children, setChildren] = useState<ChildFormData[]>([]);
-  const [newChild, setNewChild] = useState<ChildFormData>({ name: '', age: 0 });
+  const [newChild, setNewChild] = useState<ChildFormData>({ name: '', birthDate: '' });
   const [loading, setLoading] = useState(false);
   const [loadingChildren, setLoadingChildren] = useState(false);
 
@@ -46,7 +47,7 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSucces
     try {
       setLoadingChildren(true);
       const childrenData = await customersServiceOffline.getChildrenByCustomer(customerId);
-      setChildren(childrenData.map(c => ({ name: c.name, age: c.age })));
+      setChildren(childrenData.map(c => ({ name: c.name, birthDate: c.birthDate ? (typeof c.birthDate === 'string' ? c.birthDate : c.birthDate.toISOString().split('T')[0]) : '' })));
     } catch (error) {
       console.error('Error loading children:', error);
     } finally {
@@ -55,12 +56,12 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSucces
   };
 
   const addChild = () => {
-    if (!newChild.name || newChild.age <= 0) {
-      toast.error('Nome e idade da criança são obrigatórios');
+    if (!newChild.name || !newChild.birthDate) {
+      toast.error('Nome e data de nascimento da criança são obrigatórios');
       return;
     }
     setChildren([...children, { ...newChild }]);
-    setNewChild({ name: '', age: 0 });
+    setNewChild({ name: '', birthDate: '' });
     toast.success('Criança adicionada!');
   };
 
@@ -95,7 +96,9 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSucces
         if (children.length > 0) {
           console.log(`👶 Adding ${children.length} children...`);
           for (const child of children) {
-            await customersServiceOffline.addChild(result.id, child);
+            const bd = child.birthDate ? new Date(child.birthDate + 'T00:00:00') : undefined;
+            const age = bd ? Math.floor((Date.now() - bd.getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : 0;
+            await customersServiceOffline.addChild(result.id, { name: child.name, age, birthDate: bd });
           }
           console.log('✅ Children added successfully');
         }
@@ -120,7 +123,7 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSucces
   const handleClose = () => {
     setFormData({ name: '', phone: '', email: '', cpf: '', address: '' });
     setChildren([]);
-    setNewChild({ name: '', age: 0 });
+    setNewChild({ name: '', birthDate: '' });
     onClose();
   };
 
@@ -172,7 +175,7 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSucces
                   <div key={index} className="flex items-center justify-between bg-blue-50 px-3 py-2 rounded-lg">
                     <div>
                       <span className="text-sm font-semibold text-slate-800">{child.name}</span>
-                      <span className="text-xs text-slate-500 ml-2">{child.age} anos</span>
+                      <span className="text-xs text-slate-500 ml-2">{child.birthDate ? getChildAge({ age: 0, birthDate: new Date(child.birthDate + 'T00:00:00') }) : 0} anos</span>
                     </div>
                     <button type="button" onClick={() => removeChild(index)} className="text-red-400 hover:text-red-600 text-sm">✕</button>
                   </div>
@@ -183,7 +186,7 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSucces
             {!customer && (
               <div className="flex gap-2">
                 <input type="text" value={newChild.name} onChange={(e) => setNewChild({ ...newChild, name: e.target.value })} placeholder="Nome" className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
-                <input type="number" value={newChild.age || ''} onChange={(e) => setNewChild({ ...newChild, age: parseInt(e.target.value) || 0 })} placeholder="Idade" min="0" max="18" className="w-20 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                <input type="date" value={newChild.birthDate} onChange={(e) => setNewChild({ ...newChild, birthDate: e.target.value })} className="w-36 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
                 <button type="button" onClick={addChild} className="px-3 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors">+ Add</button>
               </div>
             )}

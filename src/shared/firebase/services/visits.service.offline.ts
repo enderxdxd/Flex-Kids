@@ -47,7 +47,7 @@ export const visitsServiceOffline = {
           ...visitData,
         } as Visit;
 
-        await syncService.saveLocally(COLLECTION, 'create', visit);
+        await syncService.saveToCacheOnly(COLLECTION, visit);
         return visit;
       } catch (error) {
         console.error('Failed to save to Firebase, saving locally:', error);
@@ -87,7 +87,7 @@ export const visitsServiceOffline = {
         
         const localVisit = await syncService.getFromLocal(COLLECTION, data.visitId);
         const updatedVisit = { ...localVisit, ...updateData };
-        await syncService.saveLocally(COLLECTION, 'update', updatedVisit);
+        await syncService.saveToCacheOnly(COLLECTION, updatedVisit);
         
         return updatedVisit as Visit;
       } catch (error) {
@@ -220,7 +220,7 @@ export const visitsServiceOffline = {
 
       // Salva em paralelo
       await Promise.all(visits.map(visit => 
-        syncService.saveLocally(COLLECTION, 'create', visit).catch(() => {})
+        syncService.saveToCacheOnly(COLLECTION, visit).catch(() => {})
       ));
 
       return visits;
@@ -251,7 +251,7 @@ export const visitsServiceOffline = {
         })) as Visit[];
 
         for (const visit of visits) {
-          await syncService.saveLocally(COLLECTION, 'create', visit);
+          await syncService.saveToCacheOnly(COLLECTION, visit);
         }
 
         return visits;
@@ -281,7 +281,7 @@ export const visitsServiceOffline = {
         })) as Visit[];
 
         for (const visit of visits) {
-          await syncService.saveLocally(COLLECTION, 'create', visit);
+          await syncService.saveToCacheOnly(COLLECTION, visit);
         }
 
         return visits;

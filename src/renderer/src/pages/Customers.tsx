@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import { Customer, Child } from '../../../shared/types';
+import { Customer, Child, Package } from '../../../shared/types';
 import { customersServiceOffline } from '../../../shared/firebase/services/customers.service.offline';
+import { packagesServiceOffline } from '../../../shared/firebase/services/packages.service.offline';
+import { useUnit } from '../contexts/UnitContext';
+import { getChildAge } from '../../../shared/utils/age';
 
 interface CustomerFormData {
   name: string;
@@ -13,13 +16,16 @@ interface CustomerFormData {
 
 interface ChildFormData {
   name: string;
-  age: number;
+  birthDate: string;
   customerId: string;
 }
 
 const Customers: React.FC = () => {
+  const { currentUnit } = useUnit();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [children, setChildren] = useState<Child[]>([]);
+  const [packages, setPackages] = useState<Package[]>([]);
+  const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -36,23 +42,26 @@ const Customers: React.FC = () => {
 
   const [childFormData, setChildFormData] = useState<ChildFormData>({
     name: '',
-    age: 0,
+    birthDate: '',
     customerId: '',
   });
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [currentUnit]);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const [allCustomers, allChildren] = await Promise.all([
-        customersServiceOffline.getAllCustomers(),
-        customersServiceOffline.getAllChildren(),
+      const [allCustomers, allChildren, allPackages] = await Promise.all([
+        customersServiceOffline.getAllCustomers(currentUnit),
+        customersServiceOffline.getAllChildren(currentUnit),
+        packagesServiceOffline.getAllPackages(),
       ]);
+      const unitPackages = allPackages.filter(p => p.unitId === currentUnit || p.sharedAcrossUnits);
       setCustomers(allCustomers);
       setChildren(allChildren);
+      setPackages(unitPackages);
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Erro ao carregar dados');
@@ -104,7 +113,7 @@ const Customers: React.FC = () => {
         await customersServiceOffline.updateCustomer(editingCustomer.id, formData);
         toast.success('✅ Cliente atualizado com sucesso!');
       } else {
-        await customersServiceOffline.createCustomer(formData);
+        await customersServiceOffline.createCustomer({ ...formData, unitId: currentUnit });
         toast.success('✅ Cliente cadastrado com sucesso!');
       }
       setShowModal(false);
@@ -115,41 +124,32 @@ const Customers: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Deseja realmente excluir o cliente ${name}?`)) {
-      return;
-    }
-
-    try {
-      await customersServiceOffline.deleteCustomer(id);
-      toast.success('✅ Cliente excluído com sucesso!');
-      loadData();
-    } catch (error) {
-      console.error('Error deleting customer:', error);
-      toast.error('Erro ao excluir cliente');
-    }
-  };
 
   const openChildModal = (customerId: string) => {
-    setChildFormData({ name: '', age: 0, customerId });
+    setChildFormData({ name: '', birthDate: '', customerId });
     setShowChildModal(true);
   };
 
   const handleChildSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!childFormData.name || childFormData.age <= 0) {
-      toast.error('Nome e idade são obrigatórios');
+    if (!childFormData.name || !childFormData.birthDate) {
+      toast.error('Nome e data de nascimento são obrigatórios');
       return;
     }
+
+    const birthDateObj = new Date(childFormData.birthDate + 'T00:00:00');
+    const age = getChildAge({ age: 0, birthDate: birthDateObj });
 
     try {
       await customersServiceOffline.addChild(childFormData.customerId, {
         name: childFormData.name,
-        age: childFormData.age,
+        age,
+        birthDate: birthDateObj,
+        unitId: currentUnit,
       });
       toast.success('✅ Criança cadastrada com sucesso!');
-      setChildFormData({ name: '', age: 0, customerId: '' });
+      setChildFormData({ name: '', birthDate: '', customerId: '' });
       setShowChildModal(false);
       loadData();
     } catch (error) {
@@ -160,6 +160,15 @@ const Customers: React.FC = () => {
 
   const getCustomerChildren = (customerId: string) => {
     return children.filter(c => c.customerId === customerId);
+  };
+
+  const getCustomerPackages = (customerId: string) => {
+    return packages.filter(p => p.customerId === customerId && p.active);
+  };
+
+  const getCustomerRemainingHours = (customerId: string): number => {
+    const pkgs = getCustomerPackages(customerId);
+    return pkgs.reduce((sum, p) => sum + Math.max(0, p.hours - p.usedHours), 0);
   };
 
   const filteredCustomers = searchTerm
@@ -214,41 +223,92 @@ const Customers: React.FC = () => {
             {filteredCustomers.map((customer) => {
               const custChildren = getCustomerChildren(customer.id);
               return (
-                <div key={customer.id} className="p-4 hover:bg-slate-50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <div className="w-10 h-10 bg-violet-100 rounded-full flex items-center justify-center text-violet-700 font-bold text-sm flex-shrink-0">
-                        {customer.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-slate-800 text-sm">{customer.name}</p>
-                        <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-                          <span>{customer.phone}</span>
-                          {customer.email && <><span className="text-slate-300">|</span><span className="truncate">{customer.email}</span></>}
-                          {customer.cpf && <><span className="text-slate-300">|</span><span>{customer.cpf}</span></>}
+                <div key={customer.id} className="hover:bg-slate-50 transition-colors">
+                  <div className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onClick={() => setExpandedCustomer(expandedCustomer === customer.id ? null : customer.id)}>
+                        <div className="w-10 h-10 bg-violet-100 rounded-full flex items-center justify-center text-violet-700 font-bold text-sm flex-shrink-0">
+                          {customer.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-slate-800 text-sm">{customer.name}</p>
+                          <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                            <span>{customer.phone}</span>
+                            {customer.email && <><span className="text-slate-300">|</span><span className="truncate">{customer.email}</span></>}
+                            {customer.cpf && <><span className="text-slate-300">|</span><span>{customer.cpf}</span></>}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-center gap-3 flex-shrink-0 ml-4">
-                      {/* Children badges */}
-                      <div className="hidden md:flex items-center gap-1">
-                        {custChildren.length === 0 ? (
-                          <span className="text-xs text-slate-400">Sem crianças</span>
-                        ) : (
-                          custChildren.map(ch => (
-                            <span key={ch.id} className="text-[11px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium">
-                              {ch.name} ({ch.age}a)
-                            </span>
-                          ))
-                        )}
+                      <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+                        {/* Remaining hours badge */}
+                        {(() => {
+                          const remaining = getCustomerRemainingHours(customer.id);
+                          if (remaining > 0) {
+                            const hours = Math.floor(remaining);
+                            const mins = Math.round((remaining - hours) * 60);
+                            return (
+                              <span className="text-[11px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-medium whitespace-nowrap">
+                                ⏱ {hours}h{mins > 0 ? `${mins}m` : ''} restantes
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
+
+                        {/* Children badges */}
+                        <div className="hidden md:flex items-center gap-1">
+                          {custChildren.length === 0 ? (
+                            <span className="text-xs text-slate-400">Sem crianças</span>
+                          ) : (
+                            custChildren.map(ch => (
+                              <span key={ch.id} className="text-[11px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                                {ch.name} ({getChildAge(ch)}a)
+                              </span>
+                            ))
+                          )}
+                        </div>
+
+                        <button onClick={() => openChildModal(customer.id)} className="p-1.5 rounded-md hover:bg-blue-50 text-blue-600 transition-colors text-sm" title="Adicionar criança">👶+</button>
+                        <button onClick={() => openModal(customer)} className="p-1.5 rounded-md hover:bg-blue-50 text-blue-600 transition-colors text-sm" title="Editar">✏️</button>
                       </div>
-
-                      <button onClick={() => openChildModal(customer.id)} className="p-1.5 rounded-md hover:bg-blue-50 text-blue-600 transition-colors text-sm" title="Adicionar criança">👶+</button>
-                      <button onClick={() => openModal(customer)} className="p-1.5 rounded-md hover:bg-blue-50 text-blue-600 transition-colors text-sm" title="Editar">✏️</button>
-                      <button onClick={() => handleDelete(customer.id, customer.name)} className="p-1.5 rounded-md hover:bg-red-50 text-red-500 transition-colors text-sm" title="Excluir">🗑️</button>
                     </div>
                   </div>
+
+                  {/* Expanded: Package details */}
+                  {expandedCustomer === customer.id && (
+                    <div className="px-4 pb-4 pt-0">
+                      <div className="bg-slate-50 rounded-lg p-3 space-y-2">
+                        <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Pacotes Ativos</p>
+                        {getCustomerPackages(customer.id).length === 0 ? (
+                          <p className="text-xs text-slate-400">Nenhum pacote ativo</p>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {getCustomerPackages(customer.id).map(pkg => {
+                              const remaining = Math.max(0, pkg.hours - pkg.usedHours);
+                              const remainingH = Math.floor(remaining);
+                              const remainingM = Math.round((remaining - remainingH) * 60);
+                              const pct = pkg.hours > 0 ? ((pkg.hours - remaining) / pkg.hours) * 100 : 100;
+                              return (
+                                <div key={pkg.id} className="bg-white rounded-md p-2.5 border border-slate-200">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs font-semibold text-slate-700">{pkg.type}</span>
+                                    <span className={`text-[11px] font-bold ${remaining > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                                      {remainingH}h{remainingM > 0 ? `${remainingM}m` : ''} restantes
+                                    </span>
+                                  </div>
+                                  <div className="mt-1.5 w-full bg-slate-200 rounded-full h-1.5">
+                                    <div className={`h-1.5 rounded-full transition-all ${pct > 80 ? 'bg-red-400' : pct > 50 ? 'bg-amber-400' : 'bg-emerald-400'}`} style={{ width: `${Math.min(100, pct)}%` }} />
+                                  </div>
+                                  <p className="text-[10px] text-slate-400 mt-1">{pkg.usedHours.toFixed(1)}h usadas de {pkg.hours}h</p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -312,8 +372,11 @@ const Customers: React.FC = () => {
                 <input type="text" value={childFormData.name} onChange={(e) => setChildFormData({ ...childFormData, name: e.target.value })} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" required />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Idade *</label>
-                <input type="number" value={childFormData.age || ''} onChange={(e) => setChildFormData({ ...childFormData, age: parseInt(e.target.value) || 0 })} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" min="0" max="18" required />
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Data de Nascimento *</label>
+                <input type="date" value={childFormData.birthDate} onChange={(e) => setChildFormData({ ...childFormData, birthDate: e.target.value })} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" required />
+                {childFormData.birthDate && (
+                  <p className="text-xs text-slate-500 mt-1">Idade: {getChildAge({ age: 0, birthDate: new Date(childFormData.birthDate + 'T00:00:00') })} anos</p>
+                )}
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowChildModal(false)} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>

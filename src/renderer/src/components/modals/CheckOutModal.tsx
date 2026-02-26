@@ -7,6 +7,7 @@ import { paymentsServiceOffline } from '../../../../shared/firebase/services/pay
 import { customersServiceOffline } from '../../../../shared/firebase/services/customers.service.offline';
 import { settingsServiceOffline } from '../../../../shared/firebase/services/settings.service.offline';
 import { bematechService } from '../../../../shared/services/bematech.service';
+import { useUnit } from '../../contexts/UnitContext';
 
 interface CheckOutModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ interface CheckOutModalProps {
 const ADMIN_PASSWORD = 'pactoflex123';
 
 const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSuccess, visit }) => {
+  const { currentUnit } = useUnit();
   const [child, setChild] = useState<Child | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -52,7 +54,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
       const [childData, settings, allCustomers] = await Promise.all([
         customersServiceOffline.getChildById(visit.childId),
         settingsServiceOffline.getSettings(),
-        customersServiceOffline.getAllCustomers(),
+        customersServiceOffline.getAllCustomers(currentUnit),
       ]);
       
       setCustomers(allCustomers);
@@ -77,7 +79,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
       } else {
         // Fallback: tenta buscar via getAllChildren
         console.warn('[CHECKOUT] Criança não encontrada via getChildById, tentando fallback...');
-        const allChildren = await customersServiceOffline.getAllChildren();
+        const allChildren = await customersServiceOffline.getAllChildren(currentUnit);
         const foundChild = allChildren.find(c => c.id === visit.childId);
         if (foundChild) {
           console.log('[CHECKOUT] Criança encontrada via fallback');

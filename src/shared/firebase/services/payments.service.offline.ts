@@ -28,7 +28,7 @@ export const paymentsServiceOffline = {
           ...paymentData,
         };
 
-        await syncService.saveLocally(COLLECTION, 'create', payment);
+        await syncService.saveToCacheOnly(COLLECTION, payment);
         return payment;
       } catch (error) {
         console.error('Failed to save to Firebase, saving locally:', error);
@@ -126,7 +126,7 @@ export const paymentsServiceOffline = {
 
       // Salva em paralelo
       await Promise.all(payments.map(payment => 
-        syncService.saveLocally(COLLECTION, 'create', payment).catch(() => {})
+        syncService.saveToCacheOnly(COLLECTION, payment).catch(() => {})
       ));
 
       return payments;
@@ -167,7 +167,7 @@ export const paymentsServiceOffline = {
         });
 
         for (const payment of payments) {
-          await syncService.saveLocally(COLLECTION, 'create', payment);
+          await syncService.saveToCacheOnly(COLLECTION, payment);
         }
 
         return payments;
@@ -266,7 +266,7 @@ export const paymentsServiceOffline = {
       }
 
       await Promise.all(payments.map(payment => 
-        syncService.saveLocally(COLLECTION, 'create', payment).catch(() => {})
+        syncService.saveToCacheOnly(COLLECTION, payment).catch(() => {})
       ));
 
       return payments;
@@ -303,7 +303,7 @@ export const paymentsServiceOffline = {
         });
 
         for (const payment of payments) {
-          await syncService.saveLocally(COLLECTION, 'create', payment);
+          await syncService.saveToCacheOnly(COLLECTION, payment);
         }
 
         return payments;

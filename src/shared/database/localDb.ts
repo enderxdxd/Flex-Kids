@@ -38,7 +38,8 @@ interface FlexKidsDB extends DBSchema {
       operation: 'create' | 'update' | 'delete';
       data: any;
       timestamp: number;
-      synced: boolean;
+      synced: number;
+      retryCount?: number;
     };
     indexes: { 'by-synced': number };
   };
@@ -170,21 +171,90 @@ class LocalDatabase {
       operation,
       data,
       timestamp: Date.now(),
-      synced: false,
+      synced: 0,
+      retryCount: 0,
     });
+  }
+
+  async migrateGhostSyncItems(): Promise<number> {
+    const db = this.ensureDb();
+    const allItems = await db.getAll('syncQueue');
+    let migrated = 0;
+    const tx = db.transaction('syncQueue', 'readwrite');
+    for (const item of allItems) {
+      // Convert boolean synced to number
+      if (typeof item.synced === 'boolean' || item.synced === undefined || item.synced === null) {
+        const numericSynced = item.synced ? 1 : 0;
+        await tx.store.put({ ...item, synced: numericSynced });
+        migrated++;
+      }
+    }
+    await tx.done;
+    if (migrated > 0) {
+      console.log(`� Migrated ${migrated} ghost syncQueue items (boolean → number)`);
+    }
+    return migrated;
   }
 
   async getPendingSyncItems(): Promise<any[]> {
     const db = this.ensureDb();
+    // First migrate any ghost items with boolean synced
+    await this.migrateGhostSyncItems();
+    // Now the index query will find everything correctly
     return await db.getAllFromIndex('syncQueue', 'by-synced', 0);
+  }
+
+  async getSyncQueueItem(queueId: string): Promise<any | null> {
+    const db = this.ensureDb();
+    const item = await db.get('syncQueue', queueId);
+    return item || null;
   }
 
   async markAsSynced(queueId: string): Promise<void> {
     const db = this.ensureDb();
     const item = await db.get('syncQueue', queueId);
     if (item) {
-      await db.put('syncQueue', { ...item, synced: true });
+      await db.put('syncQueue', { ...item, synced: 1 });
     }
+  }
+
+  async incrementRetryCount(queueId: string): Promise<number> {
+    const db = this.ensureDb();
+    const item = await db.get('syncQueue', queueId);
+    if (item) {
+      const newCount = (item.retryCount || 0) + 1;
+      // Set synced back to 0 so it gets picked up on next sync attempt
+      await db.put('syncQueue', { ...item, retryCount: newCount, synced: 0 });
+      return newCount;
+    }
+    return 0;
+  }
+
+  async removeSyncQueueItem(queueId: string): Promise<void> {
+    const db = this.ensureDb();
+    await db.delete('syncQueue', queueId);
+  }
+
+  async cleanupSyncedItems(): Promise<number> {
+    const db = this.ensureDb();
+    // Migration ensures all synced values are numbers, so index query works
+    await this.migrateGhostSyncItems();
+    const synced = await db.getAllFromIndex('syncQueue', 'by-synced', 1);
+    let removed = 0;
+    const tx = db.transaction('syncQueue', 'readwrite');
+    for (const item of synced) {
+      await tx.store.delete(item.id);
+      removed++;
+    }
+    await tx.done;
+    return removed;
+  }
+
+  async getPendingSyncCount(): Promise<number> {
+    const db = this.ensureDb();
+    await this.migrateGhostSyncItems();
+    const pending = await db.getAllFromIndex('syncQueue', 'by-synced', 0);
+    return pending.length;
   }
 
   async clearSyncQueue(): Promise<void> {
@@ -192,6 +262,75 @@ class LocalDatabase {
     const tx = db.transaction('syncQueue', 'readwrite');
     await tx.store.clear();
     await tx.done;
+  }
+
+  async exportBackup(): Promise<Record<string, any[]>> {
+    const db = this.ensureDb();
+    const stores: Array<keyof FlexKidsDB> = ['visits', 'customers', 'children', 'payments', 'packages'];
+    const backup: Record<string, any[]> = {};
+    for (const store of stores) {
+      backup[store] = await db.getAll(store as any);
+    }
+    backup._meta = [{ exportedAt: new Date().toISOString(), pendingSync: await this.getPendingSyncCount() }];
+    return backup;
+  }
+
+  async updateReferences(oldId: string, newId: string): Promise<number> {
+    const db = this.ensureDb();
+    const refStores: Array<{ store: keyof FlexKidsDB; field: string }> = [
+      { store: 'children', field: 'customerId' },
+      { store: 'packages', field: 'customerId' },
+      { store: 'payments', field: 'customerId' },
+      { store: 'visits', field: 'customerId' },
+      { store: 'visits', field: 'childId' },
+      { store: 'payments', field: 'childId' },
+      { store: 'packages', field: 'childId' },
+    ];
+
+    let updated = 0;
+
+    for (const { store, field } of refStores) {
+      try {
+        const allItems = await db.getAll(store as any);
+        const tx = db.transaction(store as any, 'readwrite');
+        for (const item of allItems) {
+          if (item[field] === oldId) {
+            item[field] = newId;
+            await tx.store.put(item);
+            updated++;
+          }
+        }
+        await tx.done;
+      } catch {
+        // Store may not exist or be empty
+      }
+    }
+
+    // Also update references inside pending sync queue items
+    try {
+      const pending = await db.getAll('syncQueue');
+      const tx = db.transaction('syncQueue', 'readwrite');
+      for (const queueItem of pending) {
+        let changed = false;
+        if (queueItem.data) {
+          for (const { field } of refStores) {
+            if (queueItem.data[field] === oldId) {
+              queueItem.data[field] = newId;
+              changed = true;
+            }
+          }
+        }
+        if (changed) {
+          await tx.store.put(queueItem);
+          updated++;
+        }
+      }
+      await tx.done;
+    } catch {
+      // Ignore sync queue errors
+    }
+
+    return updated;
   }
 
   // Mark item as synced in main stores

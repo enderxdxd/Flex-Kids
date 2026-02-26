@@ -54,9 +54,11 @@ export const customersService = {
     } as Customer;
   },
 
-  async getAllCustomers(): Promise<Customer[]> {
+  async getAllCustomers(unitId?: string): Promise<Customer[]> {
     const db = getDb();
-    const q = query(collection(db, CUSTOMERS_COLLECTION), orderBy('name'));
+    const q = unitId
+      ? query(collection(db, CUSTOMERS_COLLECTION), where('unitId', '==', unitId), orderBy('name'))
+      : query(collection(db, CUSTOMERS_COLLECTION), orderBy('name'));
     const snapshot = await getDocs(q);
     
     return snapshot.docs.map(doc => ({
@@ -139,9 +141,11 @@ export const customersService = {
     })) as Child[];
   },
 
-  async getAllChildren(): Promise<Child[]> {
+  async getAllChildren(unitId?: string): Promise<Child[]> {
     const db = getDb();
-    const q = query(collection(db, CHILDREN_COLLECTION), orderBy('name'));
+    const q = unitId
+      ? query(collection(db, CHILDREN_COLLECTION), where('unitId', '==', unitId), orderBy('name'))
+      : query(collection(db, CHILDREN_COLLECTION), orderBy('name'));
     const snapshot = await getDocs(q);
     
     return snapshot.docs.map(doc => ({

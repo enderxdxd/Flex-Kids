@@ -53,6 +53,7 @@ const DashboardNew: React.FC = () => {
       ]);
 
       const unitPayments = payments.filter(p => !p.unitId || p.unitId === currentUnit);
+      const unitPackages = packages.filter(p => p.unitId === currentUnit || p.sharedAcrossUnits);
 
       setActiveVisits(visits);
       setRecentPayments(unitPayments.slice(0, 5));
@@ -63,7 +64,7 @@ const DashboardNew: React.FC = () => {
         activeVisits: visits.length,
         todayRevenue,
         todayVisits: visits.length,
-        activePackages: packages.length,
+        activePackages: unitPackages.length,
       });
       setIsInitialLoad(false);
     } catch (error) {

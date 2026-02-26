@@ -5,6 +5,7 @@ import { Visit, Child } from '../../../shared/types';
 import { format, differenceInMinutes } from 'date-fns';
 import { visitsServiceOffline } from '../../../shared/firebase/services/visits.service.offline';
 import { customersServiceOffline } from '../../../shared/firebase/services/customers.service.offline';
+import { getChildAge } from '../../../shared/utils/age';
 
 const CheckInOut: React.FC = () => {
   const { currentUnit } = useUnit();
@@ -25,7 +26,7 @@ const CheckInOut: React.FC = () => {
       setLoading(true);
       const [visits, allChildren] = await Promise.all([
         visitsServiceOffline.getActiveVisits(currentUnit),
-        customersServiceOffline.getAllChildren(),
+        customersServiceOffline.getAllChildren(currentUnit),
       ]);
       setActiveVisits(visits);
       setChildren(allChildren);
@@ -144,7 +145,7 @@ const CheckInOut: React.FC = () => {
                   <option value="">Selecione...</option>
                   {filteredChildren.map((child) => (
                     <option key={child.id} value={child.id}>
-                      {child.name} ({child.age} anos)
+                      {child.name} ({getChildAge(child)} anos)
                     </option>
                   ))}
                 </select>
@@ -223,7 +224,7 @@ const CheckInOut: React.FC = () => {
                                 {child?.name || 'Criança não encontrada'}
                               </h3>
                               <p className="text-sm text-gray-500">
-                                {child?.age} anos
+                                {child ? getChildAge(child) : 0} anos
                               </p>
                             </div>
                           </div>

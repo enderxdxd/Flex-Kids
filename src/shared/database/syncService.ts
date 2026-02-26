@@ -1,11 +1,14 @@
 import { localDb } from './localDb';
 import { getDb } from '../firebase/config';
-import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, getDocs, setDoc } from 'firebase/firestore';
+
+const MAX_RETRY_COUNT = 5;
 
 class SyncService {
   private isSyncing = false;
   private syncInterval: NodeJS.Timeout | null = null;
   private onlineListeners: Array<(online: boolean) => void> = [];
+  private pendingCountListeners: Array<(count: number) => void> = [];
   private initialized = false;
 
   constructor() {
@@ -32,8 +35,24 @@ class SyncService {
     };
   }
 
+  onPendingCountChange(callback: (count: number) => void): () => void {
+    this.pendingCountListeners.push(callback);
+    return () => {
+      this.pendingCountListeners = this.pendingCountListeners.filter(cb => cb !== callback);
+    };
+  }
+
   private notifyListeners(online: boolean): void {
     this.onlineListeners.forEach(callback => callback(online));
+  }
+
+  private async notifyPendingCount(): Promise<void> {
+    try {
+      const count = await localDb.getPendingSyncCount();
+      this.pendingCountListeners.forEach(cb => cb(count));
+    } catch {
+      // Ignore errors in notification
+    }
   }
 
   isOnline(): boolean {
@@ -82,6 +101,17 @@ class SyncService {
     }
   }
 
+  // Priority order: parents first, then children, then everything else
+  private static SYNC_ORDER: Record<string, number> = {
+    'customers': 0,
+    'children': 1,
+    'packages': 2,
+    'visits': 3,
+    'payments': 4,
+    'fiscalNotes': 5,
+    'settings': 6,
+  };
+
   async syncAll(): Promise<void> {
     if (this.isSyncing || !this.isOnline()) {
       return;
@@ -94,18 +124,82 @@ class SyncService {
       const pendingItems = await localDb.getPendingSyncItems();
       console.log(`Found ${pendingItems.length} items to sync`);
 
+      let syncedCount = 0;
+      let failedCount = 0;
+      let skippedCount = 0;
+
+      // Deduplicate: group by collection+operation+data.id, keep only the latest
+      const deduped = new Map<string, typeof pendingItems[0]>();
       for (const item of pendingItems) {
-        try {
-          await this.syncItem(item);
-          await localDb.markAsSynced(item.id);
-          console.log(`Synced ${item.operation} on ${item.collection}`);
-        } catch (error) {
-          console.error(`Failed to sync item ${item.id}:`, error);
-          // Continue with next item even if one fails
+        const dataId = item.data?.id || item.id;
+        const key = `${item.collection}:${item.operation}:${dataId}`;
+        const existing = deduped.get(key);
+        if (!existing || item.timestamp > existing.timestamp) {
+          deduped.set(key, item);
         }
       }
 
-      console.log('Sync completed');
+      // Mark duplicate entries as synced so they get cleaned up
+      const dedupedItems = Array.from(deduped.values());
+      const dedupedIds = new Set(dedupedItems.map(i => i.id));
+      for (const item of pendingItems) {
+        if (!dedupedIds.has(item.id)) {
+          await localDb.markAsSynced(item.id);
+        }
+      }
+
+      // Sort by priority: customers first, then children, then rest
+      // This ensures parent IDs are resolved before children reference them
+      dedupedItems.sort((a, b) => {
+        const orderA = SyncService.SYNC_ORDER[a.collection] ?? 99;
+        const orderB = SyncService.SYNC_ORDER[b.collection] ?? 99;
+        if (orderA !== orderB) return orderA - orderB;
+        return a.timestamp - b.timestamp;
+      });
+
+      console.log(`Found ${pendingItems.length} items, ${dedupedItems.length} unique after dedup`);
+      console.log('Sync order:', dedupedItems.map(i => `${i.collection}:${i.operation}:${i.data?.id?.substring(0, 15)}`));
+
+      for (let i = 0; i < dedupedItems.length; i++) {
+        // Re-read item from queue to get updated references (e.g. customerId may have changed)
+        const freshItem = await localDb.getSyncQueueItem(dedupedItems[i].id);
+        const item = freshItem || dedupedItems[i];
+
+        // Skip items that exceeded retry limit
+        if ((item.retryCount || 0) >= MAX_RETRY_COUNT) {
+          console.warn(`⚠️ Skipping item ${item.id} (${item.collection}/${item.operation}) - exceeded ${MAX_RETRY_COUNT} retries`);
+          skippedCount++;
+          continue;
+        }
+
+        try {
+          // Mark as synced BEFORE processing to prevent re-processing by concurrent calls
+          await localDb.markAsSynced(item.id);
+          await this.syncItem(item);
+          syncedCount++;
+          console.log(`✅ Synced ${item.operation} on ${item.collection} (${item.data?.id})`);
+        } catch (error) {
+          // Revert: mark back as pending for retry
+          const retryCount = await localDb.incrementRetryCount(item.id);
+          failedCount++;
+          console.error(`❌ Failed to sync item ${item.id} (attempt ${retryCount}/${MAX_RETRY_COUNT}):`, error);
+          
+          if (retryCount >= MAX_RETRY_COUNT) {
+            console.error(`🚫 Item ${item.id} permanently failed after ${MAX_RETRY_COUNT} attempts. Collection: ${item.collection}, Op: ${item.operation}`);
+          }
+        }
+      }
+
+      // Garbage collection: remove synced items from queue
+      const cleaned = await localDb.cleanupSyncedItems();
+      if (cleaned > 0) {
+        console.log(`🧹 Cleaned ${cleaned} synced items from queue`);
+      }
+
+      console.log(`Sync completed: ${syncedCount} synced, ${failedCount} failed, ${skippedCount} skipped`);
+      
+      // Notify UI of pending count
+      await this.notifyPendingCount();
     } catch (error) {
       console.error('Sync failed:', error);
     } finally {
@@ -118,33 +212,128 @@ class SyncService {
     const collectionRef = collection(db, item.collection);
 
     switch (item.operation) {
-      case 'create':
-        // Remove local ID prefix if exists
+      case 'create': {
         const dataToCreate = { ...item.data };
-        if (dataToCreate.id?.startsWith('local_')) {
-          delete dataToCreate.id;
-        }
+        delete dataToCreate.id;
+        delete dataToCreate.synced;
         
-        const docRef = await addDoc(collectionRef, dataToCreate);
-        
-        // Update local record with Firebase ID
         if (item.data.id?.startsWith('local_')) {
-          await localDb.delete(item.collection as any, item.data.id);
-          await localDb.add(item.collection as any, { ...item.data, id: docRef.id, synced: true });
-        }
-        break;
+          const oldLocalId = item.data.id;
 
-      case 'update':
-        if (!item.data.id?.startsWith('local_')) {
-          const docToUpdate = doc(db, item.collection, item.data.id);
-          await updateDoc(docToUpdate, item.data);
+          // DEDUP: Check if this local item was already synced by a previous run
+          // by looking for matching name+createdAt in Firebase
+          let existingFirebaseId: string | null = null;
+          try {
+            if (dataToCreate.name && dataToCreate.createdAt) {
+              const createdAtValue = dataToCreate.createdAt;
+              const q = query(collectionRef, where('name', '==', dataToCreate.name));
+              const snapshot = await getDocs(q);
+              for (const docSnap of snapshot.docs) {
+                const docData = docSnap.data();
+                const docCreatedAt = docData.createdAt?.toDate?.() || docData.createdAt;
+                const localCreatedAt = createdAtValue instanceof Date ? createdAtValue : new Date(createdAtValue);
+                if (docCreatedAt && localCreatedAt) {
+                  const docTime = docCreatedAt instanceof Date ? docCreatedAt.getTime() : new Date(docCreatedAt).getTime();
+                  const localTime = localCreatedAt.getTime();
+                  // Same name and created within 5 seconds = duplicate
+                  if (Math.abs(docTime - localTime) < 5000) {
+                    existingFirebaseId = docSnap.id;
+                    console.log(`🔄 Found existing Firebase doc for ${oldLocalId} → ${existingFirebaseId} (dedup)`);
+                    break;
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('Dedup check failed, will create new:', e);
+          }
+
+          let newFirebaseId: string;
+          if (existingFirebaseId) {
+            // Already exists in Firebase, just use the existing ID
+            newFirebaseId = existingFirebaseId;
+          } else {
+            // Create new document in Firebase
+            const docRef = await addDoc(collectionRef, dataToCreate);
+            newFirebaseId = docRef.id;
+          }
+          
+          // Update local record with Firebase ID
+          await localDb.delete(item.collection as any, oldLocalId).catch(() => {});
+          await localDb.upsert(item.collection as any, { ...item.data, id: newFirebaseId, synced: true });
+
+          // Update all references (customerId, childId) in other stores and sync queue
+          const refsUpdated = await localDb.updateReferences(oldLocalId, newFirebaseId);
+          if (refsUpdated > 0) {
+            console.log(`🔗 Updated ${refsUpdated} local references from ${oldLocalId} → ${newFirebaseId}`);
+          }
+
+          // Also fix any documents already in Firebase that have the old local_ ID as a reference
+          await this.fixFirebaseReferences(oldLocalId, newFirebaseId);
+        } else {
+          // Already has Firebase ID — use setDoc (merge) to avoid error if already exists
+          try {
+            await setDoc(doc(db, item.collection, item.data.id), dataToCreate, { merge: true });
+          } catch {
+            // If it fails, just mark as synced locally
+          }
           await localDb.markItemAsSynced(item.collection as any, item.data.id);
         }
         break;
+      }
 
-      case 'delete':
-        // Handle delete if needed
+      case 'update': {
+        if (!item.data.id?.startsWith('local_')) {
+          const dataToUpdate = { ...item.data };
+          delete dataToUpdate.id;
+          delete dataToUpdate.synced;
+          const docToUpdate = doc(db, item.collection, item.data.id);
+          await updateDoc(docToUpdate, dataToUpdate);
+          await localDb.markItemAsSynced(item.collection as any, item.data.id);
+        }
         break;
+      }
+
+      case 'delete': {
+        if (item.data.id && !item.data.id.startsWith('local_')) {
+          const docToDelete = doc(db, item.collection, item.data.id);
+          await deleteDoc(docToDelete);
+        }
+        if (item.data.id) {
+          await localDb.delete(item.collection as any, item.data.id).catch(() => {});
+        }
+        break;
+      }
+    }
+  }
+
+  private async fixFirebaseReferences(oldLocalId: string, newFirebaseId: string): Promise<void> {
+    try {
+      const db = getDb();
+      // Collections and fields that might reference the old local_ ID
+      const refCollections: Array<{ collectionName: string; field: string }> = [
+        { collectionName: 'children', field: 'customerId' },
+        { collectionName: 'packages', field: 'customerId' },
+        { collectionName: 'payments', field: 'customerId' },
+        { collectionName: 'visits', field: 'childId' },
+        { collectionName: 'payments', field: 'childId' },
+        { collectionName: 'packages', field: 'childId' },
+      ];
+
+      for (const { collectionName, field } of refCollections) {
+        try {
+          const q = query(collection(db, collectionName), where(field, '==', oldLocalId));
+          const snapshot = await getDocs(q);
+          for (const docSnap of snapshot.docs) {
+            await updateDoc(doc(db, collectionName, docSnap.id), { [field]: newFirebaseId });
+            console.log(`🔗 Fixed Firebase ref: ${collectionName}/${docSnap.id}.${field} → ${newFirebaseId}`);
+          }
+        } catch {
+          // Collection may not exist or query may fail - non-critical
+        }
+      }
+    } catch (error) {
+      console.warn('fixFirebaseReferences failed (non-critical):', error);
     }
   }
 
@@ -156,7 +345,7 @@ class SyncService {
     this.ensureInitialized();
     
     const id = data.id || `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const itemWithId = { ...data, id, synced: false };
+    const itemWithId = { ...data, id, synced: 0 };
 
     if (operation === 'create') {
       await localDb.upsert(collection as any, itemWithId);
@@ -166,12 +355,32 @@ class SyncService {
 
     await localDb.addToSyncQueue(collection, operation, itemWithId);
 
-    // Try to sync immediately if online
-    if (this.isOnline()) {
-      setTimeout(() => this.syncAll(), 100);
-    }
+    // Notify UI of new pending item
+    await this.notifyPendingCount();
 
     return id;
+  }
+
+  async deleteLocally(
+    collectionName: string,
+    id: string
+  ): Promise<void> {
+    this.ensureInitialized();
+    
+    await localDb.delete(collectionName as any, id).catch(() => {});
+    await localDb.addToSyncQueue(collectionName, 'delete', { id });
+
+    // Notify UI
+    await this.notifyPendingCount();
+  }
+
+  async saveToCacheOnly(
+    collectionName: string,
+    data: any
+  ): Promise<void> {
+    this.ensureInitialized();
+    const id = data.id || `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    await localDb.upsert(collectionName as any, { ...data, id, synced: true });
   }
 
   async getFromLocal(collection: string, id: string): Promise<any> {
@@ -188,6 +397,19 @@ class SyncService {
     return await localDb.getAllByIndex(collection as any, indexName, query);
   }
 
+  async getPendingSyncCount(): Promise<number> {
+    try {
+      return await localDb.getPendingSyncCount();
+    } catch {
+      return 0;
+    }
+  }
+
+  async exportBackup(): Promise<string> {
+    const data = await localDb.exportBackup();
+    return JSON.stringify(data, null, 2);
+  }
+
   async clearLocalData(): Promise<void> {
     await localDb.clearSyncQueue();
   }
@@ -195,6 +417,7 @@ class SyncService {
   destroy(): void {
     this.stopPeriodicSync();
     this.onlineListeners = [];
+    this.pendingCountListeners = [];
   }
 }
 

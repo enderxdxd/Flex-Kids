@@ -22,7 +22,7 @@ const navItems = [
 
 const Navbar: React.FC<NavbarProps> = ({ onRefresh, loading }) => {
   const { currentUnit, isUnitLocked, getCurrentUnitInfo } = useUnit();
-  const { logout } = useAuth();
+  const { isAdmin, logoutAdmin, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
 
   const currentPath = window.location.hash;
@@ -101,12 +101,23 @@ const Navbar: React.FC<NavbarProps> = ({ onRefresh, loading }) => {
           </button>
         )}
 
+        {isAdmin && (
+          <button
+            onClick={() => { logoutAdmin(); window.location.hash = '#/dashboard'; }}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-amber-400 hover:bg-amber-500/10 transition-all ${collapsed ? 'justify-center' : ''}`}
+            title="Sair do modo administrador"
+          >
+            <span className="text-lg">🔓</span>
+            {!collapsed && <span>Sair do Admin</span>}
+          </button>
+        )}
+
         <button
           onClick={logout}
           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-400 hover:bg-red-500/10 transition-all ${collapsed ? 'justify-center' : ''}`}
           title="Sair do sistema"
         >
-          <span className="text-lg">�</span>
+          <span className="text-lg">🚪</span>
           {!collapsed && <span>Sair</span>}
         </button>
 

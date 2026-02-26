@@ -1,8 +1,11 @@
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { toast } from 'react-toastify';
+import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { getDb } from '../../../shared/firebase/config';
 import { customersServiceOffline } from '../../../shared/firebase/services/customers.service.offline';
 import { packagesServiceOffline } from '../../../shared/firebase/services/packages.service.offline';
+import { syncService } from '../../../shared/database/syncService';
 import { useUnit } from '../contexts/UnitContext';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -82,23 +85,27 @@ function cleanCpf(raw: any): string {
   return str;
 }
 
-function calcAge(dtNascimento: string): number {
-  if (!dtNascimento) return 0;
+function parseBirthDate(dtNascimento: string): Date | undefined {
+  if (!dtNascimento) return undefined;
   try {
     let date: Date;
-    // Try dd/MM/yyyy
     if (dtNascimento.includes('/')) {
       const [d, m, y] = dtNascimento.split('/');
       date = new Date(Number(y), Number(m) - 1, Number(d));
     } else {
       date = new Date(dtNascimento);
     }
-    if (isNaN(date.getTime())) return 0;
-    const diff = Date.now() - date.getTime();
-    return Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000));
+    return isNaN(date.getTime()) ? undefined : date;
   } catch {
-    return 0;
+    return undefined;
   }
+}
+
+function calcAge(dtNascimento: string): number {
+  const bd = parseBirthDate(dtNascimento);
+  if (!bd) return 0;
+  const diff = Date.now() - bd.getTime();
+  return Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000));
 }
 
 function parseExcelDate(raw: any): Date {
@@ -115,6 +122,13 @@ function parseExcelDate(raw: any): Date {
   }
   const parsed = new Date(str);
   return isNaN(parsed.getTime()) ? new Date() : parsed;
+}
+
+function firstMatch(row: any, keys: string[]): any {
+  for (const key of keys) {
+    if (row[key] !== undefined && row[key] !== '') return row[key];
+  }
+  return undefined;
 }
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -163,18 +177,23 @@ const ImportData: React.FC = () => {
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
 
+    // Log actual column names for debugging
+    if (rows.length > 0) {
+      console.log('[ImportData] Colunas do arquivo de responsáveis:', Object.keys(rows[0]));
+    }
+
     const responsaveisMap = new Map<string, RawResponsavel>();
     const criancasList: RawCrianca[] = [];
 
     for (const row of rows) {
-      const codResp = String(row['Cod. Responsavel'] ?? row['Cod.Responsavel'] ?? row['CodResponsavel'] ?? '').trim();
-      const nomeResp = String(row['Responsavel'] ?? row['Responsável'] ?? '').trim().toUpperCase();
-      const codCrianca = String(row['Cod. Criança'] ?? row['Cod.Criança'] ?? row['CodCrianca'] ?? '').trim();
-      const nomeCrianca = String(row['Criança'] ?? row['Crianca'] ?? '').trim().toUpperCase();
-      const dtNasc = String(row['Dt. Nascimento'] ?? row['Dt.Nascimento'] ?? row['DtNascimento'] ?? '').trim();
-      const fone = cleanPhone(row['Fone Celular'] ?? row['FoneCelular'] ?? row['Fone1'] ?? '');
-      const email = String(row['Email'] ?? '').trim();
-      const cpf = cleanCpf(row['CPF'] ?? '');
+      const codResp = String(firstMatch(row, ['Cod. Responsavel', 'Cod.Responsavel', 'CodResponsavel', 'Cod Responsavel', 'cod_responsavel', 'COD. RESPONSAVEL']) ?? '').trim();
+      const nomeResp = String(firstMatch(row, ['Responsavel', 'Responsável', 'RESPONSAVEL', 'Nome Responsavel', 'NomeResponsavel']) ?? '').trim().toUpperCase();
+      const codCrianca = String(firstMatch(row, ['Cod. Criança', 'Cod.Criança', 'CodCrianca', 'Cod Crianca', 'cod_crianca', 'COD. CRIANÇA']) ?? '').trim();
+      const nomeCrianca = String(firstMatch(row, ['Criança', 'Crianca', 'CRIANÇA', 'Nome Crianca', 'NomeCrianca']) ?? '').trim().toUpperCase();
+      const dtNasc = String(firstMatch(row, ['Dt. Nascimento', 'Dt.Nascimento', 'DtNascimento', 'Data Nascimento', 'DataNascimento', 'DT. NASCIMENTO']) ?? '').trim();
+      const fone = cleanPhone(firstMatch(row, ['Fone Celular', 'FoneCelular', 'Fone1', 'Telefone', 'Celular', 'FONE CELULAR']) ?? '');
+      const email = String(firstMatch(row, ['Email', 'EMAIL', 'E-mail']) ?? '').trim();
+      const cpf = cleanCpf(firstMatch(row, ['CPF', 'Cpf']) ?? '');
 
       if (codResp && nomeResp && !responsaveisMap.has(codResp)) {
         responsaveisMap.set(codResp, { codResponsavel: codResp, nome: nomeResp, telefone: fone, email, cpf });
@@ -196,17 +215,22 @@ const ImportData: React.FC = () => {
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
 
+    // Log actual column names for debugging
+    if (rows.length > 0) {
+      console.log('[ImportData] Colunas do arquivo de pacotes:', Object.keys(rows[0]));
+    }
+
     const pacotesList: RawPacote[] = [];
 
     for (const row of rows) {
-      const codPacote = String(row['CodPacote'] ?? '').trim();
-      const dtVenda = row['DT_VENDA'] ?? row['DtVenda'] ?? '';
-      const codResp = String(row['CodResponsavel'] ?? row['Cod.Responsavel'] ?? '').trim();
-      const nomeResp = String(row['Responsavel'] ?? row['Responsável'] ?? '').trim();
-      const pacote = String(row['Pacote'] ?? '').trim();
-      const minutosVendidos = Number(row['QtdMinutosVendidos'] ?? 0);
-      const minutosDisp = Number(row['QtdMinutosDisponiveis'] ?? 0);
-      const venceu = String(row['Venceu?'] ?? row['Venceu'] ?? '0').trim();
+      const codPacote = String(firstMatch(row, ['CodPacote', 'Cod.Pacote', 'Cod Pacote', 'cod_pacote', 'CODPACOTE']) ?? '').trim();
+      const dtVenda = firstMatch(row, ['DT_VENDA', 'DtVenda', 'Dt_Venda', 'DataVenda', 'Data Venda', 'DT VENDA']) ?? '';
+      const codResp = String(firstMatch(row, ['CodResponsavel', 'Cod.Responsavel', 'Cod Responsavel', 'Cod. Responsavel', 'cod_responsavel', 'CODRESPONSAVEL']) ?? '').trim();
+      const nomeResp = String(firstMatch(row, ['Responsavel', 'Responsável', 'RESPONSAVEL', 'Nome Responsavel', 'NomeResponsavel']) ?? '').trim();
+      const pacote = String(firstMatch(row, ['Pacote', 'PACOTE', 'TipoPacote', 'Tipo Pacote']) ?? '').trim();
+      const minutosVendidos = Number(firstMatch(row, ['QtdMinutosVendidos', 'MinutosVendidos', 'Minutos Vendidos', 'QTDMINUTOSVENDIDOS']) ?? 0);
+      const minutosDisp = Number(firstMatch(row, ['QtdMinutosDisponiveis', 'MinutosDisponiveis', 'Minutos Disponiveis', 'QTDMINUTOSDISPONIVEIS']) ?? 0);
+      const venceu = String(firstMatch(row, ['Venceu?', 'Venceu', 'VENCEU', 'venceu']) ?? '0').trim();
 
       if (codPacote) {
         pacotesList.push({
@@ -261,13 +285,23 @@ const ImportData: React.FC = () => {
     const localStats = { customersCreated: 0, customersSkipped: 0, childrenCreated: 0, childrenSkipped: 0, packagesCreated: 0, packagesSkipped: 0, errors: 0 };
     const trackedIds: ImportedIds = { customerIds: [], childIds: [], packageIds: [], importedAt: new Date().toISOString() };
 
-    addLog({ type: 'info', message: dryRun ? '🔍 MODO SIMULAÇÃO — nada será gravado' : '🚀 IMPORTAÇÃO REAL — gravando no Firebase + Cache' });
+    addLog({ type: 'info', message: dryRun ? '🔍 MODO SIMULAÇÃO — nada será gravado' : '🚀 IMPORTAÇÃO REAL — gravando direto no Firebase' });
+
+    // Block import if offline (to avoid local_ IDs)
+    if (!dryRun && !syncService.isOnline()) {
+      addLog({ type: 'error', message: '❌ Importação requer conexão com a internet. Conecte-se e tente novamente.' });
+      setStep('done');
+      toast.error('Importação requer conexão com a internet');
+      return;
+    }
+
+    const db = !dryRun ? getDb() : null;
 
     // ─── 1. Fetch existing customers for duplicate detection ─────────
     addLog({ type: 'info', message: 'Carregando clientes existentes para detecção de duplicatas...' });
     let existingCustomers: { id: string; name: string }[] = [];
     try {
-      const all = await customersServiceOffline.getAllCustomers();
+      const all = await customersServiceOffline.getAllCustomers(currentUnit);
       existingCustomers = all.map(c => ({ id: c.id, name: c.name.toUpperCase().trim() }));
       addLog({ type: 'info', message: `${existingCustomers.length} clientes existentes carregados` });
     } catch (e) {
@@ -277,7 +311,7 @@ const ImportData: React.FC = () => {
     // Load existing children for duplicate detection
     let existingChildren: { id: string; name: string; customerId: string }[] = [];
     try {
-      const allChildren = await customersServiceOffline.getAllChildren();
+      const allChildren = await customersServiceOffline.getAllChildren(currentUnit);
       existingChildren = allChildren.map(c => ({ id: c.id, name: c.name.toUpperCase().trim(), customerId: c.customerId }));
       addLog({ type: 'info', message: `${existingChildren.length} crianças existentes carregadas` });
     } catch (e) {
@@ -296,6 +330,7 @@ const ImportData: React.FC = () => {
 
     // ─── 2. Import Responsáveis → customers ──────────────────────────
     const codToFirebaseId = new Map<string, string>();
+    const nameToFirebaseId = new Map<string, string>();
     const total = responsaveis.length + criancas.length + pacotes.length;
     let current = 0;
 
@@ -311,6 +346,7 @@ const ImportData: React.FC = () => {
       const existing = existingCustomers.find(c => c.name === resp.nome.toUpperCase().trim());
       if (existing) {
         codToFirebaseId.set(resp.codResponsavel, existing.id);
+        nameToFirebaseId.set(resp.nome.toUpperCase().trim(), existing.id);
         localStats.customersSkipped++;
         addLog({ type: 'warning', message: `Duplicata: "${resp.nome}" já existe (ID: ${existing.id})` });
         continue;
@@ -318,21 +354,40 @@ const ImportData: React.FC = () => {
 
       if (dryRun) {
         codToFirebaseId.set(resp.codResponsavel, `dry_${resp.codResponsavel}`);
+        nameToFirebaseId.set(resp.nome.toUpperCase().trim(), `dry_${resp.codResponsavel}`);
         localStats.customersCreated++;
         continue;
       }
 
       try {
-        const customer = await customersServiceOffline.createCustomer({
+        // Write directly to Firebase to guarantee a real Firebase ID (never local_)
+        const docRef = await addDoc(collection(db!, 'customers'), {
           name: resp.nome,
           phone: resp.telefone,
-          email: resp.email || undefined,
-          cpf: resp.cpf || undefined,
+          email: resp.email || '',
+          cpf: resp.cpf || '',
           address: '',
+          unitId: currentUnit,
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
         });
-        codToFirebaseId.set(resp.codResponsavel, customer.id);
-        existingCustomers.push({ id: customer.id, name: resp.nome.toUpperCase().trim() });
-        trackedIds.customerIds.push(customer.id);
+        const firebaseId = docRef.id;
+        // Cache locally (no sync queue)
+        await syncService.saveToCacheOnly('customers', {
+          id: firebaseId,
+          name: resp.nome,
+          phone: resp.telefone,
+          email: resp.email || '',
+          cpf: resp.cpf || '',
+          address: '',
+          unitId: currentUnit,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        codToFirebaseId.set(resp.codResponsavel, firebaseId);
+        nameToFirebaseId.set(resp.nome.toUpperCase().trim(), firebaseId);
+        existingCustomers.push({ id: firebaseId, name: resp.nome.toUpperCase().trim() });
+        trackedIds.customerIds.push(firebaseId);
         localStats.customersCreated++;
       } catch (error) {
         localStats.errors++;
@@ -377,12 +432,30 @@ const ImportData: React.FC = () => {
       }
 
       try {
-        const child = await customersServiceOffline.addChild(customerId, {
+        const birthDate = parseBirthDate(crianca.dtNascimento);
+        // Write directly to Firebase to guarantee a real Firebase ID
+        const docRef = await addDoc(collection(db!, 'children'), {
           name: crianca.nome,
           age: calcAge(crianca.dtNascimento),
+          birthDate: birthDate ? Timestamp.fromDate(birthDate) : null,
+          customerId,
+          unitId: currentUnit,
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
         });
-        trackedIds.childIds.push(child.id);
-        existingChildren.push({ id: child.id, name: crianca.nome.toUpperCase().trim(), customerId });
+        const firebaseId = docRef.id;
+        await syncService.saveToCacheOnly('children', {
+          id: firebaseId,
+          name: crianca.nome,
+          age: calcAge(crianca.dtNascimento),
+          birthDate,
+          customerId,
+          unitId: currentUnit,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        trackedIds.childIds.push(firebaseId);
+        existingChildren.push({ id: firebaseId, name: crianca.nome.toUpperCase().trim(), customerId });
         localStats.childrenCreated++;
       } catch (error) {
         localStats.errors++;
@@ -403,10 +476,15 @@ const ImportData: React.FC = () => {
       current++;
       setProgress({ current, total, label: `Pacote: ${pac.pacote} - ${pac.nomeResponsavel}` });
 
-      const customerId = codToFirebaseId.get(pac.codResponsavel);
+      // Try to find customerId: first by code, then by name
+      let customerId = codToFirebaseId.get(pac.codResponsavel);
+      if (!customerId && pac.nomeResponsavel) {
+        const byName = nameToFirebaseId.get(pac.nomeResponsavel.toUpperCase().trim());
+        if (byName) customerId = byName;
+      }
       if (!customerId) {
         localStats.packagesSkipped++;
-        addLog({ type: 'warning', message: `Pacote "${pac.pacote}" sem responsável (cod: ${pac.codResponsavel})` });
+        addLog({ type: 'warning', message: `Pacote "${pac.pacote}" sem responsável (cod: ${pac.codResponsavel}, nome: ${pac.nomeResponsavel})` });
         continue;
       }
 
@@ -430,7 +508,23 @@ const ImportData: React.FC = () => {
         const expiresAt = new Date(dtVenda);
         expiresAt.setFullYear(expiresAt.getFullYear() + 1);
 
-        const pkg = await packagesServiceOffline.createPackage({
+        // Write directly to Firebase to guarantee a real Firebase ID
+        const docRef = await addDoc(collection(db!, 'packages'), {
+          customerId,
+          type: pac.pacote,
+          hours: pac.minutosVendidos / 60,
+          usedHours: pac.minutosUsados / 60,
+          price: 0,
+          active: !pac.venceu && (pac.minutosUsados < pac.minutosVendidos),
+          sharedAcrossUnits: true,
+          unitId: currentUnit,
+          expiresAt: Timestamp.fromDate(expiresAt),
+          createdAt: Timestamp.fromDate(dtVenda),
+          updatedAt: Timestamp.now(),
+        });
+        const firebaseId = docRef.id;
+        await syncService.saveToCacheOnly('packages', {
+          id: firebaseId,
           customerId,
           type: pac.pacote,
           hours: pac.minutosVendidos / 60,
@@ -440,9 +534,11 @@ const ImportData: React.FC = () => {
           sharedAcrossUnits: true,
           unitId: currentUnit,
           expiresAt,
+          createdAt: dtVenda,
+          updatedAt: new Date(),
         });
-        trackedIds.packageIds.push(pkg.id);
-        existingPackages.push({ id: pkg.id, customerId, type: pac.pacote.toUpperCase().trim(), hours: pkgHours });
+        trackedIds.packageIds.push(firebaseId);
+        existingPackages.push({ id: firebaseId, customerId, type: pac.pacote.toUpperCase().trim(), hours: pkgHours });
         localStats.packagesCreated++;
       } catch (error) {
         localStats.errors++;
@@ -558,6 +654,124 @@ const ImportData: React.FC = () => {
     toast.success(`${deleted} registros excluídos com sucesso`);
   };
 
+  // ─── Delete ALL data from Firebase (nuclear option) ─────────────────
+
+  const handleDeleteAll = async () => {
+    if (!window.confirm(`⚠️ ATENÇÃO: Isso vai excluir TODOS os clientes, crianças e pacotes da unidade ${currentUnit} do Firebase e cache local. Tem certeza?`)) {
+      return;
+    }
+    if (!window.confirm('🔴 ÚLTIMA CONFIRMAÇÃO: Esta ação é irreversível. Deseja continuar?')) {
+      return;
+    }
+
+    cancelRef.current = false;
+    setDeleting(true);
+    setStep('deleting');
+    setLogs([]);
+
+    let deleted = 0;
+    let errors = 0;
+
+    // 1. Fetch packages for this unit
+    addLog({ type: 'info', message: `Buscando pacotes da unidade ${currentUnit}...` });
+    let allPkgs: { id: string }[] = [];
+    try {
+      const pkgs = await packagesServiceOffline.getAllPackages();
+      allPkgs = pkgs.filter(p => p.unitId === currentUnit);
+      addLog({ type: 'info', message: `${allPkgs.length} pacotes encontrados na unidade` });
+    } catch (e) {
+      addLog({ type: 'error', message: `Erro ao buscar pacotes: ${e}` });
+    }
+
+    // 2. Fetch children for this unit
+    addLog({ type: 'info', message: `Buscando crianças da unidade ${currentUnit}...` });
+    let allChildren: { id: string }[] = [];
+    try {
+      allChildren = await customersServiceOffline.getAllChildren(currentUnit);
+      addLog({ type: 'info', message: `${allChildren.length} crianças encontradas na unidade` });
+    } catch (e) {
+      addLog({ type: 'error', message: `Erro ao buscar crianças: ${e}` });
+    }
+
+    // 3. Fetch customers for this unit
+    addLog({ type: 'info', message: `Buscando clientes da unidade ${currentUnit}...` });
+    let allCustomers: { id: string }[] = [];
+    try {
+      allCustomers = await customersServiceOffline.getAllCustomers(currentUnit);
+      addLog({ type: 'info', message: `${allCustomers.length} clientes encontrados na unidade` });
+    } catch (e) {
+      addLog({ type: 'error', message: `Erro ao buscar clientes: ${e}` });
+    }
+
+    const totalToDelete = allPkgs.length + allChildren.length + allCustomers.length;
+    if (totalToDelete === 0) {
+      toast.info('Nenhum registro encontrado para excluir');
+      setDeleting(false);
+      setStep('done');
+      return;
+    }
+
+    addLog({ type: 'info', message: `Excluindo ${totalToDelete} registros...` });
+
+    // Delete packages
+    setProgress({ current: 0, total: totalToDelete, label: 'Excluindo pacotes...' });
+    for (const pkg of allPkgs) {
+      if (cancelRef.current) break;
+      try {
+        await packagesServiceOffline.deletePackage(pkg.id);
+        deleted++;
+      } catch (e) {
+        errors++;
+        addLog({ type: 'error', message: `Erro ao excluir pacote ${pkg.id}: ${e}` });
+      }
+      setProgress({ current: deleted + errors, total: totalToDelete, label: `Excluindo pacotes... (${deleted})` });
+      if ((deleted + errors) % 50 === 0) await sleep(300);
+    }
+
+    // Delete children
+    setProgress({ current: deleted + errors, total: totalToDelete, label: 'Excluindo crianças...' });
+    for (const child of allChildren) {
+      if (cancelRef.current) break;
+      try {
+        await customersServiceOffline.deleteChild(child.id);
+        deleted++;
+      } catch (e) {
+        errors++;
+        addLog({ type: 'error', message: `Erro ao excluir criança ${child.id}: ${e}` });
+      }
+      setProgress({ current: deleted + errors, total: totalToDelete, label: `Excluindo crianças... (${deleted})` });
+      if ((deleted + errors) % 50 === 0) await sleep(300);
+    }
+
+    // Delete customers
+    setProgress({ current: deleted + errors, total: totalToDelete, label: 'Excluindo clientes...' });
+    for (const cust of allCustomers) {
+      if (cancelRef.current) break;
+      try {
+        await customersServiceOffline.deleteCustomer(cust.id);
+        deleted++;
+      } catch (e) {
+        errors++;
+        addLog({ type: 'error', message: `Erro ao excluir cliente ${cust.id}: ${e}` });
+      }
+      setProgress({ current: deleted + errors, total: totalToDelete, label: `Excluindo clientes... (${deleted})` });
+      if ((deleted + errors) % 50 === 0) await sleep(300);
+    }
+
+    clearImportedIds(currentUnit);
+    setCreatedIds(null);
+    setDeleting(false);
+    setStep('done');
+    setStats({ customersCreated: 0, customersSkipped: 0, childrenCreated: 0, childrenSkipped: 0, packagesCreated: 0, packagesSkipped: 0, errors });
+
+    addLog({ type: 'info', message: `Exclusão total concluída: ${deleted} excluídos, ${errors} erros` });
+    if (cancelRef.current) {
+      toast.warning('Exclusão cancelada pelo usuário');
+    } else {
+      toast.success(`${deleted} registros excluídos com sucesso`);
+    }
+  };
+
   const handleReset = () => {
     setStep('upload');
     setResponsaveisFile(null);
@@ -581,23 +795,45 @@ const ImportData: React.FC = () => {
         <p className="text-sm text-slate-500">Importação de dados do sistema anterior via planilhas XLSX</p>
       </div>
 
-      {/* Delete button always visible if there are imported IDs */}
-      {step === 'upload' && createdIds && (createdIds.customerIds.length > 0 || createdIds.childIds.length > 0 || createdIds.packageIds.length > 0) && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-5 space-y-3">
-          <div>
-            <h3 className="text-sm font-bold text-red-700">Dados importados anteriormente</h3>
-            <p className="text-xs text-red-600 mt-1">
-              {createdIds.customerIds.length} clientes, {createdIds.childIds.length} crianças, {createdIds.packageIds.length} pacotes
-              {createdIds.importedAt && ` — importados em ${new Date(createdIds.importedAt).toLocaleString('pt-BR')}`}
-            </p>
+      {/* Delete options on upload step */}
+      {step === 'upload' && (
+        <div className="space-y-3">
+          {/* Delete tracked imports */}
+          {createdIds && (createdIds.customerIds.length > 0 || createdIds.childIds.length > 0 || createdIds.packageIds.length > 0) && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-5 space-y-3">
+              <div>
+                <h3 className="text-sm font-bold text-red-700">Dados importados anteriormente</h3>
+                <p className="text-xs text-red-600 mt-1">
+                  {createdIds.customerIds.length} clientes, {createdIds.childIds.length} crianças, {createdIds.packageIds.length} pacotes
+                  {createdIds.importedAt && ` — importados em ${new Date(createdIds.importedAt).toLocaleString('pt-BR')}`}
+                </p>
+              </div>
+              <button
+                onClick={handleDeleteImported}
+                disabled={deleting}
+                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition-colors disabled:opacity-50"
+              >
+                {deleting ? '⏳ Excluindo...' : '🗑️ Excluir dados rastreados'}
+              </button>
+            </div>
+          )}
+
+          {/* Nuclear delete all */}
+          <div className="bg-red-50 border border-red-300 rounded-xl p-5 space-y-3">
+            <div>
+              <h3 className="text-sm font-bold text-red-800">⚠️ Excluir TODOS os dados desta unidade</h3>
+              <p className="text-xs text-red-600 mt-1">
+                Busca e exclui todos os clientes, crianças e pacotes da unidade <strong>{currentUnit}</strong> do Firebase e cache local. Dados de outras unidades não serão afetados.
+              </p>
+            </div>
+            <button
+              onClick={handleDeleteAll}
+              disabled={deleting}
+              className="px-4 py-2 rounded-lg bg-red-800 hover:bg-red-900 text-white text-xs font-semibold transition-colors disabled:opacity-50"
+            >
+              {deleting ? '⏳ Excluindo...' : '💣 Excluir TODOS os clientes, crianças e pacotes'}
+            </button>
           </div>
-          <button
-            onClick={handleDeleteImported}
-            disabled={deleting}
-            className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition-colors disabled:opacity-50"
-          >
-            {deleting ? '⏳ Excluindo...' : '🗑️ Excluir tudo que foi importado'}
-          </button>
         </div>
       )}
 

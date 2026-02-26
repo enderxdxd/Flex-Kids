@@ -4,6 +4,7 @@ import { Customer } from '../../../shared/types';
 import { customersServiceOffline } from '../../../shared/firebase/services/customers.service.offline';
 import { settingsServiceOffline } from '../../../shared/firebase/services/settings.service.offline';
 import PackagePaymentModal from '../components/modals/PackagePaymentModal';
+import { useUnit } from '../contexts/UnitContext';
 
 interface PackageOption {
   name: string;
@@ -13,6 +14,7 @@ interface PackageOption {
 }
 
 const SellPackage: React.FC = () => {
+  const { currentUnit } = useUnit();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [packageOptions, setPackageOptions] = useState<PackageOption[]>([]);
@@ -25,7 +27,7 @@ const SellPackage: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [currentUnit]);
 
   useEffect(() => {
     if (searchTerm.trim() === '') {
@@ -40,7 +42,7 @@ const SellPackage: React.FC = () => {
   const loadData = async () => {
     try {
       const [allCustomers, plans] = await Promise.all([
-        customersServiceOffline.getAllCustomers(),
+        customersServiceOffline.getAllCustomers(currentUnit),
         settingsServiceOffline.getPackagePlans(),
       ]);
       setCustomers(allCustomers);

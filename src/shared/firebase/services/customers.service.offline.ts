@@ -44,8 +44,8 @@ export const customersServiceOffline = {
           ...customerData,
         };
 
-        console.log('💾 Saving to local cache...');
-        await syncService.saveLocally(CUSTOMERS_COLLECTION, 'create', customer);
+        console.log('💾 Saving to local cache (already synced)...');
+        await syncService.saveToCacheOnly(CUSTOMERS_COLLECTION, customer);
         console.log('✅ Local cache save successful');
         
         return customer;
@@ -87,7 +87,7 @@ export const customersServiceOffline = {
         });
 
         const localCustomer = await syncService.getFromLocal(CUSTOMERS_COLLECTION, id);
-        await syncService.saveLocally(CUSTOMERS_COLLECTION, 'update', {
+        await syncService.saveToCacheOnly(CUSTOMERS_COLLECTION, {
           ...localCustomer,
           ...updateData,
         });
@@ -138,16 +138,16 @@ export const customersServiceOffline = {
     }
   },
 
-  async getAllCustomers(): Promise<Customer[]> {
+  async getAllCustomers(unitId?: string): Promise<Customer[]> {
     try {
       // 1. Busca do cache primeiro
-      const localCustomers = await syncService.getAllFromLocal(CUSTOMERS_COLLECTION);
+      const localCustomers = await syncService.getAllFromLocal(CUSTOMERS_COLLECTION) as Customer[];
       console.log(`📦 Loaded ${localCustomers.length} customers from cache`);
 
-      // 2. Se offline, retorna cache
+      // 2. Se offline, retorna cache (filtrado por unidade se necessário)
       if (!syncService.isOnline()) {
         console.log('📴 Offline mode - returning cached customers');
-        return localCustomers as Customer[];
+        return unitId ? localCustomers.filter(c => c.unitId === unitId) : localCustomers;
       }
 
       // 3. Sempre retorna cache primeiro e busca Firebase em background
@@ -157,7 +157,7 @@ export const customersServiceOffline = {
           .catch(err => console.error('Background fetch failed:', err));
       }
       
-      return localCustomers as Customer[];
+      return unitId ? localCustomers.filter(c => c.unitId === unitId) : localCustomers;
     } catch (error) {
       console.error('Error getting customers:', error);
       return [];
@@ -181,6 +181,7 @@ export const customersServiceOffline = {
           email: data.email,
           cpf: data.cpf,
           address: data.address,
+          unitId: data.unitId,
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
         };
@@ -189,7 +190,7 @@ export const customersServiceOffline = {
 
       // Salva em paralelo
       await Promise.all(customers.map(customer => 
-        syncService.saveLocally(CUSTOMERS_COLLECTION, 'create', customer).catch(() => {})
+        syncService.saveToCacheOnly(CUSTOMERS_COLLECTION, customer).catch(() => {})
       ));
       console.log(`💾 Saved ${customers.length} customers to cache`);
 
@@ -200,7 +201,7 @@ export const customersServiceOffline = {
     }
   },
 
-  async addChild(customerId: string, data: Omit<Child, 'id' | 'customerId' | 'createdAt' | 'updatedAt'>): Promise<Child> {
+  async addChild(customerId: string, data: Omit<Child, 'id' | 'customerId' | 'createdAt' | 'updatedAt'> & { unitId?: string }): Promise<Child> {
     const childData = {
       ...data,
       customerId,
@@ -214,6 +215,8 @@ export const customersServiceOffline = {
         const firestoreData = {
           ...data,
           customerId,
+          unitId: data.unitId,
+          birthDate: data.birthDate ? Timestamp.fromDate(new Date(data.birthDate)) : null,
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
         };
@@ -224,7 +227,7 @@ export const customersServiceOffline = {
           ...childData,
         };
 
-        await syncService.saveLocally(CHILDREN_COLLECTION, 'create', child);
+        await syncService.saveToCacheOnly(CHILDREN_COLLECTION, child);
         return child;
       } catch (error) {
         console.error('Failed to save to Firebase, saving locally:', error);
@@ -263,13 +266,15 @@ export const customersServiceOffline = {
             id: docSnap.id,
             name: data.name,
             age: data.age,
+            birthDate: data.birthDate?.toDate() || undefined,
             customerId: data.customerId,
+            unitId: data.unitId,
             createdAt: data.createdAt?.toDate() || new Date(),
             updatedAt: data.updatedAt?.toDate() || new Date(),
           };
 
           // Salva no cache para próximas vezes
-          await syncService.saveLocally(CHILDREN_COLLECTION, 'create', childFromFirebase).catch(() => {});
+          await syncService.saveToCacheOnly(CHILDREN_COLLECTION, childFromFirebase).catch(() => {});
           console.log(`✅ [getChildById] Criança encontrada no Firebase e salva no cache`);
           return childFromFirebase;
         }
@@ -314,7 +319,7 @@ export const customersServiceOffline = {
             updatedAt: data.updatedAt?.toDate() || new Date(),
           };
 
-          await syncService.saveLocally(CUSTOMERS_COLLECTION, 'create', customerFromFirebase).catch(() => {});
+          await syncService.saveToCacheOnly(CUSTOMERS_COLLECTION, customerFromFirebase).catch(() => {});
           console.log(`✅ [getCustomerById] Cliente encontrado no Firebase e salvo no cache`);
           return customerFromFirebase;
         }
@@ -365,7 +370,9 @@ export const customersServiceOffline = {
           id: docSnap.id,
           name: data.name,
           age: data.age,
+          birthDate: data.birthDate?.toDate() || undefined,
           customerId: data.customerId,
+          unitId: data.unitId,
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
         };
@@ -374,7 +381,7 @@ export const customersServiceOffline = {
 
       // Salva em paralelo
       await Promise.all(children.map(child => 
-        syncService.saveLocally(CHILDREN_COLLECTION, 'create', child).catch(() => {})
+        syncService.saveToCacheOnly(CHILDREN_COLLECTION, child).catch(() => {})
       ));
 
       return children;
@@ -384,14 +391,14 @@ export const customersServiceOffline = {
     }
   },
 
-  async getAllChildren(): Promise<Child[]> {
+  async getAllChildren(unitId?: string): Promise<Child[]> {
     try {
       // 1. Busca do cache primeiro
-      const localChildren = await syncService.getAllFromLocal(CHILDREN_COLLECTION);
+      const localChildren = await syncService.getAllFromLocal(CHILDREN_COLLECTION) as Child[];
 
       // 2. Se offline, retorna cache
       if (!syncService.isOnline()) {
-        return localChildren as Child[];
+        return unitId ? localChildren.filter(c => c.unitId === unitId) : localChildren;
       }
 
       // 3. Sempre retorna cache primeiro e busca Firebase em background
@@ -400,7 +407,7 @@ export const customersServiceOffline = {
           .catch(err => console.error('Background fetch failed:', err));
       }
       
-      return localChildren as Child[];
+      return unitId ? localChildren.filter(c => c.unitId === unitId) : localChildren;
     } catch (error) {
       console.error('Error getting children:', error);
       return [];
@@ -419,7 +426,9 @@ export const customersServiceOffline = {
           id: docSnap.id,
           name: data.name,
           age: data.age,
+          birthDate: data.birthDate?.toDate() || undefined,
           customerId: data.customerId,
+          unitId: data.unitId,
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
         };
@@ -428,7 +437,7 @@ export const customersServiceOffline = {
 
       // Salva em paralelo
       await Promise.all(children.map(child => 
-        syncService.saveLocally(CHILDREN_COLLECTION, 'create', child).catch(() => {})
+        syncService.saveToCacheOnly(CHILDREN_COLLECTION, child).catch(() => {})
       ));
 
       return children;

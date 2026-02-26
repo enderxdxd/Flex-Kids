@@ -7,6 +7,7 @@ import { visitsServiceOffline } from '../../../shared/firebase/services/visits.s
 import { customersServiceOffline } from '../../../shared/firebase/services/customers.service.offline';
 import { packagesServiceOffline } from '../../../shared/firebase/services/packages.service.offline';
 import { useUnit } from '../contexts/UnitContext';
+import { getChildAge } from '../../../shared/utils/age';
 
 const VisitHistory: React.FC = () => {
   const { currentUnit } = useUnit();
@@ -21,7 +22,7 @@ const VisitHistory: React.FC = () => {
 
   useEffect(() => {
     loadChildren();
-  }, []);
+  }, [currentUnit]);
 
   useEffect(() => {
     if (searchTerm.trim() === '') {
@@ -47,8 +48,8 @@ const VisitHistory: React.FC = () => {
   const loadChildren = async () => {
     try {
       const [allChildren, allCustomers] = await Promise.all([
-        customersServiceOffline.getAllChildren(),
-        customersServiceOffline.getAllCustomers(),
+        customersServiceOffline.getAllChildren(currentUnit),
+        customersServiceOffline.getAllCustomers(currentUnit),
       ]);
       setChildren(allChildren);
       setFilteredChildren(allChildren);
@@ -137,7 +138,7 @@ const VisitHistory: React.FC = () => {
               const customer = customers.find((c: any) => c.id === child.customerId);
               return (
                 <option key={child.id} value={child.id}>
-                  {child.name} ({child.age}a) - {customer?.name || '-'}
+                  {child.name} ({getChildAge(child)}a) - {customer?.name || '-'}
                 </option>
               );
             })}

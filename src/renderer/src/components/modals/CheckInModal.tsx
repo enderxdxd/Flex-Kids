@@ -4,6 +4,7 @@ import { Customer, Child } from '../../../../shared/types';
 import { customersService } from '../../../../shared/firebase/services/customers.service';
 import { visitsServiceOffline } from '../../../../shared/firebase/services/visits.service.offline';
 import { useUnit } from '../../contexts/UnitContext';
+import { getChildAge } from '../../../../shared/utils/age';
 
 interface CheckInModalProps {
   isOpen: boolean;
@@ -30,8 +31,8 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
   const loadCustomers = async () => {
     try {
       const [allCustomers, allChildren] = await Promise.all([
-        customersService.getAllCustomers(),
-        customersService.getAllChildren(),
+        customersService.getAllCustomers(currentUnit),
+        customersService.getAllChildren(currentUnit),
       ]);
       setCustomers(allCustomers);
       setChildren(allChildren);
@@ -188,7 +189,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
                     <button key={child.id} type="button" onClick={() => setSelectedChild(child.id)}
                       className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${selectedChild === child.id ? 'bg-emerald-50 border border-emerald-300' : 'hover:bg-slate-50 border border-transparent'}`}>
                       <p className="font-semibold text-slate-800">{child.name}</p>
-                      <p className="text-xs text-slate-500">{child.age} anos</p>
+                      <p className="text-xs text-slate-500">{getChildAge(child)} anos</p>
                     </button>
                   ))
                 )}
