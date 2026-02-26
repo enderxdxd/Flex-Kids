@@ -173,26 +173,50 @@ export const customersServiceOffline = {
     }
   },
 
+  async updateChild(id: string, data: Partial<Child>): Promise<void> {
+    const updateData = { ...data, updatedAt: new Date() };
+
+    if (syncService.isOnline()) {
+      try {
+        const db = getDb();
+        const firestoreData: Record<string, any> = { ...data, updatedAt: Timestamp.now() };
+        if (data.birthDate) {
+          firestoreData.birthDate = Timestamp.fromDate(new Date(data.birthDate));
+        }
+        Object.keys(firestoreData).forEach(k => firestoreData[k] === undefined && delete firestoreData[k]);
+        await updateDoc(doc(db, CHILDREN_COLLECTION, id), firestoreData);
+      } catch (error) {
+        console.error('Failed to update child in Firebase:', error);
+      }
+    }
+
+    try {
+      const existing = await syncService.getFromLocal(CHILDREN_COLLECTION, id);
+      if (existing) {
+        await syncService.saveToCacheOnly(CHILDREN_COLLECTION, { ...existing, ...updateData });
+      }
+    } catch (error) {
+      console.error('Failed to update child in local cache:', error);
+    }
+  },
+
   async getAllCustomers(unitId?: string): Promise<Customer[]> {
     try {
-      // 1. Busca do cache primeiro
-      const localCustomers = await syncService.getAllFromLocal(CUSTOMERS_COLLECTION) as Customer[];
-      console.log(`📦 Loaded ${localCustomers.length} customers from cache`);
+      // 1. Busca do cache usando índice by-unit (rápido)
+      const localCustomers = unitId
+        ? await syncService.getAllFromLocalByUnit(CUSTOMERS_COLLECTION, unitId) as Customer[]
+        : await syncService.getAllFromLocal(CUSTOMERS_COLLECTION) as Customer[];
 
-      // 2. Se offline, retorna cache (filtrado por unidade se necessário)
+      // 2. Se offline, retorna cache
       if (!syncService.isOnline()) {
-        console.log('📴 Offline mode - returning cached customers');
-        return unitId ? localCustomers.filter(c => c.unitId === unitId) : localCustomers;
+        return localCustomers;
       }
 
-      // 3. Sempre retorna cache primeiro e busca Firebase em background
-      if (syncService.isOnline()) {
-        console.log('🌐 Online - fetching customers from Firebase in background');
-        this.fetchCustomersFromFirebase(unitId)
-          .catch(err => console.error('Background fetch failed:', err));
-      }
+      // 3. Busca Firebase em background
+      this.fetchCustomersFromFirebase(unitId)
+        .catch(err => console.error('Background fetch failed:', err));
       
-      return unitId ? localCustomers.filter(c => c.unitId === unitId) : localCustomers;
+      return localCustomers;
     } catch (error) {
       console.error('Error getting customers:', error);
       return [];
@@ -227,11 +251,8 @@ export const customersServiceOffline = {
         customers.push(customer);
       }
 
-      // Salva em paralelo (including soft-deleted to keep them marked)
-      await Promise.all(customers.map(customer => 
-        syncService.saveToCacheOnly(CUSTOMERS_COLLECTION, customer).catch(() => {})
-      ));
-      console.log(`💾 Saved ${customers.length} customers to cache`);
+      // Salva em batch (transação única)
+      await syncService.bulkSaveToCacheOnly(CUSTOMERS_COLLECTION, customers);
 
       // Return only non-deleted
       return customers.filter(c => !c.deletedAt) as Customer[];
@@ -435,10 +456,8 @@ export const customersServiceOffline = {
         children.push(child);
       }
 
-      // Salva em paralelo
-      await Promise.all(children.map(child => 
-        syncService.saveToCacheOnly(CHILDREN_COLLECTION, child).catch(() => {})
-      ));
+      // Salva em batch (transação única)
+      await syncService.bulkSaveToCacheOnly(CHILDREN_COLLECTION, children);
 
       return children.filter(c => !c.deletedAt) as Child[];
     } catch (error) {
@@ -449,21 +468,21 @@ export const customersServiceOffline = {
 
   async getAllChildren(unitId?: string): Promise<Child[]> {
     try {
-      // 1. Busca do cache primeiro
-      const localChildren = await syncService.getAllFromLocal(CHILDREN_COLLECTION) as Child[];
+      // 1. Busca do cache usando índice by-unit (rápido)
+      const localChildren = unitId
+        ? await syncService.getAllFromLocalByUnit(CHILDREN_COLLECTION, unitId) as Child[]
+        : await syncService.getAllFromLocal(CHILDREN_COLLECTION) as Child[];
 
       // 2. Se offline, retorna cache
       if (!syncService.isOnline()) {
-        return unitId ? localChildren.filter(c => c.unitId === unitId) : localChildren;
+        return localChildren;
       }
 
-      // 3. Sempre retorna cache primeiro e busca Firebase em background
-      if (syncService.isOnline()) {
-        this.fetchChildrenFromFirebase(unitId)
-          .catch(err => console.error('Background fetch failed:', err));
-      }
+      // 3. Busca Firebase em background
+      this.fetchChildrenFromFirebase(unitId)
+        .catch(err => console.error('Background fetch failed:', err));
       
-      return unitId ? localChildren.filter(c => c.unitId === unitId) : localChildren;
+      return localChildren;
     } catch (error) {
       console.error('Error getting children:', error);
       return [];
@@ -495,10 +514,8 @@ export const customersServiceOffline = {
         children.push(child);
       }
 
-      // Salva em paralelo
-      await Promise.all(children.map(child => 
-        syncService.saveToCacheOnly(CHILDREN_COLLECTION, child).catch(() => {})
-      ));
+      // Salva em batch (transação única)
+      await syncService.bulkSaveToCacheOnly(CHILDREN_COLLECTION, children);
 
       return children.filter(c => !c.deletedAt) as Child[];
     } catch (error) {

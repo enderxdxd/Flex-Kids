@@ -432,6 +432,26 @@ class SyncService {
     return items.filter((item: any) => !item.deletedAt);
   }
 
+  async getAllFromLocalByUnit(collection: string, unitId: string, includeDeleted = false): Promise<any[]> {
+    this.ensureInitialized();
+    const items = await localDb.getAllByIndex(collection as any, 'by-unit', unitId);
+    if (includeDeleted) return items;
+    return items.filter((item: any) => !item.deletedAt);
+  }
+
+  async bulkSaveToCacheOnly(collectionName: string, items: any[]): Promise<void> {
+    this.ensureInitialized();
+    const prepared = items.map(data => ({
+      ...data,
+      id: data.id || `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      synced: true,
+    }));
+    await localDb.bulkUpsert(collectionName as any, prepared);
+    if (!this.bulkMode) {
+      await this.notifyPendingCount();
+    }
+  }
+
   async getAllByIndex(collection: string, indexName: string, query?: any): Promise<any[]> {
     return await localDb.getAllByIndex(collection as any, indexName, query);
   }

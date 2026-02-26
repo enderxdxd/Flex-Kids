@@ -32,6 +32,7 @@ const Customers: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [showChildModal, setShowChildModal] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [editingChild, setEditingChild] = useState<Child | null>(null);
   
   const [formData, setFormData] = useState<CustomerFormData>({
     name: '',
@@ -129,8 +130,17 @@ const Customers: React.FC = () => {
   };
 
 
-  const openChildModal = (customerId: string) => {
-    setChildFormData({ name: '', birthDate: '', customerId });
+  const openChildModal = (customerId: string, child?: Child) => {
+    if (child) {
+      setEditingChild(child);
+      const bd = child.birthDate
+        ? (typeof child.birthDate === 'string' ? child.birthDate : new Date(child.birthDate).toISOString().split('T')[0])
+        : '';
+      setChildFormData({ name: child.name, birthDate: bd, customerId });
+    } else {
+      setEditingChild(null);
+      setChildFormData({ name: '', birthDate: '', customerId });
+    }
     setShowChildModal(true);
   };
 
@@ -148,19 +158,29 @@ const Customers: React.FC = () => {
     const age = getChildAge({ age: 0, birthDate: birthDateObj });
 
     try {
-      await customersServiceOffline.addChild(childFormData.customerId, {
-        name: childFormData.name,
-        age,
-        birthDate: birthDateObj,
-        unitId: currentUnit,
-      });
-      toast.success('✅ Criança cadastrada com sucesso!');
+      if (editingChild) {
+        await customersServiceOffline.updateChild(editingChild.id, {
+          name: childFormData.name,
+          age,
+          birthDate: birthDateObj,
+        });
+        toast.success('✅ Criança atualizada com sucesso!');
+      } else {
+        await customersServiceOffline.addChild(childFormData.customerId, {
+          name: childFormData.name,
+          age,
+          birthDate: birthDateObj,
+          unitId: currentUnit,
+        });
+        toast.success('✅ Criança cadastrada com sucesso!');
+      }
+      setEditingChild(null);
       setChildFormData({ name: '', birthDate: '', customerId: '' });
       setShowChildModal(false);
       loadData();
     } catch (error) {
-      console.error('Error adding child:', error);
-      toast.error('Erro ao cadastrar criança');
+      console.error('Error saving child:', error);
+      toast.error('Erro ao salvar criança');
     } finally {
       setSaving(false);
     }
@@ -270,8 +290,8 @@ const Customers: React.FC = () => {
                             <span className="text-xs text-slate-400">Sem crianças</span>
                           ) : (
                             custChildren.map(ch => (
-                              <span key={ch.id} className="text-[11px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium">
-                                {ch.name} ({getChildAge(ch)}a)
+                              <span key={ch.id} className="text-[11px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium cursor-pointer hover:bg-blue-100 transition-colors" onClick={() => openChildModal(customer.id, ch)} title="Clique para editar">
+                                {ch.name} ({getChildAge(ch)}a) ✏️
                               </span>
                             ))
                           )}
@@ -371,8 +391,8 @@ const Customers: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full">
             <div className="flex items-center justify-between p-5 border-b border-slate-200">
-              <h2 className="text-lg font-bold text-slate-800">Adicionar Criança</h2>
-              <button onClick={() => setShowChildModal(false)} className="p-1 rounded-md hover:bg-slate-100 text-slate-400">✕</button>
+              <h2 className="text-lg font-bold text-slate-800">{editingChild ? 'Editar Criança' : 'Adicionar Criança'}</h2>
+              <button onClick={() => { setShowChildModal(false); setEditingChild(null); }} className="p-1 rounded-md hover:bg-slate-100 text-slate-400">✕</button>
             </div>
             <form onSubmit={handleChildSubmit} className="p-5 space-y-3">
               <div>
@@ -387,8 +407,8 @@ const Customers: React.FC = () => {
                 )}
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowChildModal(false)} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
-                <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">{saving ? 'Salvando...' : 'Adicionar'}</button>
+                <button type="button" onClick={() => { setShowChildModal(false); setEditingChild(null); }} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
+                <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">{saving ? 'Salvando...' : (editingChild ? 'Salvar' : 'Adicionar')}</button>
               </div>
             </form>
           </div>

@@ -142,10 +142,8 @@ export const paymentsServiceOffline = {
         payments.push(payment);
       }
 
-      // Salva em paralelo
-      await Promise.all(payments.map(payment => 
-        syncService.saveToCacheOnly(COLLECTION, payment).catch(() => {})
-      ));
+      // Salva em batch (transação única)
+      await syncService.bulkSaveToCacheOnly(COLLECTION, payments);
 
       return payments;
     } catch (error) {
@@ -184,9 +182,7 @@ export const paymentsServiceOffline = {
           } as Payment;
         });
 
-        for (const payment of payments) {
-          await syncService.saveToCacheOnly(COLLECTION, payment);
-        }
+        await syncService.bulkSaveToCacheOnly(COLLECTION, payments);
 
         return payments;
       } catch (error) {
@@ -284,9 +280,7 @@ export const paymentsServiceOffline = {
         payments.push(payment);
       }
 
-      await Promise.all(payments.map(payment => 
-        syncService.saveToCacheOnly(COLLECTION, payment).catch(() => {})
-      ));
+      await syncService.bulkSaveToCacheOnly(COLLECTION, payments);
 
       return payments;
     } catch (error) {
@@ -326,9 +320,7 @@ export const paymentsServiceOffline = {
           } as Payment;
         });
 
-        for (const payment of payments) {
-          await syncService.saveToCacheOnly(COLLECTION, payment);
-        }
+        await syncService.bulkSaveToCacheOnly(COLLECTION, payments);
 
         return payments;
       } catch (error) {

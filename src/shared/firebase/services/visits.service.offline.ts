@@ -124,10 +124,13 @@ export const visitsServiceOffline = {
         syncService.getAllFromLocal('customers'),
       ]);
 
+      const childMap = new Map(localChildren.map((c: any) => [c.id, c]));
+      const customerMap = new Map(localCustomers.map((c: any) => [c.id, c]));
+
       return visits.map(visit => {
-        const child = localChildren.find((c: any) => c.id === visit.childId);
+        const child = childMap.get(visit.childId);
         if (child) {
-          const customer = localCustomers.find((c: any) => c.id === child.customerId);
+          const customer = customerMap.get(child.customerId);
           return {
             ...visit,
             child: {
@@ -146,12 +149,12 @@ export const visitsServiceOffline = {
 
   async getActiveVisits(unitId?: string, limit = 50): Promise<Visit[]> {
     try {
-      // 1. SEMPRE busca do cache primeiro (rápido - 5-10ms)
-      const localVisits = await syncService.getAllFromLocal(COLLECTION);
+      // 1. Busca do cache usando índice by-unit (rápido)
+      const localVisits = unitId
+        ? await syncService.getAllFromLocalByUnit(COLLECTION, unitId)
+        : await syncService.getAllFromLocal(COLLECTION);
       let cachedActiveVisits = localVisits
-        .filter((visit: Visit) => {
-          return visit.unitId === unitId && !visit.checkOut;
-        })
+        .filter((visit: Visit) => !visit.checkOut)
         .sort((a: Visit, b: Visit) => {
           const aTime = a.checkIn instanceof Date ? a.checkIn.getTime() : new Date(a.checkIn).getTime();
           const bTime = b.checkIn instanceof Date ? b.checkIn.getTime() : new Date(b.checkIn).getTime();
@@ -233,10 +236,8 @@ export const visitsServiceOffline = {
         visits.push(visit);
       }
 
-      // Salva em paralelo
-      await Promise.all(visits.map(visit => 
-        syncService.saveToCacheOnly(COLLECTION, visit).catch(() => {})
-      ));
+      // Salva em batch (transação única)
+      await syncService.bulkSaveToCacheOnly(COLLECTION, visits);
 
       return visits;
     } catch (error) {
@@ -265,9 +266,7 @@ export const visitsServiceOffline = {
           updatedAt: doc.data().updatedAt?.toDate(),
         })) as Visit[];
 
-        for (const visit of visits) {
-          await syncService.saveToCacheOnly(COLLECTION, visit);
-        }
+        await syncService.bulkSaveToCacheOnly(COLLECTION, visits);
 
         return visits;
       } catch (error) {
@@ -300,9 +299,7 @@ export const visitsServiceOffline = {
           updatedAt: doc.data().updatedAt?.toDate(),
         })) as Visit[];
 
-        for (const visit of visits) {
-          await syncService.saveToCacheOnly(COLLECTION, visit);
-        }
+        await syncService.bulkSaveToCacheOnly(COLLECTION, visits);
 
         return visits;
       } catch (error) {
@@ -310,7 +307,9 @@ export const visitsServiceOffline = {
       }
     }
 
-    const all = await syncService.getAllFromLocal(COLLECTION);
-    return unitId ? all.filter((v: Visit) => v.unitId === unitId) : all;
+    const all = unitId
+      ? await syncService.getAllFromLocalByUnit(COLLECTION, unitId)
+      : await syncService.getAllFromLocal(COLLECTION);
+    return all;
   },
 };

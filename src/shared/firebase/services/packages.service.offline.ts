@@ -146,9 +146,7 @@ export const packagesServiceOffline = {
           };
         });
 
-        for (const pkg of packages) {
-          await syncService.saveToCacheOnly(COLLECTION, pkg);
-        }
+        await syncService.bulkSaveToCacheOnly(COLLECTION, packages);
 
         return packages.filter(p => !p.deletedAt) as Package[];
       } catch (error) {
@@ -162,9 +160,10 @@ export const packagesServiceOffline = {
 
   async getAllPackages(unitId?: string): Promise<Package[]> {
     try {
-      const localPackages = await syncService.getAllFromLocal(COLLECTION) as Package[];
-      if (!unitId) return localPackages;
-      return localPackages.filter(pkg => pkg.unitId === unitId);
+      const localPackages = unitId
+        ? await syncService.getAllFromLocalByUnit(COLLECTION, unitId) as Package[]
+        : await syncService.getAllFromLocal(COLLECTION) as Package[];
+      return localPackages;
     } catch (error) {
       console.error('Error getting all packages:', error);
       return [];
@@ -193,13 +192,14 @@ export const packagesServiceOffline = {
 
   async getActivePackages(customerId?: string, unitId?: string): Promise<Package[]> {
     try {
-      // 1. SEMPRE busca do cache primeiro
-      const localPackages = await syncService.getAllFromLocal(COLLECTION);
+      // 1. Busca do cache usando índice by-unit (rápido)
+      const localPackages = unitId
+        ? await syncService.getAllFromLocalByUnit(COLLECTION, unitId) as Package[]
+        : await syncService.getAllFromLocal(COLLECTION) as Package[];
       const cachedPackages = localPackages
         .filter((pkg: Package) => {
           const matchesCustomer = !customerId || pkg.customerId === customerId;
-          const matchesUnit = pkg.unitId === unitId;
-          return matchesCustomer && matchesUnit && pkg.active && pkg.usedHours < pkg.hours;
+          return matchesCustomer && pkg.active && pkg.usedHours < pkg.hours;
         })
         .sort((a: Package, b: Package) => {
           const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime();
@@ -283,10 +283,8 @@ export const packagesServiceOffline = {
         }
       }
 
-      // Salva em paralelo
-      await Promise.all(packages.map(pkg => 
-        syncService.saveToCacheOnly(COLLECTION, pkg).catch(() => {})
-      ));
+      // Salva em batch (transação única)
+      await syncService.bulkSaveToCacheOnly(COLLECTION, packages);
 
       return packages.filter(pkg => !customerId || pkg.customerId === customerId);
     } catch (error) {

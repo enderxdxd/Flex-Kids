@@ -9,22 +9,22 @@ interface FlexKidsDB extends DBSchema {
   customers: {
     key: string;
     value: any;
-    indexes: { 'by-sync': string };
+    indexes: { 'by-sync': string; 'by-unit': string };
   };
   children: {
     key: string;
     value: any;
-    indexes: { 'by-sync': string; 'by-customer': string };
+    indexes: { 'by-sync': string; 'by-customer': string; 'by-unit': string };
   };
   payments: {
     key: string;
     value: any;
-    indexes: { 'by-sync': string; 'by-date': number };
+    indexes: { 'by-sync': string; 'by-date': number; 'by-unit': string };
   };
   packages: {
     key: string;
     value: any;
-    indexes: { 'by-sync': string; 'by-customer': string };
+    indexes: { 'by-sync': string; 'by-customer': string; 'by-unit': string };
   };
   settings: {
     key: string;
@@ -48,13 +48,14 @@ interface FlexKidsDB extends DBSchema {
 class LocalDatabase {
   private db: IDBPDatabase<FlexKidsDB> | null = null;
   private readonly DB_NAME = 'flex-kids-db';
-  private readonly DB_VERSION = 2;
+  private readonly DB_VERSION = 3;
+  private ghostMigrationDone = false;
 
   async init(): Promise<void> {
     if (this.db) return;
 
     this.db = await openDB<FlexKidsDB>(this.DB_NAME, this.DB_VERSION, {
-      upgrade(db) {
+      upgrade(db, oldVersion, _newVersion, transaction) {
         // Visits store
         if (!db.objectStoreNames.contains('visits')) {
           const visitStore = db.createObjectStore('visits', { keyPath: 'id' });
@@ -66,6 +67,12 @@ class LocalDatabase {
         if (!db.objectStoreNames.contains('customers')) {
           const customerStore = db.createObjectStore('customers', { keyPath: 'id' });
           customerStore.createIndex('by-sync', 'synced');
+          customerStore.createIndex('by-unit', 'unitId');
+        } else if (oldVersion < 3) {
+          const customerStore = transaction.objectStore('customers');
+          if (!customerStore.indexNames.contains('by-unit')) {
+            customerStore.createIndex('by-unit', 'unitId');
+          }
         }
 
         // Children store
@@ -73,6 +80,12 @@ class LocalDatabase {
           const childrenStore = db.createObjectStore('children', { keyPath: 'id' });
           childrenStore.createIndex('by-sync', 'synced');
           childrenStore.createIndex('by-customer', 'customerId');
+          childrenStore.createIndex('by-unit', 'unitId');
+        } else if (oldVersion < 3) {
+          const childrenStore = transaction.objectStore('children');
+          if (!childrenStore.indexNames.contains('by-unit')) {
+            childrenStore.createIndex('by-unit', 'unitId');
+          }
         }
 
         // Payments store
@@ -80,6 +93,12 @@ class LocalDatabase {
           const paymentStore = db.createObjectStore('payments', { keyPath: 'id' });
           paymentStore.createIndex('by-sync', 'synced');
           paymentStore.createIndex('by-date', 'date');
+          paymentStore.createIndex('by-unit', 'unitId');
+        } else if (oldVersion < 3) {
+          const paymentStore = transaction.objectStore('payments');
+          if (!paymentStore.indexNames.contains('by-unit')) {
+            paymentStore.createIndex('by-unit', 'unitId');
+          }
         }
 
         // Packages store
@@ -87,6 +106,12 @@ class LocalDatabase {
           const packageStore = db.createObjectStore('packages', { keyPath: 'id' });
           packageStore.createIndex('by-sync', 'synced');
           packageStore.createIndex('by-customer', 'customerId');
+          packageStore.createIndex('by-unit', 'unitId');
+        } else if (oldVersion < 3) {
+          const packageStore = transaction.objectStore('packages');
+          if (!packageStore.indexNames.contains('by-unit')) {
+            packageStore.createIndex('by-unit', 'unitId');
+          }
         }
 
         // Settings store
@@ -143,6 +168,17 @@ class LocalDatabase {
     return id;
   }
 
+  async bulkUpsert(store: keyof FlexKidsDB, items: any[]): Promise<void> {
+    if (items.length === 0) return;
+    const db = this.ensureDb();
+    const tx = db.transaction(store as any, 'readwrite');
+    for (const item of items) {
+      const id = item.id || this.generateId();
+      tx.store.put({ ...item, id, synced: false } as any);
+    }
+    await tx.done;
+  }
+
   async delete(store: keyof FlexKidsDB, id: string): Promise<void> {
     const db = this.ensureDb();
     await db.delete(store as any, id);
@@ -177,12 +213,12 @@ class LocalDatabase {
   }
 
   async migrateGhostSyncItems(): Promise<number> {
+    if (this.ghostMigrationDone) return 0;
     const db = this.ensureDb();
     const allItems = await db.getAll('syncQueue');
     let migrated = 0;
     const tx = db.transaction('syncQueue', 'readwrite');
     for (const item of allItems) {
-      // Convert boolean synced to number
       if (typeof item.synced === 'boolean' || item.synced === undefined || item.synced === null) {
         const numericSynced = item.synced ? 1 : 0;
         await tx.store.put({ ...item, synced: numericSynced });
@@ -190,8 +226,9 @@ class LocalDatabase {
       }
     }
     await tx.done;
+    this.ghostMigrationDone = true;
     if (migrated > 0) {
-      console.log(`� Migrated ${migrated} ghost syncQueue items (boolean → number)`);
+      console.log(`Migrated ${migrated} ghost syncQueue items (boolean -> number)`);
     }
     return migrated;
   }
@@ -253,8 +290,7 @@ class LocalDatabase {
   async getPendingSyncCount(): Promise<number> {
     const db = this.ensureDb();
     await this.migrateGhostSyncItems();
-    const pending = await db.getAllFromIndex('syncQueue', 'by-synced', 0);
-    return pending.length;
+    return await db.countFromIndex('syncQueue', 'by-synced', 0);
   }
 
   async clearSyncQueue(): Promise<void> {
