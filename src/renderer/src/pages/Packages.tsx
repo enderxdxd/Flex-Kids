@@ -37,6 +37,7 @@ const Packages: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingPackage, setEditingPackage] = useState<Package | null>(null);
   const [activeTab, setActiveTab] = useState<'packages' | 'plans'>('packages');
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Planos configuráveis
   const [plans, setPlans] = useState<PlanConfig[]>([]);
@@ -332,8 +333,18 @@ const Packages: React.FC = () => {
       {/* Tab: Pacotes Vendidos */}
       {activeTab === 'packages' && (
         <div className="bg-white rounded-xl border border-slate-200">
-          <div className="flex items-center justify-between p-4 border-b border-slate-100">
-            <label className="flex items-center gap-2 cursor-pointer">
+          <div className="flex items-center justify-between p-4 border-b border-slate-100 gap-3">
+            <div className="relative flex-1 max-w-xs">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Pesquisar por nome..."
+                className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 placeholder:text-slate-400"
+              />
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer flex-shrink-0">
               <input type="checkbox" checked={showActiveOnly} onChange={(e) => setShowActiveOnly(e.target.checked)} className="w-4 h-4 text-violet-600 rounded focus:ring-violet-500" />
               <span className="text-sm text-slate-600">Apenas ativos</span>
             </label>
@@ -352,7 +363,13 @@ const Packages: React.FC = () => {
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
-              {packages.map((pkg) => {
+              {packages.filter((pkg) => {
+                if (!searchTerm.trim()) return true;
+                const term = searchTerm.toLowerCase();
+                const customerName = getCustomerName(pkg.customerId).toLowerCase();
+                const childName = pkg.childId ? getChildName(pkg.childId).toLowerCase() : '';
+                return customerName.includes(term) || childName.includes(term) || pkg.type.toLowerCase().includes(term);
+              }).map((pkg) => {
                 const progress = getPackageProgress(pkg);
                 const remaining = getRemainingHours(pkg);
                 const expirationDate = getExpirationDate(pkg);

@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { toast } from 'react-toastify';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, doc, writeBatch, Timestamp } from 'firebase/firestore';
 import { getDb } from '../../../shared/firebase/config';
 import { customersServiceOffline } from '../../../shared/firebase/services/customers.service.offline';
 import { packagesServiceOffline } from '../../../shared/firebase/services/packages.service.offline';
@@ -14,6 +14,7 @@ interface RawResponsavel {
   codResponsavel: string;
   nome: string;
   telefone: string;
+  telefone2: string;
   email: string;
   cpf: string;
 }
@@ -23,6 +24,8 @@ interface RawCrianca {
   nome: string;
   dtNascimento: string;
   codResponsavel: string;
+  legacyVisitCount: number;
+  legacyAccumulatedMinutes: number;
 }
 
 interface RawPacote {
@@ -32,7 +35,7 @@ interface RawPacote {
   nomeResponsavel: string;
   pacote: string;
   minutosVendidos: number;
-  minutosUsados: number;
+  minutosDisponiveis: number;
   venceu: boolean;
 }
 
@@ -73,14 +76,27 @@ function clearImportedIds(unitId: string): void {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+function stripQuotes(val: any): string {
+  const str = String(val ?? '').trim();
+  return str.replace(/^'+|'+$/g, '').trim();
+}
+
+function normalizePackageType(raw: string): string {
+  return raw
+    .toUpperCase()
+    .replace(/\s+/g, ' ')
+    .replace(/\bDE\s+/g, '')
+    .trim();
+}
+
 function cleanPhone(raw: any): string {
-  const str = String(raw || '').trim();
+  const str = stripQuotes(raw);
   if (!str || str === '0' || str === '()' || str === '() -' || /^[\s\-()_.]+$/.test(str)) return '';
   return str;
 }
 
 function cleanCpf(raw: any): string {
-  const str = String(raw || '').trim();
+  const str = stripQuotes(raw);
   if (!str || str === '0' || /^[.\-/\s]+$/.test(str)) return '';
   return str;
 }
@@ -186,21 +202,24 @@ const ImportData: React.FC = () => {
     const criancasList: RawCrianca[] = [];
 
     for (const row of rows) {
-      const codResp = String(firstMatch(row, ['Cod. Responsavel', 'Cod.Responsavel', 'CodResponsavel', 'Cod Responsavel', 'cod_responsavel', 'COD. RESPONSAVEL']) ?? '').trim();
-      const nomeResp = String(firstMatch(row, ['Responsavel', 'Responsável', 'RESPONSAVEL', 'Nome Responsavel', 'NomeResponsavel']) ?? '').trim().toUpperCase();
-      const codCrianca = String(firstMatch(row, ['Cod. Criança', 'Cod.Criança', 'CodCrianca', 'Cod Crianca', 'cod_crianca', 'COD. CRIANÇA']) ?? '').trim();
-      const nomeCrianca = String(firstMatch(row, ['Criança', 'Crianca', 'CRIANÇA', 'Nome Crianca', 'NomeCrianca']) ?? '').trim().toUpperCase();
-      const dtNasc = String(firstMatch(row, ['Dt. Nascimento', 'Dt.Nascimento', 'DtNascimento', 'Data Nascimento', 'DataNascimento', 'DT. NASCIMENTO']) ?? '').trim();
+      const codResp = stripQuotes(firstMatch(row, ['Cod. Responsavel', 'Cod.Responsavel', 'CodResponsavel', 'Cod Responsavel', 'cod_responsavel', 'COD. RESPONSAVEL']) ?? '');
+      const nomeResp = stripQuotes(firstMatch(row, ['Responsavel', 'Responsável', 'RESPONSAVEL', 'Nome Responsavel', 'NomeResponsavel']) ?? '').toUpperCase();
+      const codCrianca = stripQuotes(firstMatch(row, ['Cod. Criança', 'Cod.Criança', 'CodCrianca', 'Cod Crianca', 'cod_crianca', 'COD. CRIANÇA']) ?? '');
+      const nomeCrianca = stripQuotes(firstMatch(row, ['Criança', 'Crianca', 'CRIANÇA', 'Nome Crianca', 'NomeCrianca']) ?? '').toUpperCase();
+      const dtNasc = stripQuotes(firstMatch(row, ['Dt. Nascimento', 'Dt.Nascimento', 'DtNascimento', 'Data Nascimento', 'DataNascimento', 'DT. NASCIMENTO']) ?? '');
       const fone = cleanPhone(firstMatch(row, ['Fone Celular', 'FoneCelular', 'Fone1', 'Telefone', 'Celular', 'FONE CELULAR']) ?? '');
-      const email = String(firstMatch(row, ['Email', 'EMAIL', 'E-mail']) ?? '').trim();
+      const fone2 = cleanPhone(firstMatch(row, ['Fone Celular 1', 'FoneCelular1', 'Fone2', 'Telefone2', 'FONE CELULAR 1']) ?? '');
+      const email = stripQuotes(firstMatch(row, ['Email', 'EMAIL', 'E-mail']) ?? '');
       const cpf = cleanCpf(firstMatch(row, ['CPF', 'Cpf']) ?? '');
+      const visitCount = Number(stripQuotes(firstMatch(row, ['Qtd. de Visitas', 'QtdVisitas', 'Qtd de Visitas', 'QTD. DE VISITAS']) ?? '0')) || 0;
+      const accMinutes = Number(stripQuotes(firstMatch(row, ['Qtd. Tempo acumulado', 'QtdTempoAcumulado', 'Qtd Tempo acumulado', 'QTD. TEMPO ACUMULADO']) ?? '0')) || 0;
 
       if (codResp && nomeResp && !responsaveisMap.has(codResp)) {
-        responsaveisMap.set(codResp, { codResponsavel: codResp, nome: nomeResp, telefone: fone, email, cpf });
+        responsaveisMap.set(codResp, { codResponsavel: codResp, nome: nomeResp, telefone: fone, telefone2: fone2, email, cpf });
       }
 
       if (codCrianca && nomeCrianca) {
-        criancasList.push({ codCrianca, nome: nomeCrianca, dtNascimento: dtNasc, codResponsavel: codResp });
+        criancasList.push({ codCrianca, nome: nomeCrianca, dtNascimento: dtNasc, codResponsavel: codResp, legacyVisitCount: visitCount, legacyAccumulatedMinutes: accMinutes });
       }
     }
 
@@ -223,24 +242,24 @@ const ImportData: React.FC = () => {
     const pacotesList: RawPacote[] = [];
 
     for (const row of rows) {
-      const codPacote = String(firstMatch(row, ['CodPacote', 'Cod.Pacote', 'Cod Pacote', 'cod_pacote', 'CODPACOTE']) ?? '').trim();
-      const dtVenda = firstMatch(row, ['DT_VENDA', 'DtVenda', 'Dt_Venda', 'DataVenda', 'Data Venda', 'DT VENDA']) ?? '';
-      const codResp = String(firstMatch(row, ['CodResponsavel', 'Cod.Responsavel', 'Cod Responsavel', 'Cod. Responsavel', 'cod_responsavel', 'CODRESPONSAVEL']) ?? '').trim();
-      const nomeResp = String(firstMatch(row, ['Responsavel', 'Responsável', 'RESPONSAVEL', 'Nome Responsavel', 'NomeResponsavel']) ?? '').trim();
-      const pacote = String(firstMatch(row, ['Pacote', 'PACOTE', 'TipoPacote', 'Tipo Pacote']) ?? '').trim();
-      const minutosVendidos = Number(firstMatch(row, ['QtdMinutosVendidos', 'MinutosVendidos', 'Minutos Vendidos', 'QTDMINUTOSVENDIDOS']) ?? 0);
-      const minutosDisp = Number(firstMatch(row, ['QtdMinutosDisponiveis', 'MinutosDisponiveis', 'Minutos Disponiveis', 'QTDMINUTOSDISPONIVEIS']) ?? 0);
-      const venceu = String(firstMatch(row, ['Venceu?', 'Venceu', 'VENCEU', 'venceu']) ?? '0').trim();
+      const codPacote = stripQuotes(firstMatch(row, ['CodPacote', 'Cod.Pacote', 'Cod Pacote', 'cod_pacote', 'CODPACOTE']) ?? '');
+      const dtVenda = stripQuotes(firstMatch(row, ['DT_VENDA', 'DtVenda', 'Dt_Venda', 'DataVenda', 'Data Venda', 'DT VENDA']) ?? '');
+      const codResp = stripQuotes(firstMatch(row, ['CodResponsavel', 'Cod.Responsavel', 'Cod Responsavel', 'Cod. Responsavel', 'cod_responsavel', 'CODRESPONSAVEL']) ?? '');
+      const nomeResp = stripQuotes(firstMatch(row, ['Responsavel', 'Responsável', 'RESPONSAVEL', 'Nome Responsavel', 'NomeResponsavel']) ?? '');
+      const pacote = stripQuotes(firstMatch(row, ['Pacote', 'PACOTE', 'TipoPacote', 'Tipo Pacote']) ?? '');
+      const minutosVendidos = Number(stripQuotes(firstMatch(row, ['QtdMinutosVendidos', 'MinutosVendidos', 'Minutos Vendidos', 'QTDMINUTOSVENDIDOS']) ?? '0')) || 0;
+      const minutosDisp = Number(stripQuotes(firstMatch(row, ['QtdMinutosDisponiveis', 'MinutosDisponiveis', 'Minutos Disponiveis', 'QTDMINUTOSDISPONIVEIS']) ?? '0')) || 0;
+      const venceu = stripQuotes(firstMatch(row, ['Venceu?', 'Venceu', 'VENCEU', 'venceu']) ?? '0');
 
       if (codPacote) {
         pacotesList.push({
           codPacote,
-          dtVenda: String(dtVenda),
+          dtVenda,
           codResponsavel: codResp,
           nomeResponsavel: nomeResp,
           pacote,
           minutosVendidos,
-          minutosUsados: minutosVendidos - minutosDisp,
+          minutosDisponiveis: minutosDisp,
           venceu: venceu === '1' || venceu.toLowerCase() === 'sim',
         });
       }
@@ -324,12 +343,14 @@ const ImportData: React.FC = () => {
       addLog({ type: 'warning', message: 'Não foi possível carregar crianças existentes.' });
     }
 
-    // Load existing packages for duplicate detection
-    let existingPackages: { id: string; customerId: string; type: string; hours: number }[] = [];
+    // Load existing packages for duplicate detection (by legacyCodPacote)
+    let existingPkgCodes = new Set<string>();
     try {
       const allPkgs = await packagesServiceOffline.getAllPackages(currentUnit);
-      existingPackages = allPkgs.map(p => ({ id: p.id, customerId: p.customerId, type: p.type.toUpperCase().trim(), hours: p.hours }));
-      addLog({ type: 'info', message: `${existingPackages.length} pacotes existentes carregados` });
+      for (const p of allPkgs) {
+        if ((p as any).legacyCodPacote) existingPkgCodes.add((p as any).legacyCodPacote);
+      }
+      addLog({ type: 'info', message: `${allPkgs.length} pacotes existentes carregados (${existingPkgCodes.size} com código legado)` });
     } catch (e) {
       addLog({ type: 'warning', message: 'Não foi possível carregar pacotes existentes.' });
     }
@@ -337,223 +358,349 @@ const ImportData: React.FC = () => {
     // ─── 2. Import Responsáveis → customers ──────────────────────────
     const codToFirebaseId = new Map<string, string>();
     const nameToFirebaseId = new Map<string, string>();
-    const total = responsaveis.length + criancas.length + pacotes.length;
+
+    // Pre-populate nameToFirebaseId from existing customers so packages
+    // can match by name even when the customer is not in the responsáveis file
+    for (const ec of existingCustomers) {
+      nameToFirebaseId.set(ec.name, ec.id);
+    }
+
+    // Sort pacotes by date descending so the most recent package is imported first
+    // and older duplicates are skipped by the dedup check
+    const sortedPacotes = [...pacotes].sort((a, b) => {
+      const dateA = parseExcelDate(a.dtVenda).getTime();
+      const dateB = parseExcelDate(b.dtVenda).getTime();
+      return dateB - dateA;
+    });
+
+    const total = responsaveis.length + criancas.length + sortedPacotes.length;
     let current = 0;
 
+    // ─── 2. Import Responsáveis → customers (batched) ─────────────
     setProgress({ current: 0, total, label: 'Importando responsáveis...' });
 
-    for (const resp of responsaveis) {
-      if (cancelRef.current) { addLog({ type: 'warning', message: '⛔ Importação cancelada pelo usuário' }); break; }
+    {
+      let batch = !dryRun ? writeBatch(db!) : null;
+      let batchCount = 0;
+      const batchCache: any[] = [];
 
-      current++;
-      setProgress({ current, total, label: `Responsável: ${resp.nome}` });
+      for (const resp of responsaveis) {
+        if (cancelRef.current) { addLog({ type: 'warning', message: '⛔ Importação cancelada pelo usuário' }); break; }
 
-      // Duplicate check
-      const existing = existingCustomers.find(c => c.name === resp.nome.toUpperCase().trim());
-      if (existing) {
-        codToFirebaseId.set(resp.codResponsavel, existing.id);
-        nameToFirebaseId.set(resp.nome.toUpperCase().trim(), existing.id);
-        localStats.customersSkipped++;
-        addLog({ type: 'warning', message: `Duplicata: "${resp.nome}" já existe (ID: ${existing.id})` });
-        continue;
+        current++;
+        setProgress({ current, total, label: `Responsável: ${resp.nome}` });
+
+        // Duplicate check
+        const existing = existingCustomers.find(c => c.name === resp.nome.toUpperCase().trim());
+        if (existing) {
+          codToFirebaseId.set(resp.codResponsavel, existing.id);
+          nameToFirebaseId.set(resp.nome.toUpperCase().trim(), existing.id);
+          localStats.customersSkipped++;
+          continue;
+        }
+
+        if (dryRun) {
+          codToFirebaseId.set(resp.codResponsavel, `dry_${resp.codResponsavel}`);
+          nameToFirebaseId.set(resp.nome.toUpperCase().trim(), `dry_${resp.codResponsavel}`);
+          localStats.customersCreated++;
+          continue;
+        }
+
+        try {
+          const ref = doc(collection(db!, 'customers'));
+          const firebaseId = ref.id;
+          const customerData = {
+            name: resp.nome,
+            phone: resp.telefone,
+            email: resp.email || '',
+            cpf: resp.cpf || '',
+            address: '',
+            unitId: currentUnit,
+            createdAt: Timestamp.now(),
+            updatedAt: Timestamp.now(),
+          };
+          batch!.set(ref, customerData);
+          batchCache.push({
+            id: firebaseId,
+            name: resp.nome,
+            phone: resp.telefone,
+            email: resp.email || '',
+            cpf: resp.cpf || '',
+            address: '',
+            unitId: currentUnit,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+          codToFirebaseId.set(resp.codResponsavel, firebaseId);
+          nameToFirebaseId.set(resp.nome.toUpperCase().trim(), firebaseId);
+          existingCustomers.push({ id: firebaseId, name: resp.nome.toUpperCase().trim() });
+          trackedIds.customerIds.push(firebaseId);
+          localStats.customersCreated++;
+          batchCount++;
+
+          if (batchCount >= 450) {
+            await batch!.commit();
+            await syncService.bulkSaveToCacheOnly('customers', batchCache);
+            addLog({ type: 'info', message: `Batch commit: ${batchCount} clientes (${current}/${total})` });
+            batch = writeBatch(db!);
+            batchCache.length = 0;
+            batchCount = 0;
+          }
+        } catch (error) {
+          localStats.errors++;
+          addLog({ type: 'error', message: `Erro ao criar "${resp.nome}": ${error}` });
+        }
       }
 
-      if (dryRun) {
-        codToFirebaseId.set(resp.codResponsavel, `dry_${resp.codResponsavel}`);
-        nameToFirebaseId.set(resp.nome.toUpperCase().trim(), `dry_${resp.codResponsavel}`);
-        localStats.customersCreated++;
-        continue;
-      }
-
-      try {
-        // Write directly to Firebase to guarantee a real Firebase ID (never local_)
-        const docRef = await addDoc(collection(db!, 'customers'), {
-          name: resp.nome,
-          phone: resp.telefone,
-          email: resp.email || '',
-          cpf: resp.cpf || '',
-          address: '',
-          unitId: currentUnit,
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now(),
-        });
-        const firebaseId = docRef.id;
-        // Cache locally (no sync queue)
-        await syncService.saveToCacheOnly('customers', {
-          id: firebaseId,
-          name: resp.nome,
-          phone: resp.telefone,
-          email: resp.email || '',
-          cpf: resp.cpf || '',
-          address: '',
-          unitId: currentUnit,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
-        codToFirebaseId.set(resp.codResponsavel, firebaseId);
-        nameToFirebaseId.set(resp.nome.toUpperCase().trim(), firebaseId);
-        existingCustomers.push({ id: firebaseId, name: resp.nome.toUpperCase().trim() });
-        trackedIds.customerIds.push(firebaseId);
-        localStats.customersCreated++;
-      } catch (error) {
-        localStats.errors++;
-        addLog({ type: 'error', message: `Erro ao criar "${resp.nome}": ${error}` });
-      }
-
-      // Throttle every 50 records
-      if (current % 50 === 0) {
-        addLog({ type: 'info', message: `Pausa de throttling... (${current}/${total})` });
-        await sleep(500);
+      // Flush remaining customers
+      if (!dryRun && batchCount > 0) {
+        try {
+          await batch!.commit();
+          await syncService.bulkSaveToCacheOnly('customers', batchCache);
+          addLog({ type: 'info', message: `Batch commit final: ${batchCount} clientes` });
+        } catch (error) {
+          localStats.errors++;
+          addLog({ type: 'error', message: `Erro no batch commit final de clientes: ${error}` });
+        }
       }
     }
 
-    // ─── 3. Import Crianças → children ───────────────────────────────
+    // ─── 3. Import Crianças → children (batched, P6: legacy data) ──
     setProgress({ current, total, label: 'Importando crianças...' });
 
-    for (const crianca of criancas) {
-      if (cancelRef.current) break;
+    {
+      let batch = !dryRun ? writeBatch(db!) : null;
+      let batchCount = 0;
+      const batchCache: any[] = [];
 
-      current++;
-      setProgress({ current, total, label: `Criança: ${crianca.nome}` });
+      for (const crianca of criancas) {
+        if (cancelRef.current) break;
 
-      const customerId = codToFirebaseId.get(crianca.codResponsavel);
-      if (!customerId) {
-        localStats.errors++;
-        addLog({ type: 'error', message: `Criança "${crianca.nome}" sem responsável (cod: ${crianca.codResponsavel})` });
-        continue;
+        current++;
+        setProgress({ current, total, label: `Criança: ${crianca.nome}` });
+
+        const customerId = codToFirebaseId.get(crianca.codResponsavel);
+        if (!customerId) {
+          localStats.errors++;
+          addLog({ type: 'error', message: `Criança "${crianca.nome}" sem responsável (cod: ${crianca.codResponsavel})` });
+          continue;
+        }
+
+        // Duplicate check: same name + same customerId
+        const existingChild = existingChildren.find(c => c.name === crianca.nome.toUpperCase().trim() && c.customerId === customerId);
+        if (existingChild) {
+          localStats.childrenSkipped++;
+          continue;
+        }
+
+        if (dryRun) {
+          localStats.childrenCreated++;
+          existingChildren.push({ id: `dry_${crianca.codCrianca}`, name: crianca.nome.toUpperCase().trim(), customerId });
+          continue;
+        }
+
+        try {
+          const birthDate = parseBirthDate(crianca.dtNascimento);
+          const ref = doc(collection(db!, 'children'));
+          const firebaseId = ref.id;
+          const childFirestore: Record<string, any> = {
+            name: crianca.nome,
+            age: calcAge(crianca.dtNascimento),
+            birthDate: birthDate ? Timestamp.fromDate(birthDate) : null,
+            customerId,
+            unitId: currentUnit,
+            createdAt: Timestamp.now(),
+            updatedAt: Timestamp.now(),
+          };
+          // P6: Save legacy visit/time data
+          if (crianca.legacyVisitCount > 0) childFirestore.legacyVisitCount = crianca.legacyVisitCount;
+          if (crianca.legacyAccumulatedMinutes > 0) childFirestore.legacyAccumulatedMinutes = crianca.legacyAccumulatedMinutes;
+
+          batch!.set(ref, childFirestore);
+          batchCache.push({
+            id: firebaseId,
+            name: crianca.nome,
+            age: calcAge(crianca.dtNascimento),
+            birthDate,
+            customerId,
+            unitId: currentUnit,
+            legacyVisitCount: crianca.legacyVisitCount,
+            legacyAccumulatedMinutes: crianca.legacyAccumulatedMinutes,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+          trackedIds.childIds.push(firebaseId);
+          existingChildren.push({ id: firebaseId, name: crianca.nome.toUpperCase().trim(), customerId });
+          localStats.childrenCreated++;
+          batchCount++;
+
+          if (batchCount >= 450) {
+            await batch!.commit();
+            await syncService.bulkSaveToCacheOnly('children', batchCache);
+            addLog({ type: 'info', message: `Batch commit: ${batchCount} crianças (${current}/${total})` });
+            batch = writeBatch(db!);
+            batchCache.length = 0;
+            batchCount = 0;
+          }
+        } catch (error) {
+          localStats.errors++;
+          addLog({ type: 'error', message: `Erro ao criar criança "${crianca.nome}": ${error}` });
+        }
       }
 
-      // Duplicate check: same name + same customerId
-      const existingChild = existingChildren.find(c => c.name === crianca.nome.toUpperCase().trim() && c.customerId === customerId);
-      if (existingChild) {
-        localStats.childrenSkipped++;
-        addLog({ type: 'warning', message: `Duplicata: criança "${crianca.nome}" já existe para este responsável` });
-        continue;
-      }
-
-      if (dryRun) {
-        localStats.childrenCreated++;
-        existingChildren.push({ id: `dry_${crianca.codCrianca}`, name: crianca.nome.toUpperCase().trim(), customerId });
-        continue;
-      }
-
-      try {
-        const birthDate = parseBirthDate(crianca.dtNascimento);
-        // Write directly to Firebase to guarantee a real Firebase ID
-        const docRef = await addDoc(collection(db!, 'children'), {
-          name: crianca.nome,
-          age: calcAge(crianca.dtNascimento),
-          birthDate: birthDate ? Timestamp.fromDate(birthDate) : null,
-          customerId,
-          unitId: currentUnit,
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now(),
-        });
-        const firebaseId = docRef.id;
-        await syncService.saveToCacheOnly('children', {
-          id: firebaseId,
-          name: crianca.nome,
-          age: calcAge(crianca.dtNascimento),
-          birthDate,
-          customerId,
-          unitId: currentUnit,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
-        trackedIds.childIds.push(firebaseId);
-        existingChildren.push({ id: firebaseId, name: crianca.nome.toUpperCase().trim(), customerId });
-        localStats.childrenCreated++;
-      } catch (error) {
-        localStats.errors++;
-        addLog({ type: 'error', message: `Erro ao criar criança "${crianca.nome}": ${error}` });
-      }
-
-      if (current % 50 === 0) {
-        await sleep(500);
+      // Flush remaining children
+      if (!dryRun && batchCount > 0) {
+        try {
+          await batch!.commit();
+          await syncService.bulkSaveToCacheOnly('children', batchCache);
+          addLog({ type: 'info', message: `Batch commit final: ${batchCount} crianças` });
+        } catch (error) {
+          localStats.errors++;
+          addLog({ type: 'error', message: `Erro no batch commit final de crianças: ${error}` });
+        }
       }
     }
 
-    // ─── 4. Import Pacotes → packages ────────────────────────────────
+    // ─── 4. Import Pacotes → packages (batched, P2+P3+P7+P8) ──────
     setProgress({ current, total, label: 'Importando pacotes...' });
 
-    for (const pac of pacotes) {
-      if (cancelRef.current) break;
+    // P4: Count packages without child
+    let pacotesSemCrianca = 0;
 
-      current++;
-      setProgress({ current, total, label: `Pacote: ${pac.pacote} - ${pac.nomeResponsavel}` });
+    {
+      let batch = !dryRun ? writeBatch(db!) : null;
+      let batchCount = 0;
+      const batchCache: any[] = [];
 
-      // Try to find customerId: first by code, then by name
-      let customerId = codToFirebaseId.get(pac.codResponsavel);
-      if (!customerId && pac.nomeResponsavel) {
-        const byName = nameToFirebaseId.get(pac.nomeResponsavel.toUpperCase().trim());
-        if (byName) customerId = byName;
-      }
-      if (!customerId) {
-        localStats.packagesSkipped++;
-        addLog({ type: 'warning', message: `Pacote "${pac.pacote}" sem responsável (cod: ${pac.codResponsavel}, nome: ${pac.nomeResponsavel})` });
-        continue;
-      }
+      for (const pac of sortedPacotes) {
+        if (cancelRef.current) break;
 
-      // Duplicate check: same type + same customerId + same hours
-      const pkgHours = pac.minutosVendidos / 60;
-      const existingPkg = existingPackages.find(p => p.type === pac.pacote.toUpperCase().trim() && p.customerId === customerId && Math.abs(p.hours - pkgHours) < 0.01);
-      if (existingPkg) {
-        localStats.packagesSkipped++;
-        addLog({ type: 'warning', message: `Duplicata: pacote "${pac.pacote}" já existe para este responsável (${pac.minutosVendidos} min)` });
-        continue;
-      }
+        current++;
+        setProgress({ current, total, label: `Pacote: ${pac.pacote} - ${pac.nomeResponsavel}` });
 
-      if (dryRun) {
-        localStats.packagesCreated++;
-        existingPackages.push({ id: `dry_${pac.codPacote}`, customerId, type: pac.pacote.toUpperCase().trim(), hours: pkgHours });
-        continue;
-      }
+        // Try to find customerId: first by code, then by name, then fuzzy search
+        let customerId = codToFirebaseId.get(pac.codResponsavel);
+        if (!customerId && pac.nomeResponsavel) {
+          const upperName = pac.nomeResponsavel.toUpperCase().trim();
+          const byName = nameToFirebaseId.get(upperName);
+          if (byName) {
+            customerId = byName;
+          } else {
+            // Fallback: try partial/contains match in existing customers
+            const partial = existingCustomers.find(c => c.name.includes(upperName) || upperName.includes(c.name));
+            if (partial) {
+              customerId = partial.id;
+              addLog({ type: 'info', message: `Match parcial: "${pac.nomeResponsavel}" → "${partial.name}"` });
+            }
+          }
+        }
+        if (!customerId) {
+          localStats.packagesSkipped++;
+          addLog({ type: 'warning', message: `Pacote "${pac.pacote}" sem responsável (cod: ${pac.codResponsavel}, nome: ${pac.nomeResponsavel})` });
+          continue;
+        }
 
-      try {
+        // P7: Duplicate check by legacy code
+        if (existingPkgCodes.has(pac.codPacote)) {
+          localStats.packagesSkipped++;
+          addLog({ type: 'warning', message: `Duplicata: pacote cod ${pac.codPacote} ("${pac.pacote}") já importado` });
+          continue;
+        }
+
+        // P4: Track packages without child
+        pacotesSemCrianca++;
+
+        // P2: Normalize package type
+        const normalizedType = normalizePackageType(pac.pacote);
+
+        // P3: Correct hours calculation (handle bonus where disp > vendidos)
+        const hoursTotal = Math.max(pac.minutosVendidos, pac.minutosDisponiveis) / 60;
+        const hoursUsed = Math.max(0, hoursTotal - (pac.minutosDisponiveis / 60));
+
+        // P8: Expiration based on Venceu?, not +1 year
         const dtVenda = parseExcelDate(pac.dtVenda);
-        const expiresAt = new Date(dtVenda);
-        expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+        const isActive = !pac.venceu && pac.minutosDisponiveis > 0;
 
-        // Write directly to Firebase to guarantee a real Firebase ID
-        const docRef = await addDoc(collection(db!, 'packages'), {
-          customerId,
-          type: pac.pacote,
-          hours: pac.minutosVendidos / 60,
-          usedHours: pac.minutosUsados / 60,
-          price: 0,
-          active: !pac.venceu && (pac.minutosUsados < pac.minutosVendidos),
-          sharedAcrossUnits: false,
-          unitId: currentUnit,
-          expiresAt: Timestamp.fromDate(expiresAt),
-          createdAt: Timestamp.fromDate(dtVenda),
-          updatedAt: Timestamp.now(),
-        });
-        const firebaseId = docRef.id;
-        await syncService.saveToCacheOnly('packages', {
-          id: firebaseId,
-          customerId,
-          type: pac.pacote,
-          hours: pac.minutosVendidos / 60,
-          usedHours: pac.minutosUsados / 60,
-          price: 0,
-          active: !pac.venceu && (pac.minutosUsados < pac.minutosVendidos),
-          sharedAcrossUnits: false,
-          unitId: currentUnit,
-          expiresAt,
-          createdAt: dtVenda,
-          updatedAt: new Date(),
-        });
-        trackedIds.packageIds.push(firebaseId);
-        existingPackages.push({ id: firebaseId, customerId, type: pac.pacote.toUpperCase().trim(), hours: pkgHours });
-        localStats.packagesCreated++;
-      } catch (error) {
-        localStats.errors++;
-        addLog({ type: 'error', message: `Erro ao criar pacote "${pac.pacote}": ${error}` });
+        if (dryRun) {
+          localStats.packagesCreated++;
+          existingPkgCodes.add(pac.codPacote);
+          continue;
+        }
+
+        try {
+          const ref = doc(collection(db!, 'packages'));
+          const firebaseId = ref.id;
+          const pkgFirestore: Record<string, any> = {
+            customerId,
+            type: normalizedType,
+            hours: hoursTotal,
+            usedHours: hoursUsed,
+            price: 0,
+            active: isActive,
+            sharedAcrossUnits: false,
+            unitId: currentUnit,
+            legacyCodPacote: pac.codPacote,
+            createdAt: Timestamp.fromDate(dtVenda),
+            updatedAt: Timestamp.now(),
+          };
+          // P8: Only set expiresAt for active packages (null for vencidos)
+          if (isActive) {
+            pkgFirestore.expiresAt = null;
+          } else {
+            pkgFirestore.expiresAt = Timestamp.fromDate(dtVenda);
+          }
+
+          batch!.set(ref, pkgFirestore);
+          batchCache.push({
+            id: firebaseId,
+            customerId,
+            type: normalizedType,
+            hours: hoursTotal,
+            usedHours: hoursUsed,
+            price: 0,
+            active: isActive,
+            sharedAcrossUnits: false,
+            unitId: currentUnit,
+            legacyCodPacote: pac.codPacote,
+            expiresAt: isActive ? undefined : dtVenda,
+            createdAt: dtVenda,
+            updatedAt: new Date(),
+          });
+          trackedIds.packageIds.push(firebaseId);
+          existingPkgCodes.add(pac.codPacote);
+          localStats.packagesCreated++;
+          batchCount++;
+
+          if (batchCount >= 450) {
+            await batch!.commit();
+            await syncService.bulkSaveToCacheOnly('packages', batchCache);
+            addLog({ type: 'info', message: `Batch commit: ${batchCount} pacotes (${current}/${total})` });
+            batch = writeBatch(db!);
+            batchCache.length = 0;
+            batchCount = 0;
+          }
+        } catch (error) {
+          localStats.errors++;
+          addLog({ type: 'error', message: `Erro ao criar pacote "${pac.pacote}": ${error}` });
+        }
       }
 
-      if (current % 50 === 0) {
-        await sleep(500);
+      // Flush remaining packages
+      if (!dryRun && batchCount > 0) {
+        try {
+          await batch!.commit();
+          await syncService.bulkSaveToCacheOnly('packages', batchCache);
+          addLog({ type: 'info', message: `Batch commit final: ${batchCount} pacotes` });
+        } catch (error) {
+          localStats.errors++;
+          addLog({ type: 'error', message: `Erro no batch commit final de pacotes: ${error}` });
+        }
       }
+    }
+
+    // P4: Log packages without child info
+    if (pacotesSemCrianca > 0) {
+      addLog({ type: 'info', message: `ℹ️ ${pacotesSemCrianca} pacotes sem criança vinculada (modelo legado — vinculados ao responsável)` });
     }
 
     // Save tracked IDs for rollback (only on real import)
@@ -918,6 +1065,31 @@ const ImportData: React.FC = () => {
             </div>
           </div>
 
+          {/* P10: Data quality warnings */}
+          {(() => {
+            const warnings: string[] = [];
+            const emptyCpf = responsaveis.filter(r => !r.cpf).length;
+            const emptyEmail = responsaveis.filter(r => !r.email).length;
+            const emptyPhone = responsaveis.filter(r => !r.telefone).length;
+            if (emptyCpf > 0) warnings.push(`${emptyCpf} responsáveis sem CPF (${Math.round(emptyCpf / responsaveis.length * 100)}%)`);
+            if (emptyEmail > responsaveis.length * 0.5) warnings.push(`${emptyEmail} responsáveis sem email (${Math.round(emptyEmail / responsaveis.length * 100)}%)`);
+            if (emptyPhone > 0) warnings.push(`${emptyPhone} responsáveis sem telefone`);
+            const pkgNames = new Set(pacotes.map(p => p.pacote));
+            const normalizedNames = new Set(pacotes.map(p => normalizePackageType(p.pacote)));
+            if (pkgNames.size > normalizedNames.size) warnings.push(`Nomes de pacote serão normalizados: ${pkgNames.size} variações → ${normalizedNames.size} tipos`);
+            const bonus = pacotes.filter(p => p.minutosDisponiveis > p.minutosVendidos);
+            if (bonus.length > 0) warnings.push(`${bonus.length} pacotes com bônus (minutos disponíveis > vendidos) — horas serão ajustadas`);
+            if (warnings.length === 0) return null;
+            return (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-1">
+                <p className="text-xs font-bold text-amber-700 mb-1">⚠️ Observações de qualidade dos dados</p>
+                {warnings.map((w, i) => (
+                  <p key={i} className="text-xs text-amber-600">• {w}</p>
+                ))}
+              </div>
+            );
+          })()}
+
           {/* Sample data */}
           {responsaveis.length > 0 && (
             <div className="bg-white rounded-xl border border-slate-200">
@@ -963,7 +1135,7 @@ const ImportData: React.FC = () => {
                       <th className="px-3 py-2 text-left text-slate-500 font-semibold">Responsável</th>
                       <th className="px-3 py-2 text-left text-slate-500 font-semibold">Pacote</th>
                       <th className="px-3 py-2 text-left text-slate-500 font-semibold">Min Vendidos</th>
-                      <th className="px-3 py-2 text-left text-slate-500 font-semibold">Min Usados</th>
+                      <th className="px-3 py-2 text-left text-slate-500 font-semibold">Min Disponíveis</th>
                       <th className="px-3 py-2 text-left text-slate-500 font-semibold">Venceu</th>
                     </tr>
                   </thead>
@@ -973,7 +1145,7 @@ const ImportData: React.FC = () => {
                         <td className="px-3 py-2 font-medium text-slate-800">{p.nomeResponsavel}</td>
                         <td className="px-3 py-2 text-slate-600">{p.pacote}</td>
                         <td className="px-3 py-2 text-slate-600">{p.minutosVendidos}</td>
-                        <td className="px-3 py-2 text-slate-600">{p.minutosUsados}</td>
+                        <td className="px-3 py-2 text-slate-600">{p.minutosDisponiveis}</td>
                         <td className="px-3 py-2">
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${p.venceu ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
                             {p.venceu ? 'Sim' : 'Não'}
