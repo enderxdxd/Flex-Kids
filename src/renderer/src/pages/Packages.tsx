@@ -215,6 +215,7 @@ const Packages: React.FC = () => {
 
   const getPackageProgress = (pkg: Package) => Math.min((pkg.usedHours / pkg.hours) * 100, 100);
   const getRemainingHours = (pkg: Package) => Math.max(pkg.hours - pkg.usedHours, 0);
+  const getRemainingMinutes = (pkg: Package) => Math.round(getRemainingHours(pkg) * 60);
   const getExpirationDate = (pkg: Package): Date | null => {
     if (pkg.expiresAt) return pkg.expiresAt instanceof Date ? pkg.expiresAt : new Date(pkg.expiresAt);
     if (pkg.expiryDays) {
@@ -371,7 +372,6 @@ const Packages: React.FC = () => {
                 return customerName.includes(term) || childName.includes(term) || pkg.type.toLowerCase().includes(term);
               }).map((pkg) => {
                 const progress = getPackageProgress(pkg);
-                const remaining = getRemainingHours(pkg);
                 const expirationDate = getExpirationDate(pkg);
                 const isExpired = expirationDate && expirationDate < new Date();
 
@@ -402,8 +402,8 @@ const Packages: React.FC = () => {
                         {/* Progress */}
                         <div className="w-32 hidden md:block">
                           <div className="flex justify-between text-[11px] text-slate-500 mb-1">
-                            <span>{pkg.usedHours.toFixed(1)}h / {pkg.hours}h</span>
-                            <span className="font-semibold">{remaining.toFixed(1)}h restam</span>
+                            <span>{Math.round(pkg.usedHours * 60)}min / {Math.round(pkg.hours * 60)}min</span>
+                            <span className="font-semibold">{getRemainingMinutes(pkg)}min restam</span>
                           </div>
                           <div className="w-full bg-slate-200 rounded-full h-1.5">
                             <div className={`h-1.5 rounded-full transition-all ${progress >= 90 ? 'bg-red-500' : progress >= 70 ? 'bg-amber-500' : 'bg-violet-500'}`} style={{ width: `${progress}%` }} />

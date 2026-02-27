@@ -30,7 +30,7 @@ export const visitsServiceOffline = {
     try {
       return await this._doCheckIn(data);
     } finally {
-      setTimeout(() => { _checkInLock = false; }, 2000);
+      _checkInLock = false;
     }
   },
 

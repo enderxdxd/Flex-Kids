@@ -18,6 +18,7 @@ export interface Child {
   name: string;
   age: number;
   birthDate?: Date;
+  enrollmentCode?: string;
   customerId: string;
   unitId?: string;
   createdAt: Date;

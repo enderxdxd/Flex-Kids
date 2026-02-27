@@ -122,8 +122,9 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
       setTotalValue(0);
       setPaymentMethod('package');
     } else {
-      // Cobrança por hora
-      const hours = duration / 60;
+      // Cobrança por hora — aplica tempo mínimo
+      const billableMinutes = Math.max(duration, minimumTime);
+      const hours = billableMinutes / 60;
       const value = hours * hourlyRate;
       setTotalValue(Math.round(value * 100) / 100);
     }
@@ -309,6 +310,12 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
                 <span className="text-slate-500">Duração</span>
                 <span className="font-bold text-violet-600">{formatTime(duration)}</span>
               </div>
+              {!selectedPackage && duration < minimumTime && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Tempo mínimo</span>
+                  <span className="font-semibold text-amber-600">{formatTime(minimumTime)} (cobrado)</span>
+                </div>
+              )}
             </div>
           </div>
 

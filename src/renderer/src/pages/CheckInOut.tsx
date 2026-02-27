@@ -5,6 +5,7 @@ import { Visit, Child } from '../../../shared/types';
 import { format, differenceInMinutes } from 'date-fns';
 import { visitsServiceOffline } from '../../../shared/firebase/services/visits.service.offline';
 import { customersServiceOffline } from '../../../shared/firebase/services/customers.service.offline';
+import { settingsServiceOffline } from '../../../shared/firebase/services/settings.service.offline';
 import { getChildAge } from '../../../shared/utils/age';
 
 const CheckInOut: React.FC = () => {
@@ -14,6 +15,8 @@ const CheckInOut: React.FC = () => {
   const [selectedChild, setSelectedChild] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
+  const [hourlyRate, setHourlyRate] = useState(30);
+  const [minimumTime, setMinimumTime] = useState(30);
 
   useEffect(() => {
     loadData();
@@ -24,12 +27,15 @@ const CheckInOut: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [visits, allChildren] = await Promise.all([
+      const [visits, allChildren, settings] = await Promise.all([
         visitsServiceOffline.getActiveVisits(currentUnit),
         customersServiceOffline.getAllChildren(currentUnit),
+        settingsServiceOffline.getSettings(),
       ]);
       setActiveVisits(visits);
       setChildren(allChildren);
+      setHourlyRate(settings.hourlyRate || 30);
+      setMinimumTime(settings.minimumTime || 30);
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Erro ao carregar dados');
@@ -87,9 +93,10 @@ const CheckInOut: React.FC = () => {
     return `${hours}h ${mins}m`;
   };
 
-  const calculateEstimatedCost = (checkIn: Date, hourlyRate: number = 30) => {
+  const calculateEstimatedCost = (checkIn: Date) => {
     const minutes = differenceInMinutes(new Date(), new Date(checkIn));
-    const hours = minutes / 60;
+    const billableMinutes = Math.max(minutes, minimumTime);
+    const hours = billableMinutes / 60;
     return (hours * hourlyRate).toFixed(2);
   };
 
