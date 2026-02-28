@@ -87,14 +87,14 @@ const CheckInOut: React.FC = () => {
   };
 
   const calculateDuration = (checkIn: Date) => {
-    const minutes = differenceInMinutes(new Date(), new Date(checkIn));
+    const minutes = Math.max(0, differenceInMinutes(new Date(), new Date(checkIn)));
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return `${hours}h ${mins}m`;
   };
 
   const calculateEstimatedCost = (checkIn: Date) => {
-    const minutes = differenceInMinutes(new Date(), new Date(checkIn));
+    const minutes = Math.max(0, differenceInMinutes(new Date(), new Date(checkIn)));
     const billableMinutes = Math.max(minutes, minimumTime);
     const hours = billableMinutes / 60;
     return (hours * hourlyRate).toFixed(2);

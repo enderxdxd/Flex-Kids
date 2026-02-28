@@ -204,11 +204,17 @@ const Customers: React.FC = () => {
   };
 
   const filteredCustomers = searchTerm
-    ? customers.filter(c =>
-        c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.phone.includes(searchTerm) ||
-        (c.email && c.email.toLowerCase().includes(searchTerm.toLowerCase()))
-      )
+    ? customers.filter(c => {
+        const term = searchTerm.toLowerCase();
+        const matchesCustomer =
+          c.name.toLowerCase().includes(term) ||
+          c.phone.includes(searchTerm) ||
+          (c.email && c.email.toLowerCase().includes(term));
+        const matchesChild = children
+          .filter(ch => ch.customerId === c.id)
+          .some(ch => ch.name.toLowerCase().includes(term));
+        return matchesCustomer || matchesChild;
+      })
     : customers;
 
   return (
@@ -231,7 +237,7 @@ const Customers: React.FC = () => {
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-          placeholder="Buscar por nome, telefone ou email..."
+          placeholder="Buscar por responsável, criança, telefone ou email..."
           className="flex-1 px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
         />
         {searchTerm && (

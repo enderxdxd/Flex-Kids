@@ -32,6 +32,7 @@ const DashboardNew: React.FC = () => {
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
   const loadingRef = useRef(false);
   const [now, setNow] = useState(Date.now());
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   // Atualiza o relógio a cada 30s para mostrar duração em tempo real
   useEffect(() => {
@@ -65,6 +66,7 @@ const DashboardNew: React.FC = () => {
         todayVisits: visits.length,
         activePackages: packages.length,
       });
+      setLastUpdated(new Date());
       setIsInitialLoad(false);
     } catch (error) {
       console.error('Error loading stats:', error);
@@ -78,10 +80,10 @@ const DashboardNew: React.FC = () => {
   useEffect(() => {
     loadStats(true);
     
-    // Auto-refresh a cada 30 segundos
+    // Auto-refresh a cada 15 segundos
     const intervalId = setInterval(() => {
       loadStats(false);
-    }, 30000);
+    }, 15000);
     
     return () => clearInterval(intervalId);
   }, [loadStats]);
@@ -121,12 +123,28 @@ const DashboardNew: React.FC = () => {
             <h1 className="text-2xl font-bold text-slate-800">Principal</h1>
             <p className="text-sm text-slate-500">{unitInfo?.name} &middot; {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
           </div>
-          <button
-            onClick={() => setShowCheckInModal(true)}
-            className="bg-violet-600 hover:bg-violet-700 text-white px-5 py-2.5 rounded-lg font-semibold transition-colors flex items-center gap-2 shadow-sm"
-          >
-            <span>➕</span> Novo Check-In
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => loadStats(true)}
+                disabled={loading}
+                className="px-4 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50 transition-colors flex items-center gap-2"
+              >
+                {loading ? '⏳' : '🔄'} Atualizar
+              </button>
+              {lastUpdated && (
+                <span className="text-[11px] text-slate-400">
+                  {lastUpdated.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => setShowCheckInModal(true)}
+              className="bg-violet-600 hover:bg-violet-700 text-white px-5 py-2.5 rounded-lg font-semibold transition-colors flex items-center gap-2 shadow-sm"
+            >
+              <span>➕</span> Novo Check-In
+            </button>
+          </div>
         </div>
 
         {/* Stats Cards */}

@@ -84,6 +84,7 @@ export const visitsServiceOffline = {
     if (data.duration !== undefined) updateData.duration = data.duration;
     if (data.value !== undefined) updateData.value = data.value;
     if (data.paymentMethod) updateData.paymentMethod = data.paymentMethod;
+    if (data.packageId) updateData.packageId = data.packageId;
 
     if (syncService.isOnline()) {
       try {
@@ -97,6 +98,7 @@ export const visitsServiceOffline = {
         if (data.duration !== undefined) firestoreData.duration = data.duration;
         if (data.value !== undefined) firestoreData.value = data.value;
         if (data.paymentMethod) firestoreData.paymentMethod = data.paymentMethod;
+        if (data.packageId) firestoreData.packageId = data.packageId;
 
         await updateDoc(visitRef, firestoreData);
         

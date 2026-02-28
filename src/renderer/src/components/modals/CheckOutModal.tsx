@@ -37,6 +37,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
   const [adminPassword, setAdminPassword] = useState('');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const processingRef = useRef(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   useEffect(() => {
     if (isOpen && visit) {
@@ -66,14 +67,34 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
 
         // Buscar pacotes ativos do cliente (filtrado pela unidade)
         const unitPackages = await packagesServiceOffline.getActivePackages(undefined, currentUnit);
+
+        // Buscar todos os IDs de customer que pertencem ao mesmo responsável (por nome)
+        // Isso resolve inconsistência de dados onde child.customerId != package.customerId
+        const customerIds = new Set<string>();
+        customerIds.add(childData.customerId);
+        if (customerData?.name) {
+          const normalizedName = customerData.name.toLowerCase().trim();
+          allCustomers.forEach((c: any) => {
+            if (c.name && c.name.toLowerCase().trim() === normalizedName) {
+              customerIds.add(c.id);
+            }
+          });
+        }
+
         const activePackages = unitPackages.filter(
-          p => p.customerId === childData.customerId
+          p => customerIds.has(p.customerId)
         );
         setPackages(activePackages);
+
+        // Se o cliente tem pacote ativo, selecionar automaticamente o primeiro como padrão
+        const firstWithTime = activePackages.find(p => (p.hours - p.usedHours) > 0);
+        if (firstWithTime) {
+          setSelectedPackage(firstWithTime.id);
+        }
         
         // Guardar pacotes de outros clientes da mesma unidade para opção de admin
         const otherActivePackages = unitPackages.filter(
-          p => p.customerId !== childData.customerId
+          p => !customerIds.has(p.customerId)
         );
         setAllPackages(otherActivePackages);
       } else {
@@ -111,7 +132,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
       const checkInTime = visit.checkIn instanceof Date ? visit.checkIn : new Date(visit.checkIn);
       const now = new Date();
       const diffMs = now.getTime() - checkInTime.getTime();
-      const diffMinutes = Math.ceil(diffMs / (1000 * 60));
+      const diffMinutes = Math.max(0, Math.ceil(diffMs / (1000 * 60)));
       setDuration(diffMinutes);
     }
   };
@@ -146,11 +167,12 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
         visitId: visit.id,
         duration,
         value: totalValue,
+        packageId: selectedPackage || undefined,
       });
 
       // 2. Se usar pacote, atualizar horas usadas
       if (selectedPackage) {
-        const pkg = packages.find(p => p.id === selectedPackage);
+        const pkg = packages.find(p => p.id === selectedPackage) || allPackages.find(p => p.id === selectedPackage);
         if (pkg) {
           const hoursUsed = duration / 60;
           await packagesServiceOffline.usePackage(selectedPackage, hoursUsed);
@@ -275,6 +297,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
     setPaymentMethod('pix');
     setIsAdminAuthenticated(false);
     setAdminPassword('');
+    setShowConfirmation(false);
     onClose();
   };
 
@@ -330,16 +353,17 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
                 </button>
                 {packages.map(pkg => {
                   const remainingHours = pkg.hours - pkg.usedHours;
-                  const canUse = remainingHours >= duration / 60;
+                  const remainingMin = Math.round(remainingHours * 60);
+                  const hasTime = remainingHours > 0;
                   return (
-                    <button key={pkg.id} type="button" onClick={() => canUse && setSelectedPackage(pkg.id)} disabled={!canUse}
-                      className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all ${selectedPackage === pkg.id ? 'bg-emerald-50 border border-emerald-300' : canUse ? 'hover:bg-slate-50 border border-transparent' : 'opacity-40 cursor-not-allowed border border-transparent'}`}>
+                    <button key={pkg.id} type="button" onClick={() => hasTime && setSelectedPackage(pkg.id)} disabled={!hasTime}
+                      className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all ${selectedPackage === pkg.id ? 'bg-emerald-50 border border-emerald-300' : hasTime ? 'hover:bg-slate-50 border border-transparent' : 'opacity-40 cursor-not-allowed border border-transparent'}`}>
                       <div className="flex justify-between items-center">
                         <div>
                           <p className="font-semibold text-slate-800">{pkg.type}</p>
-                          <p className="text-xs text-slate-500">{remainingHours.toFixed(1)}h de {pkg.hours}h</p>
+                          <p className="text-xs text-slate-500">{remainingMin}min de {Math.round(pkg.hours * 60)}min</p>
                         </div>
-                        {!canUse && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded">Insuficiente</span>}
+                        {!hasTime && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded">Esgotado</span>}
                       </div>
                     </button>
                   );
@@ -365,12 +389,13 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
                   </div>
                   {allPackages.map(pkg => {
                     const remainingHours = pkg.hours - pkg.usedHours;
-                    const canUse = remainingHours >= duration / 60;
+                    const remainingMin = Math.round(remainingHours * 60);
+                    const hasTime = remainingHours > 0;
                     return (
-                      <button key={pkg.id} type="button" onClick={() => canUse && setSelectedPackage(pkg.id)} disabled={!canUse}
-                        className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${selectedPackage === pkg.id ? 'bg-amber-100 border border-amber-400' : canUse ? 'hover:bg-white border border-transparent' : 'opacity-40 cursor-not-allowed border border-transparent'}`}>
+                      <button key={pkg.id} type="button" onClick={() => hasTime && setSelectedPackage(pkg.id)} disabled={!hasTime}
+                        className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${selectedPackage === pkg.id ? 'bg-amber-100 border border-amber-400' : hasTime ? 'hover:bg-white border border-transparent' : 'opacity-40 cursor-not-allowed border border-transparent'}`}>
                         <p className="font-semibold text-slate-800">{pkg.type} <span className="text-xs text-amber-700">({customers.find(c => c.id === pkg.customerId)?.name || '-'})</span></p>
-                        <p className="text-xs text-slate-500">{remainingHours.toFixed(1)}h de {pkg.hours}h</p>
+                        <p className="text-xs text-slate-500">{remainingMin}min de {Math.round(pkg.hours * 60)}min</p>
                       </button>
                     );
                   })}
@@ -412,12 +437,42 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
           )}
 
           {/* Buttons */}
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={handleClose} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
-            <button type="button" onClick={handleCheckOut} disabled={loading || !child} className="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors disabled:opacity-50">
-              {loading ? '⏳ Processando...' : !child ? '⏳ Carregando...' : 'Confirmar Check-Out'}
-            </button>
-          </div>
+          {!showConfirmation ? (
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={handleClose} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
+              <button type="button" onClick={() => {
+                if (!selectedPackage && paymentMethod === 'package') {
+                  toast.error('Selecione um pacote ou escolha outra forma de pagamento');
+                  return;
+                }
+                setShowConfirmation(true);
+              }} disabled={loading || !child} className="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors disabled:opacity-50">
+                {loading ? '⏳ Processando...' : !child ? '⏳ Carregando...' : 'Confirmar Check-Out'}
+              </button>
+            </div>
+          ) : (
+            <div className="border-2 border-amber-400 bg-amber-50 rounded-lg p-4 space-y-3">
+              <p className="text-sm font-bold text-amber-800 text-center">Confirme os dados do check-out:</p>
+              <div className="text-xs text-slate-700 space-y-1">
+                <p><span className="font-semibold">Criança:</span> {child?.name}</p>
+                <p><span className="font-semibold">Duração:</span> {Math.floor(duration / 60)}h {duration % 60}min</p>
+                {selectedPackage ? (
+                  <p><span className="font-semibold">Pagamento:</span> <span className="text-violet-700 font-bold">Via Pacote</span></p>
+                ) : (
+                  <>
+                    <p><span className="font-semibold">Valor:</span> <span className="text-emerald-700 font-bold">R$ {totalValue.toFixed(2)}</span></p>
+                    <p><span className="font-semibold">Forma:</span> {paymentMethod === 'pix' ? 'PIX' : paymentMethod === 'credit' ? 'Crédito' : 'Débito'}</p>
+                  </>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setShowConfirmation(false)} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Voltar</button>
+                <button type="button" onClick={handleCheckOut} disabled={loading} className="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold transition-colors disabled:opacity-50">
+                  {loading ? '⏳ Processando...' : '✅ Confirmar Pagamento'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

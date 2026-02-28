@@ -46,6 +46,7 @@ const Packages: React.FC = () => {
   const [adminAuth, setAdminAuth] = useState(false);
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
   const [pendingEditPkg, setPendingEditPkg] = useState<Package | null>(null);
+  const [pendingAction, setPendingAction] = useState<'plans' | 'editPkg' | null>(null);
   const ADMIN_PASSWORD = 'pactoflex123';
 
   // Estado para modal de pagamento
@@ -257,7 +258,13 @@ const Packages: React.FC = () => {
           Pacotes Vendidos
         </button>
         <button
-          onClick={() => setActiveTab('plans')}
+          onClick={() => {
+            if (!adminAuth) {
+              setPendingAction('plans');
+              return;
+            }
+            setActiveTab('plans');
+          }}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'plans' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
         >
           Configurar Planos
@@ -503,19 +510,21 @@ const Packages: React.FC = () => {
       )}
 
       {/* Modal Admin Auth */}
-      {pendingEditPkg && !adminAuth && (
+      {(pendingEditPkg || pendingAction) && !adminAuth && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full">
             <div className="flex items-center justify-between p-5 border-b border-slate-200">
               <h2 className="text-lg font-bold text-slate-800">Autenticação Admin</h2>
-              <button onClick={() => { setPendingEditPkg(null); setAdminPasswordInput(''); }} className="p-1 rounded-md hover:bg-slate-100 text-slate-400">✕</button>
+              <button onClick={() => { setPendingEditPkg(null); setPendingAction(null); setAdminPasswordInput(''); }} className="p-1 rounded-md hover:bg-slate-100 text-slate-400">✕</button>
             </div>
             <div className="p-5 space-y-3">
-              <p className="text-sm text-slate-600">Editar pacotes vendidos requer senha de administrador.</p>
-              <input type="password" value={adminPasswordInput} onChange={e => setAdminPasswordInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { if (adminPasswordInput === ADMIN_PASSWORD) { setAdminAuth(true); setAdminPasswordInput(''); const pkg = pendingEditPkg; setPendingEditPkg(null); openModal(pkg); } else { toast.error('Senha incorreta'); setAdminPasswordInput(''); } } }} placeholder="Senha admin" className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" autoFocus />
+              <p className="text-sm text-slate-600">
+                {pendingAction === 'plans' ? 'Configurar planos requer senha de administrador.' : 'Editar pacotes vendidos requer senha de administrador.'}
+              </p>
+              <input type="password" value={adminPasswordInput} onChange={e => setAdminPasswordInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { if (adminPasswordInput === ADMIN_PASSWORD) { setAdminAuth(true); setAdminPasswordInput(''); if (pendingAction === 'plans') { setPendingAction(null); setActiveTab('plans'); } else if (pendingEditPkg) { const pkg = pendingEditPkg; setPendingEditPkg(null); setPendingAction(null); openModal(pkg); } } else { toast.error('Senha incorreta'); setAdminPasswordInput(''); } } }} placeholder="Senha admin" className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" autoFocus />
               <div className="flex gap-3">
-                <button onClick={() => { setPendingEditPkg(null); setAdminPasswordInput(''); }} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50">Cancelar</button>
-                <button onClick={() => { if (adminPasswordInput === ADMIN_PASSWORD) { setAdminAuth(true); setAdminPasswordInput(''); const pkg = pendingEditPkg; setPendingEditPkg(null); openModal(pkg); } else { toast.error('Senha incorreta'); setAdminPasswordInput(''); } }} className="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold">Entrar</button>
+                <button onClick={() => { setPendingEditPkg(null); setPendingAction(null); setAdminPasswordInput(''); }} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50">Cancelar</button>
+                <button onClick={() => { if (adminPasswordInput === ADMIN_PASSWORD) { setAdminAuth(true); setAdminPasswordInput(''); if (pendingAction === 'plans') { setPendingAction(null); setActiveTab('plans'); } else if (pendingEditPkg) { const pkg = pendingEditPkg; setPendingEditPkg(null); setPendingAction(null); openModal(pkg); } } else { toast.error('Senha incorreta'); setAdminPasswordInput(''); } }} className="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold">Entrar</button>
               </div>
             </div>
           </div>

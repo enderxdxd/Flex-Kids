@@ -114,6 +114,28 @@ export interface CheckOutData {
   duration?: number;
   value?: number;
   paymentMethod?: string;
+  packageId?: string;
+}
+
+export interface KidsPlan {
+  id: string;
+  childId: string;
+  customerId: string;
+  enrollmentCode?: string;
+  planType: 'KIDS_2X' | 'KIDS_FULL';
+  contractNumber: string;
+  modality?: string;
+  monthlyValue: number;
+  totalValue: number;
+  durationMonths: number;
+  startDate: Date;
+  endDate: Date;
+  status: 'active' | 'expiring' | 'expired' | 'cancelled';
+  coach?: string;
+  email?: string;
+  unitId: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export type PaymentMethod = 'dinheiro' | 'pix' | 'cartao' | 'pacote';

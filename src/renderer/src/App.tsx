@@ -17,6 +17,7 @@ import VisitHistory from './pages/VisitHistory';
 import CashReport from './pages/CashReport';
 import CancellationReport from './pages/CancellationReport';
 import ImportData from './pages/ImportData';
+import KidsPlans from './pages/KidsPlans';
 import LoginPage from './pages/LoginPage';
 import { OnlineStatusBadge } from './components/OnlineStatusBadge';
 import { syncService } from '../../shared/database/syncService';
@@ -42,16 +43,11 @@ function AppRoutes({ initError }: { initError: string | null }) {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/checkinout" element={<Layout><CheckInOut /></Layout>} />
           <Route path="/customers" element={<Layout><Customers /></Layout>} />
-          <Route path="/packages" element={
-            <Layout>
-              <ProtectedRoute>
-                <Packages />
-              </ProtectedRoute>
-            </Layout>
-          } />
+          <Route path="/packages" element={<Layout><Packages /></Layout>} />
           <Route path="/sell-package" element={<Layout><SellPackage /></Layout>} />
           <Route path="/payments" element={<Layout><Payments /></Layout>} />
           <Route path="/history" element={<Layout><VisitHistory /></Layout>} />
+          <Route path="/kids-plans" element={<Layout><KidsPlans /></Layout>} />
           <Route path="/cash-report" element={<Layout><CashReport /></Layout>} />
           <Route path="/cancellations" element={<Layout><CancellationReport /></Layout>} />
           <Route path="/import" element={

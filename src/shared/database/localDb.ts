@@ -26,6 +26,11 @@ interface FlexKidsDB extends DBSchema {
     value: any;
     indexes: { 'by-sync': string; 'by-customer': string; 'by-unit': string };
   };
+  kidsPlans: {
+    key: string;
+    value: any;
+    indexes: { 'by-sync': string; 'by-unit': string; 'by-child': string };
+  };
   settings: {
     key: string;
     value: any;
@@ -48,7 +53,7 @@ interface FlexKidsDB extends DBSchema {
 class LocalDatabase {
   private db: IDBPDatabase<FlexKidsDB> | null = null;
   private readonly DB_NAME = 'flex-kids-db';
-  private readonly DB_VERSION = 3;
+  private readonly DB_VERSION = 4;
   private ghostMigrationDone = false;
 
   async init(): Promise<void> {
@@ -112,6 +117,14 @@ class LocalDatabase {
           if (!packageStore.indexNames.contains('by-unit')) {
             packageStore.createIndex('by-unit', 'unitId');
           }
+        }
+
+        // Kids Plans store
+        if (!db.objectStoreNames.contains('kidsPlans')) {
+          const kidsPlansStore = db.createObjectStore('kidsPlans', { keyPath: 'id' });
+          kidsPlansStore.createIndex('by-sync', 'synced');
+          kidsPlansStore.createIndex('by-unit', 'unitId');
+          kidsPlansStore.createIndex('by-child', 'childId');
         }
 
         // Settings store

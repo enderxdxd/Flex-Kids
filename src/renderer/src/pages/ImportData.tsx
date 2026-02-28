@@ -5,6 +5,7 @@ import { collection, doc, writeBatch, Timestamp } from 'firebase/firestore';
 import { getDb } from '../../../shared/firebase/config';
 import { customersServiceOffline } from '../../../shared/firebase/services/customers.service.offline';
 import { packagesServiceOffline } from '../../../shared/firebase/services/packages.service.offline';
+import { kidsPlansServiceOffline } from '../../../shared/firebase/services/kidsPlans.service.offline';
 import { syncService } from '../../../shared/database/syncService';
 import { useUnit } from '../contexts/UnitContext';
 
@@ -39,6 +40,22 @@ interface RawPacote {
   venceu: boolean;
 }
 
+interface RawKidsPlan {
+  matricula: string;
+  nome: string;
+  situacao: string;
+  vinculo: string;
+  plano: string;
+  contrato: string;
+  modalidade: string;
+  valorModalidade: number;
+  duracao: number;
+  inicio: string;
+  vence: string;
+  faturamento: number;
+  email: string;
+}
+
 interface ImportLog {
   type: 'success' | 'warning' | 'error' | 'info';
   message: string;
@@ -50,6 +67,7 @@ interface ImportedIds {
   customerIds: string[];
   childIds: string[];
   packageIds: string[];
+  kidsPlanIds: string[];
   importedAt: string;
 }
 
@@ -157,11 +175,13 @@ const ImportData: React.FC = () => {
   // Files
   const [responsaveisFile, setResponsaveisFile] = useState<File | null>(null);
   const [pacotesFile, setPacotesFile] = useState<File | null>(null);
+  const [kidsPlansFile, setKidsPlansFile] = useState<File | null>(null);
 
   // Parsed data
   const [responsaveis, setResponsaveis] = useState<RawResponsavel[]>([]);
   const [criancas, setCriancas] = useState<RawCrianca[]>([]);
   const [pacotes, setPacotes] = useState<RawPacote[]>([]);
+  const [kidsPlansRaw, setKidsPlansRaw] = useState<RawKidsPlan[]>([]);
 
   // State
   const [step, setStep] = useState<ImportStep>('upload');
@@ -269,10 +289,63 @@ const ImportData: React.FC = () => {
     return { pacotes: pacotesList.length };
   };
 
+  const parseKidsPlansFile = async (file: File) => {
+    const data = await file.arrayBuffer();
+    const wb = XLSX.read(data, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+    if (rows.length > 0) {
+      console.log('[ImportData] Colunas do arquivo de planos kids:', Object.keys(rows[0]));
+    }
+
+    const plansList: RawKidsPlan[] = [];
+
+    for (const row of rows) {
+      const matricula = stripQuotes(firstMatch(row, ['Matrícula', 'Matricula', 'MATRÍCULA', 'MATRICULA', 'Mat.']) ?? '');
+      const nome = stripQuotes(firstMatch(row, ['Nome', 'NOME', 'NomeAluno']) ?? '').toUpperCase();
+      const situacao = stripQuotes(firstMatch(row, ['Situação', 'Situacao', 'SITUAÇÃO', 'SITUACAO', 'Status']) ?? '');
+      const vinculo = stripQuotes(firstMatch(row, ['Vínculo', 'Vinculo', 'VÍNCULO', 'VINCULO', 'Coach'] ) ?? '');
+      const plano = stripQuotes(firstMatch(row, ['Plano', 'PLANO', 'TipoPlano']) ?? '');
+      const contrato = stripQuotes(firstMatch(row, ['Contrato', 'CONTRATO', 'NrContrato', 'Nr Contrato']) ?? '');
+      const modalidade = stripQuotes(firstMatch(row, ['Modalidade', 'MODALIDADE']) ?? '');
+      const valorRaw = stripQuotes(firstMatch(row, ['Valor Modalidade', 'ValorModalidade', 'VALOR MODALIDADE', 'Valor']) ?? '0');
+      const valorModalidade = parseFloat(valorRaw.replace(/[R$\s.]/g, '').replace(',', '.')) || 0;
+      const duracao = Number(stripQuotes(firstMatch(row, ['Duração', 'Duracao', 'DURAÇÃO', 'DURACAO']) ?? '0')) || 0;
+      const inicio = stripQuotes(firstMatch(row, ['Início', 'Inicio', 'INÍCIO', 'INICIO', 'Data Início']) ?? '');
+      const vence = stripQuotes(firstMatch(row, ['Vence', 'VENCE', 'Vencimento', 'Data Vencimento']) ?? '');
+      const faturamentoRaw = stripQuotes(firstMatch(row, ['Faturamento', 'FATURAMENTO', 'Valor Total']) ?? '0');
+      const faturamento = parseFloat(faturamentoRaw.replace(/[R$\s.]/g, '').replace(',', '.')) || 0;
+      const email = stripQuotes(firstMatch(row, ['Email', 'EMAIL', 'E-mail', 'E-Mail']) ?? '');
+
+      if (nome) {
+        plansList.push({
+          matricula,
+          nome,
+          situacao,
+          vinculo,
+          plano,
+          contrato,
+          modalidade,
+          valorModalidade,
+          duracao,
+          inicio,
+          vence,
+          faturamento,
+          email,
+        });
+      }
+    }
+
+    setKidsPlansRaw(plansList);
+    return { kidsPlans: plansList.length };
+  };
+
   const handleParse = async () => {
     try {
       let rCount = { responsaveis: 0, criancas: 0 };
       let pCount = { pacotes: 0 };
+      let kCount = { kidsPlans: 0 };
 
       if (responsaveisFile) {
         rCount = await parseResponsaveisFile(responsaveisFile);
@@ -280,8 +353,11 @@ const ImportData: React.FC = () => {
       if (pacotesFile) {
         pCount = await parsePacotesFile(pacotesFile);
       }
+      if (kidsPlansFile) {
+        kCount = await parseKidsPlansFile(kidsPlansFile);
+      }
 
-      toast.success(`Lido: ${rCount.responsaveis} responsáveis, ${rCount.criancas} crianças, ${pCount.pacotes} pacotes`);
+      toast.success(`Lido: ${rCount.responsaveis} responsáveis, ${rCount.criancas} crianças, ${pCount.pacotes} pacotes, ${kCount.kidsPlans} planos kids`);
       setStep('preview');
     } catch (error) {
       console.error('Parse error:', error);
@@ -302,7 +378,7 @@ const ImportData: React.FC = () => {
     setStats({ customersCreated: 0, customersSkipped: 0, childrenCreated: 0, childrenSkipped: 0, packagesCreated: 0, packagesSkipped: 0, errors: 0 });
 
     const localStats = { customersCreated: 0, customersSkipped: 0, childrenCreated: 0, childrenSkipped: 0, packagesCreated: 0, packagesSkipped: 0, errors: 0 };
-    const trackedIds: ImportedIds = { customerIds: [], childIds: [], packageIds: [], importedAt: new Date().toISOString() };
+    const trackedIds: ImportedIds = { customerIds: [], childIds: [], packageIds: [], kidsPlanIds: [], importedAt: new Date().toISOString() };
 
     addLog({ type: 'info', message: dryRun ? '🔍 MODO SIMULAÇÃO — nada será gravado' : '🚀 IMPORTAÇÃO REAL — gravando direto no Firebase' });
 
@@ -703,14 +779,184 @@ const ImportData: React.FC = () => {
       addLog({ type: 'info', message: `ℹ️ ${pacotesSemCrianca} pacotes sem criança vinculada (modelo legado — vinculados ao responsável)` });
     }
 
+    // ─── 5. Import Planos Kids → kidsPlans (batched) ────────────────
+    if (kidsPlansRaw.length > 0) {
+      setProgress({ current, total: total + kidsPlansRaw.length, label: 'Importando planos kids...' });
+      const totalWithKids = total + kidsPlansRaw.length;
+
+      // Load full children data (with enrollmentCode) for matching
+      let fullChildrenData: any[] = [];
+      try {
+        fullChildrenData = await customersServiceOffline.getAllChildren(currentUnit);
+      } catch (e) {
+        addLog({ type: 'warning', message: 'Não foi possível carregar crianças para vincular planos kids.' });
+      }
+
+      // Load existing kids plans for duplicate detection (by contractNumber)
+      let existingContracts = new Set<string>();
+      try {
+        const allKidsPlans = await kidsPlansServiceOffline.getAllPlans(currentUnit);
+        for (const kp of allKidsPlans) {
+          if (kp.contractNumber) existingContracts.add(kp.contractNumber);
+        }
+        addLog({ type: 'info', message: `${allKidsPlans.length} planos kids existentes carregados (${existingContracts.size} contratos)` });
+      } catch (e) {
+        addLog({ type: 'warning', message: 'Não foi possível carregar planos kids existentes.' });
+      }
+
+      let kidsCreated = 0;
+      let kidsSkipped = 0;
+
+      let batch = !dryRun ? writeBatch(db!) : null;
+      let batchCount = 0;
+      const batchCache: any[] = [];
+
+      for (const kp of kidsPlansRaw) {
+        if (cancelRef.current) break;
+
+        current++;
+        setProgress({ current, total: totalWithKids, label: `Plano Kids: ${kp.nome}` });
+
+        // Duplicate check by contract number
+        if (kp.contrato && existingContracts.has(kp.contrato)) {
+          kidsSkipped++;
+          continue;
+        }
+
+        // Determine plan type
+        const planType = kp.plano.toUpperCase().includes('FULL') ? 'KIDS_FULL' : 'KIDS_2X';
+
+        // Determine status from situação
+        const situacaoUpper = kp.situacao.toUpperCase();
+        let status: 'active' | 'expiring' | 'expired' | 'cancelled' = 'active';
+        if (situacaoUpper.includes('VENCER') || situacaoUpper.includes('A VENCER')) {
+          status = 'expiring';
+        } else if (situacaoUpper.includes('CANCEL') || situacaoUpper.includes('INATIV')) {
+          status = 'cancelled';
+        }
+
+        // Parse dates
+        const startDate = parseExcelDate(kp.inicio);
+        const endDate = parseExcelDate(kp.vence);
+
+        // Try to match child by enrollmentCode (matricula) or name
+        let childId = '';
+        let customerId = '';
+        if (kp.matricula) {
+          const child = fullChildrenData.find((ch: any) => ch.enrollmentCode === kp.matricula);
+          if (child) {
+            childId = child.id;
+            customerId = child.customerId;
+          }
+        }
+        if (!childId) {
+          const child = existingChildren.find(c => c.name === kp.nome.toUpperCase().trim());
+          if (child) {
+            childId = child.id;
+            customerId = child.customerId;
+          }
+        }
+
+        // Extract coach from vínculo (e.g. "CO: AMANDA TOMAZ..." -> "AMANDA TOMAZ...")
+        let coach = kp.vinculo;
+        if (coach.startsWith('CO:')) {
+          coach = coach.substring(3).trim();
+        }
+
+        if (dryRun) {
+          kidsCreated++;
+          if (kp.contrato) existingContracts.add(kp.contrato);
+          continue;
+        }
+
+        try {
+          const ref = doc(collection(db!, 'kidsPlans'));
+          const firebaseId = ref.id;
+          const planFirestore: Record<string, any> = {
+            childId,
+            customerId,
+            enrollmentCode: kp.matricula || undefined,
+            planType,
+            contractNumber: kp.contrato,
+            modality: kp.modalidade || undefined,
+            monthlyValue: kp.valorModalidade,
+            totalValue: kp.faturamento,
+            durationMonths: kp.duracao,
+            startDate: Timestamp.fromDate(startDate),
+            endDate: Timestamp.fromDate(endDate),
+            status,
+            coach: coach || undefined,
+            email: kp.email || undefined,
+            unitId: currentUnit,
+            createdAt: Timestamp.now(),
+            updatedAt: Timestamp.now(),
+          };
+          Object.keys(planFirestore).forEach(k => planFirestore[k] === undefined && delete planFirestore[k]);
+
+          batch!.set(ref, planFirestore);
+          batchCache.push({
+            id: firebaseId,
+            childId,
+            customerId,
+            enrollmentCode: kp.matricula || undefined,
+            planType,
+            contractNumber: kp.contrato,
+            modality: kp.modalidade || undefined,
+            monthlyValue: kp.valorModalidade,
+            totalValue: kp.faturamento,
+            durationMonths: kp.duracao,
+            startDate,
+            endDate,
+            status,
+            coach: coach || undefined,
+            email: kp.email || undefined,
+            unitId: currentUnit,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+          trackedIds.kidsPlanIds.push(firebaseId);
+          if (kp.contrato) existingContracts.add(kp.contrato);
+          kidsCreated++;
+          batchCount++;
+
+          if (batchCount >= 450) {
+            await batch!.commit();
+            await syncService.bulkSaveToCacheOnly('kidsPlans', batchCache);
+            addLog({ type: 'info', message: `Batch commit: ${batchCount} planos kids (${current}/${totalWithKids})` });
+            batch = writeBatch(db!);
+            batchCache.length = 0;
+            batchCount = 0;
+          }
+        } catch (error) {
+          localStats.errors++;
+          addLog({ type: 'error', message: `Erro ao criar plano kids "${kp.nome}": ${error}` });
+        }
+      }
+
+      // Flush remaining kids plans
+      if (!dryRun && batchCount > 0) {
+        try {
+          await batch!.commit();
+          await syncService.bulkSaveToCacheOnly('kidsPlans', batchCache);
+          addLog({ type: 'info', message: `Batch commit final: ${batchCount} planos kids` });
+        } catch (error) {
+          localStats.errors++;
+          addLog({ type: 'error', message: `Erro no batch commit final de planos kids: ${error}` });
+        }
+      }
+
+      addLog({ type: 'info', message: `Planos Kids: ${kidsCreated} criados, ${kidsSkipped} duplicatas ignoradas` });
+    }
+
     // Save tracked IDs for rollback (only on real import)
-    if (!dryRun && (trackedIds.customerIds.length > 0 || trackedIds.childIds.length > 0 || trackedIds.packageIds.length > 0)) {
+    if (!dryRun && (trackedIds.customerIds.length > 0 || trackedIds.childIds.length > 0 || trackedIds.packageIds.length > 0 || trackedIds.kidsPlanIds.length > 0)) {
       // Merge with existing tracked IDs if any
       const existing = loadImportedIds(currentUnit);
       if (existing) {
         trackedIds.customerIds = [...existing.customerIds, ...trackedIds.customerIds];
         trackedIds.childIds = [...existing.childIds, ...trackedIds.childIds];
         trackedIds.packageIds = [...existing.packageIds, ...trackedIds.packageIds];
+        trackedIds.kidsPlanIds = [...(existing.kidsPlanIds || []), ...trackedIds.kidsPlanIds];
       }
       saveImportedIds(currentUnit, trackedIds);
       setCreatedIds(trackedIds);
@@ -741,7 +987,8 @@ const ImportData: React.FC = () => {
       return;
     }
 
-    const totalToDelete = ids.packageIds.length + ids.childIds.length + ids.customerIds.length;
+    const kidsPlanCount = ids.kidsPlanIds?.length || 0;
+    const totalToDelete = ids.packageIds.length + ids.childIds.length + ids.customerIds.length + kidsPlanCount;
     if (totalToDelete === 0) {
       toast.info('Nenhum registro para excluir');
       clearImportedIds(currentUnit);
@@ -771,6 +1018,23 @@ const ImportData: React.FC = () => {
       }
       setProgress({ current: deleted + errors, total: totalToDelete, label: `Excluindo pacotes... (${deleted})` });
       if ((deleted + errors) % 50 === 0) await sleep(300);
+    }
+
+    // Delete kids plans
+    if (ids.kidsPlanIds && ids.kidsPlanIds.length > 0) {
+      setProgress({ current: deleted + errors, total: totalToDelete, label: 'Excluindo planos kids...' });
+      for (const planId of ids.kidsPlanIds) {
+        if (cancelRef.current) break;
+        try {
+          await kidsPlansServiceOffline.deletePlan(planId);
+          deleted++;
+        } catch (e) {
+          errors++;
+          addLog({ type: 'error', message: `Erro ao excluir plano kids ${planId}: ${e}` });
+        }
+        setProgress({ current: deleted + errors, total: totalToDelete, label: `Excluindo planos kids... (${deleted})` });
+        if ((deleted + errors) % 50 === 0) await sleep(300);
+      }
     }
 
     // Delete children
@@ -935,9 +1199,11 @@ const ImportData: React.FC = () => {
     setStep('upload');
     setResponsaveisFile(null);
     setPacotesFile(null);
+    setKidsPlansFile(null);
     setResponsaveis([]);
     setCriancas([]);
     setPacotes([]);
+    setKidsPlansRaw([]);
     setLogs([]);
     setDryRun(true);
     setStats({ customersCreated: 0, customersSkipped: 0, childrenCreated: 0, childrenSkipped: 0, packagesCreated: 0, packagesSkipped: 0, errors: 0 });
@@ -958,12 +1224,12 @@ const ImportData: React.FC = () => {
       {step === 'upload' && (
         <div className="space-y-3">
           {/* Delete tracked imports */}
-          {createdIds && (createdIds.customerIds.length > 0 || createdIds.childIds.length > 0 || createdIds.packageIds.length > 0) && (
+          {createdIds && (createdIds.customerIds.length > 0 || createdIds.childIds.length > 0 || createdIds.packageIds.length > 0 || (createdIds.kidsPlanIds && createdIds.kidsPlanIds.length > 0)) && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-5 space-y-3">
               <div>
                 <h3 className="text-sm font-bold text-red-700">Dados importados anteriormente</h3>
                 <p className="text-xs text-red-600 mt-1">
-                  {createdIds.customerIds.length} clientes, {createdIds.childIds.length} crianças, {createdIds.packageIds.length} pacotes
+                  {createdIds.customerIds.length} clientes, {createdIds.childIds.length} crianças, {createdIds.packageIds.length} pacotes{createdIds.kidsPlanIds?.length > 0 ? `, ${createdIds.kidsPlanIds.length} planos kids` : ''}
                   {createdIds.importedAt && ` — importados em ${new Date(createdIds.importedAt).toLocaleString('pt-BR')}`}
                 </p>
               </div>
@@ -1029,11 +1295,25 @@ const ImportData: React.FC = () => {
               />
               {pacotesFile && <p className="text-xs text-emerald-600 mt-1">✅ {pacotesFile.name}</p>}
             </div>
+
+            {/* Planos Kids */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                Relatório Clientes - Plano Kids.xlsx <span className="text-slate-400">(planos kids)</span>
+              </label>
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={(e) => setKidsPlansFile(e.target.files?.[0] || null)}
+                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
+              />
+              {kidsPlansFile && <p className="text-xs text-emerald-600 mt-1">✅ {kidsPlansFile.name}</p>}
+            </div>
           </div>
 
           <button
             onClick={handleParse}
-            disabled={!responsaveisFile && !pacotesFile}
+            disabled={!responsaveisFile && !pacotesFile && !kidsPlansFile}
             className="px-6 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors disabled:opacity-50"
           >
             Ler Planilhas
@@ -1045,7 +1325,7 @@ const ImportData: React.FC = () => {
       {step === 'preview' && (
         <div className="space-y-4">
           {/* Stats preview */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white rounded-xl border border-slate-200 p-4">
               <p className="text-xs text-slate-500 font-medium">Responsáveis</p>
               <p className="text-2xl font-bold text-violet-600 mt-1">{responsaveis.length}</p>
@@ -1060,6 +1340,15 @@ const ImportData: React.FC = () => {
               {pacotes.length > 0 && (
                 <p className="text-[10px] text-slate-400 mt-0.5">
                   {pacotes.filter(p => !p.venceu).length} ativos · {pacotes.filter(p => p.venceu).length} vencidos
+                </p>
+              )}
+            </div>
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <p className="text-xs text-slate-500 font-medium">Planos Kids</p>
+              <p className="text-2xl font-bold text-amber-600 mt-1">{kidsPlansRaw.length}</p>
+              {kidsPlansRaw.length > 0 && (
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  {kidsPlansRaw.filter(k => k.plano.toUpperCase().includes('FULL')).length} Full · {kidsPlansRaw.filter(k => !k.plano.toUpperCase().includes('FULL')).length} 2X
                 </p>
               )}
             </div>
