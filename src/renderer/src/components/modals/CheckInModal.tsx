@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
-import { Customer, Child } from '../../../../shared/types';
+import { Customer, Child, KidsPlan } from '../../../../shared/types';
 import { customersService } from '../../../../shared/firebase/services/customers.service';
 import { visitsServiceOffline } from '../../../../shared/firebase/services/visits.service.offline';
+import { kidsPlansServiceOffline } from '../../../../shared/firebase/services/kidsPlans.service.offline';
 import { useUnit } from '../../contexts/UnitContext';
 import { getChildAge } from '../../../../shared/utils/age';
 
@@ -22,6 +23,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [searchMode, setSearchMode] = useState<'client' | 'child'>('client');
+  const [kidsPlans, setKidsPlans] = useState<KidsPlan[]>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -31,16 +33,22 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
 
   const loadCustomers = async () => {
     try {
-      const [allCustomers, allChildren] = await Promise.all([
+      const [allCustomers, allChildren, activePlans] = await Promise.all([
         customersService.getAllCustomers(currentUnit),
         customersService.getAllChildren(currentUnit),
+        kidsPlansServiceOffline.getActivePlans(currentUnit),
       ]);
       setCustomers(allCustomers);
       setChildren(allChildren);
+      setKidsPlans(activePlans);
     } catch (error) {
       console.error('Error loading customers:', error);
       toast.error('Erro ao carregar clientes');
     }
+  };
+
+  const getChildPlan = (childId: string): KidsPlan | undefined => {
+    return kidsPlans.find(p => p.childId === childId && (p.status === 'active' || p.status === 'expiring'));
   };
 
   const filteredCustomers = customers.filter(c =>
@@ -76,12 +84,14 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
         return;
       }
 
+      const plan = getChildPlan(selectedChild);
       await visitsServiceOffline.checkIn({
         childId: selectedChild,
         unitId: currentUnit,
+        kidsPlanId: plan?.id,
       });
 
-      toast.success('✅ Check-in realizado com sucesso!');
+      toast.success(plan ? '✅ Check-in realizado (Plano Kids)!' : '✅ Check-in realizado com sucesso!');
       onSuccess();
       handleClose();
     } catch (error) {
@@ -109,7 +119,8 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
           skipped++;
           continue;
         }
-        await visitsServiceOffline.checkIn({ childId: child.id, unitId: currentUnit });
+        const plan = getChildPlan(child.id);
+        await visitsServiceOffline.checkIn({ childId: child.id, unitId: currentUnit, kidsPlanId: plan?.id });
         success++;
       }
 
@@ -201,13 +212,25 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
                   <div className="space-y-1">
                     {customerChildren.length === 0 ? (
                       <p className="text-center text-slate-400 py-3 text-xs bg-slate-50 rounded-lg">Sem crianças cadastradas</p>
-                    ) : customerChildren.map(child => (
-                      <button key={child.id} type="button" onClick={() => setSelectedChild(child.id)}
-                        className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${selectedChild === child.id ? 'bg-emerald-50 border border-emerald-300' : 'hover:bg-slate-50 border border-transparent'}`}>
-                        <p className="font-semibold text-slate-800">{child.name}</p>
-                        <p className="text-xs text-slate-500">{getChildAge(child)} anos</p>
-                      </button>
-                    ))}
+                    ) : customerChildren.map(child => {
+                      const plan = getChildPlan(child.id);
+                      return (
+                        <button key={child.id} type="button" onClick={() => setSelectedChild(child.id)}
+                          className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${selectedChild === child.id ? 'bg-emerald-50 border border-emerald-300' : 'hover:bg-slate-50 border border-transparent'}`}>
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <p className="font-semibold text-slate-800">{child.name}</p>
+                              <p className="text-xs text-slate-500">{getChildAge(child)} anos</p>
+                            </div>
+                            {plan && (
+                              <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-semibold">
+                                Plano Kids
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -224,11 +247,21 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
                   <p className="text-center text-slate-400 py-3 text-xs">Nenhuma criança encontrada</p>
                 ) : filteredChildrenByName.map(child => {
                   const parent = customers.find(c => c.id === child.customerId);
+                  const plan = getChildPlan(child.id);
                   return (
                     <button key={child.id} type="button" onClick={() => setSelectedChild(child.id)}
                       className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${selectedChild === child.id ? 'bg-emerald-50 border border-emerald-300' : 'hover:bg-slate-50 border border-transparent'}`}>
-                      <p className="font-semibold text-slate-800">{child.name}</p>
-                      <p className="text-xs text-slate-500">{getChildAge(child)} anos {parent ? `- ${parent.name}` : ''}</p>
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="font-semibold text-slate-800">{child.name}</p>
+                          <p className="text-xs text-slate-500">{getChildAge(child)} anos {parent ? `- ${parent.name}` : ''}</p>
+                        </div>
+                        {plan && (
+                          <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-semibold">
+                            Plano Kids
+                          </span>
+                        )}
+                      </div>
                     </button>
                   );
                 })}
@@ -236,10 +269,20 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
             </div>
           )}
 
+          {selectedChild && getChildPlan(selectedChild) && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2">
+              <span className="text-lg">🎓</span>
+              <div>
+                <p className="text-xs font-semibold text-blue-800">Plano Kids ativo</p>
+                <p className="text-[11px] text-blue-600">3 horas gratuitas por dia — excedente cobrado no check-out</p>
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={handleClose} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
             <button type="submit" disabled={!selectedChild || loading} className="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors disabled:opacity-50">
-              {loading ? 'Processando...' : 'Confirmar Check-In'}
+              {loading ? 'Processando...' : selectedChild && getChildPlan(selectedChild) ? 'Check-In (Plano Kids)' : 'Confirmar Check-In'}
             </button>
           </div>
         </form>

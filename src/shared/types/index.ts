@@ -37,6 +37,7 @@ export interface Visit {
   paid: boolean;
   paymentId?: string;
   packageId?: string; // ID do pacote usado (se aplicável)
+  kidsPlanId?: string; // ID do plano Kids usado (se aplicável)
   unitId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -107,6 +108,7 @@ export interface DashboardStats {
 export interface CheckInData {
   childId: string;
   unitId: string;
+  kidsPlanId?: string;
 }
 
 export interface CheckOutData {
@@ -120,6 +122,7 @@ export interface CheckOutData {
 export interface KidsPlan {
   id: string;
   childId: string;
+  childName?: string;
   customerId: string;
   enrollmentCode?: string;
   planType: 'KIDS_2X' | 'KIDS_FULL';

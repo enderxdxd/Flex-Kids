@@ -47,13 +47,22 @@ const DashboardNew: React.FC = () => {
       loadingRef.current = true;
       if (showLoader) setLoading(true);
       
-      const [visits, payments, packages] = await Promise.all([
+      const [visits, allVisits, payments, packages] = await Promise.all([
         visitsServiceOffline.getActiveVisits(currentUnit),
+        visitsServiceOffline.getAllVisits(currentUnit),
         paymentsServiceOffline.getTodayPayments(),
         packagesServiceOffline.getActivePackages(undefined, currentUnit),
       ]);
 
       const unitPayments = payments.filter(p => p.unitId === currentUnit);
+
+      // Contar visitas de hoje (todas, não só ativas)
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayVisitsCount = allVisits.filter(v => {
+        const checkIn = v.checkIn instanceof Date ? v.checkIn : new Date(v.checkIn);
+        return checkIn >= todayStart;
+      }).length;
 
       setActiveVisits(visits);
       setRecentPayments(unitPayments.slice(0, 5));
@@ -63,7 +72,7 @@ const DashboardNew: React.FC = () => {
       setStats({
         activeVisits: visits.length,
         todayRevenue,
-        todayVisits: visits.length,
+        todayVisits: todayVisitsCount,
         activePackages: packages.length,
       });
       setLastUpdated(new Date());
@@ -84,8 +93,20 @@ const DashboardNew: React.FC = () => {
     const intervalId = setInterval(() => {
       loadStats(false);
     }, 15000);
+
+    // Recarregar quando o usuário volta à aba/janela
+    const handleFocus = () => loadStats(false);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') loadStats(false);
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
     
-    return () => clearInterval(intervalId);
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [loadStats]);
 
   const handleCheckOut = async (visit: Visit) => {
@@ -213,11 +234,14 @@ const DashboardNew: React.FC = () => {
                         <span className="text-lg">👶</span>
                       </div>
                       <div className="min-w-0">
-                        <p className="font-semibold text-slate-800 truncate">{visit.child?.name || 'Criança'}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-semibold text-slate-800 truncate">{visit.child?.name || 'Criança'}</p>
+                          {visit.kidsPlanId && <span className="text-[9px] bg-blue-100 text-blue-700 px-1 py-0.5 rounded font-semibold flex-shrink-0">Kids</span>}
+                        </div>
                         <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
                           <span>Check-in: {new Date(visit.checkIn).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
                           <span className="text-slate-300">|</span>
-                          <span className="text-violet-600 font-semibold">{Math.floor((now - new Date(visit.checkIn).getTime()) / 60000)} min</span>
+                          <span className="text-violet-600 font-semibold">{Math.max(0, Math.floor((now - new Date(visit.checkIn).getTime()) / 60000))} min</span>
                           <span className="text-slate-300">|</span>
                           <span className="truncate">{visit.child?.customer?.name || 'Cliente'}</span>
                         </div>

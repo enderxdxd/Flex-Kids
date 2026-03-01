@@ -17,6 +17,7 @@ interface CheckOutModalProps {
 }
 
 const ADMIN_PASSWORD = 'pactoflex123';
+const KIDS_PLAN_FREE_MINUTES = 180; // 3 horas gratuitas por dia
 
 const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSuccess, visit }) => {
   const { currentUnit } = useUnit();
@@ -25,7 +26,8 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [allPackages, setAllPackages] = useState<Package[]>([]);
-  const [selectedPackage, setSelectedPackage] = useState<string>('');
+  const [usePackages, setUsePackages] = useState(false);
+  const [selectedAdminPackage, setSelectedAdminPackage] = useState<string>('');
   const [hourlyRate, setHourlyRate] = useState(30);
   const [minimumTime, setMinimumTime] = useState(30);
   const [duration, setDuration] = useState(0);
@@ -46,9 +48,11 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
     }
   }, [isOpen, visit]);
 
+  const isKidsPlan = !!visit.kidsPlanId;
+
   useEffect(() => {
     calculateValue();
-  }, [duration, selectedPackage, hourlyRate, minimumTime]);
+  }, [duration, usePackages, selectedAdminPackage, hourlyRate, minimumTime, packages, allPackages]);
 
   const loadData = async () => {
     try {
@@ -86,10 +90,12 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
         );
         setPackages(activePackages);
 
-        // Se o cliente tem pacote ativo, selecionar automaticamente o primeiro como padrão
-        const firstWithTime = activePackages.find(p => (p.hours - p.usedHours) > 0);
-        if (firstWithTime) {
-          setSelectedPackage(firstWithTime.id);
+        // Se o cliente tem pacote ativo com horas e NÃO é plano kids, ativar uso automático
+        if (!isKidsPlan) {
+          const hasAvailablePackage = activePackages.some(p => (p.hours - p.usedHours) > 0);
+          if (hasAvailablePackage) {
+            setUsePackages(true);
+          }
         }
         
         // Guardar pacotes de outros clientes da mesma unidade para opção de admin
@@ -137,22 +143,93 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
     }
   };
 
+  // Calcula cobertura de múltiplos pacotes (menor -> maior)
+  const getMultiPackageCoverage = () => {
+    // Determinar quais pacotes usar
+    let pkgsToUse: Package[] = [];
+    if (selectedAdminPackage) {
+      const adminPkg = allPackages.find(p => p.id === selectedAdminPackage);
+      if (adminPkg) pkgsToUse = [adminPkg];
+    } else if (usePackages) {
+      pkgsToUse = packages
+        .filter(p => (p.hours - p.usedHours) > 0)
+        .sort((a, b) => (a.hours - a.usedHours) - (b.hours - b.usedHours)); // menor primeiro
+    }
+
+    const billableMinutes = Math.max(duration, minimumTime);
+    let remainingToCover = billableMinutes;
+    const breakdown: { pkg: Package; coveredMin: number }[] = [];
+
+    for (const pkg of pkgsToUse) {
+      if (remainingToCover <= 0) break;
+      const pkgRemainingMin = Math.round((pkg.hours - pkg.usedHours) * 60);
+      const covered = Math.min(pkgRemainingMin, remainingToCover);
+      if (covered > 0) {
+        breakdown.push({ pkg, coveredMin: covered });
+        remainingToCover -= covered;
+      }
+    }
+
+    const totalCoveredMin = breakdown.reduce((sum, b) => sum + b.coveredMin, 0);
+    const excessMin = Math.max(0, billableMinutes - totalCoveredMin);
+    // Aplica tempo mínimo ao excedente (ex: 2min excedente → cobra 30min)
+    const billableExcessMin = excessMin > 0 ? Math.max(excessMin, minimumTime) : 0;
+
+    return {
+      breakdown,
+      totalCoveredMin,
+      excessMin,
+      billableExcessMin,
+      isPartial: excessMin > 0 && totalCoveredMin > 0,
+      isFullyCovered: excessMin === 0 && totalCoveredMin > 0,
+      hasPackages: pkgsToUse.length > 0,
+    };
+  };
+
+  // Calcula cobertura do Plano Kids (3h grátis/dia)
+  const getKidsPlanCoverage = () => {
+    const freeMin = KIDS_PLAN_FREE_MINUTES;
+    const excessMin = Math.max(0, duration - freeMin);
+    const coveredMin = Math.min(duration, freeMin);
+    // Aplica tempo mínimo ao excedente (ex: 2min excedente → cobra 30min)
+    const billableExcessMin = excessMin > 0 ? Math.max(excessMin, minimumTime) : 0;
+    return { coveredMin, excessMin, billableExcessMin, isPartial: excessMin > 0, isFullyCovered: excessMin === 0 };
+  };
+
   const calculateValue = () => {
-    if (selectedPackage) {
-      // Usando pacote - sem custo adicional
-      setTotalValue(0);
-      setPaymentMethod('package');
+    if (isKidsPlan) {
+      const { billableExcessMin, isFullyCovered } = getKidsPlanCoverage();
+      if (isFullyCovered) {
+        setTotalValue(0);
+        setPaymentMethod('package');
+      } else {
+        const excessHours = billableExcessMin / 60;
+        const value = Math.max(excessHours * hourlyRate, hourlyRate);
+        setTotalValue(Math.round(value * 100) / 100);
+        if (paymentMethod === 'package') setPaymentMethod('pix');
+      }
+    } else if (usePackages || selectedAdminPackage) {
+      const { billableExcessMin, isFullyCovered } = getMultiPackageCoverage();
+      if (isFullyCovered) {
+        setTotalValue(0);
+        setPaymentMethod('package');
+      } else if (billableExcessMin > 0) {
+        const excessHours = billableExcessMin / 60;
+        const value = Math.max(excessHours * hourlyRate, hourlyRate);
+        setTotalValue(Math.round(value * 100) / 100);
+        if (paymentMethod === 'package') setPaymentMethod('pix');
+      }
     } else {
       // Cobrança por hora — aplica tempo mínimo
       const billableMinutes = Math.max(duration, minimumTime);
       const hours = billableMinutes / 60;
-      const value = hours * hourlyRate;
+      const value = Math.max(hours * hourlyRate, hourlyRate);
       setTotalValue(Math.round(value * 100) / 100);
     }
   };
 
   const handleCheckOut = async () => {
-    if (!selectedPackage && paymentMethod === 'package') {
+    if (!isKidsPlan && !(usePackages || selectedAdminPackage) && paymentMethod === 'package') {
       toast.error('Selecione um pacote ou escolha outra forma de pagamento');
       return;
     }
@@ -162,44 +239,89 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
     try {
       setLoading(true);
 
-      // 1. Realizar checkout
-      await visitsServiceOffline.checkOut({
-        visitId: visit.id,
-        duration,
-        value: totalValue,
-        packageId: selectedPackage || undefined,
-      });
+      if (isKidsPlan) {
+        // --- Fluxo Plano Kids ---
+        const kidsCoverage = getKidsPlanCoverage();
 
-      // 2. Se usar pacote, atualizar horas usadas
-      if (selectedPackage) {
-        const pkg = packages.find(p => p.id === selectedPackage) || allPackages.find(p => p.id === selectedPackage);
-        if (pkg) {
-          const hoursUsed = duration / 60;
-          await packagesServiceOffline.usePackage(selectedPackage, hoursUsed);
+        // 1. Realizar checkout
+        await visitsServiceOffline.checkOut({
+          visitId: visit.id,
+          duration,
+          value: totalValue,
+        });
+
+        // 2. Se houver excedente, registrar pagamento
+        if (totalValue > 0 && paymentMethod !== 'package' && customer && child) {
+          const description = `Pagamento excedente Plano Kids - ${child.name} - ${kidsCoverage.excessMin}min excedente (${kidsCoverage.coveredMin}min grátis)`;
+
+          console.log('[CHECKOUT] Criando pagamento Plano Kids:', {
+            customerId: customer.id,
+            childId: child.id,
+            amount: totalValue,
+            excessMin: kidsCoverage.excessMin,
+          });
+
+          const payment = await paymentsServiceOffline.createPayment({
+            customerId: customer.id,
+            childId: child.id,
+            childName: child.name,
+            amount: totalValue,
+            method: paymentMethod,
+            status: 'paid',
+            type: 'visit',
+            unitId: visit.unitId,
+            description,
+          });
+          console.log('[CHECKOUT] Pagamento Plano Kids criado:', payment.id);
         }
-      }
+      } else {
+        // --- Fluxo normal (pacotes / avulso) ---
+        const coverage = getMultiPackageCoverage();
+        const firstPkgId = coverage.breakdown.length > 0 ? coverage.breakdown[0].pkg.id : undefined;
 
-      // 3. Se houver pagamento, registrar
-      if (totalValue > 0 && paymentMethod !== 'package' && customer && child) {
-        console.log('[CHECKOUT] Criando pagamento:', {
-          customerId: customer.id,
-          childId: child.id,
-          childName: child.name,
-          amount: totalValue,
+        // 1. Realizar checkout
+        await visitsServiceOffline.checkOut({
+          visitId: visit.id,
+          duration,
+          value: totalValue,
+          packageId: firstPkgId,
         });
-        
-        const payment = await paymentsServiceOffline.createPayment({
-          customerId: customer.id,
-          childId: child.id,
-          childName: child.name,
-          amount: totalValue,
-          method: paymentMethod,
-          status: 'paid',
-          type: 'visit',
-          unitId: visit.unitId,
-          description: `Pagamento visita - ${child.name} - ${duration} min`,
-        });
-        console.log('[CHECKOUT] Pagamento criado:', payment.id);
+
+        // 2. Descontar horas de cada pacote usado
+        for (const { pkg, coveredMin } of coverage.breakdown) {
+          const hoursToDeduct = coveredMin / 60;
+          await packagesServiceOffline.usePackage(pkg.id, hoursToDeduct);
+          console.log(`[CHECKOUT] Pacote ${pkg.type} (${pkg.id}): -${coveredMin}min`);
+        }
+
+        // 3. Se houver pagamento (excedente ou avulso), registrar
+        if (totalValue > 0 && paymentMethod !== 'package' && customer && child) {
+          const pkgDesc = coverage.breakdown.map(b => `${b.coveredMin}min de ${b.pkg.type}`).join(', ');
+          const description = coverage.isPartial
+            ? `Pagamento excedente visita - ${child.name} - ${coverage.excessMin}min excedente (${pkgDesc})`
+            : `Pagamento visita - ${child.name} - ${duration} min`;
+
+          console.log('[CHECKOUT] Criando pagamento:', {
+            customerId: customer.id,
+            childId: child.id,
+            childName: child.name,
+            amount: totalValue,
+            partial: coverage.isPartial,
+          });
+
+          const payment = await paymentsServiceOffline.createPayment({
+            customerId: customer.id,
+            childId: child.id,
+            childName: child.name,
+            amount: totalValue,
+            method: paymentMethod,
+            status: 'paid',
+            type: 'visit',
+            unitId: visit.unitId,
+            description,
+          });
+          console.log('[CHECKOUT] Pagamento criado:', payment.id);
+        }
       }
 
       // 4. Emitir nota fiscal se habilitado
@@ -264,7 +386,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
         `DURACAO: ${Math.floor(duration / 60)}h ${duration % 60}min`,
         '',
         `VALOR TOTAL: R$ ${totalValue.toFixed(2)}`,
-        `PAGAMENTO: ${selectedPackage ? 'PACOTE' : paymentMethod.toUpperCase()}`,
+        `PAGAMENTO: ${isKidsPlan ? 'PLANO KIDS' : (usePackages || selectedAdminPackage) ? 'PACOTE' : paymentMethod.toUpperCase()}`,
         '================================',
         'Obrigado pela preferencia!',
       ];
@@ -293,7 +415,8 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
   };
 
   const handleClose = () => {
-    setSelectedPackage('');
+    setUsePackages(false);
+    setSelectedAdminPackage('');
     setPaymentMethod('pix');
     setIsAdminAuthenticated(false);
     setAdminPassword('');
@@ -333,47 +456,74 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
                 <span className="text-slate-500">Duração</span>
                 <span className="font-bold text-violet-600">{formatTime(duration)}</span>
               </div>
-              {!selectedPackage && duration < minimumTime && (
+              {!isKidsPlan && !(usePackages || selectedAdminPackage) && duration < minimumTime && (
                 <div className="flex justify-between">
                   <span className="text-slate-500">Tempo mínimo</span>
                   <span className="font-semibold text-amber-600">{formatTime(minimumTime)} (cobrado)</span>
                 </div>
               )}
+              {isKidsPlan && (
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">Plano</span>
+                  <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-semibold">Plano Kids — 3h grátis/dia</span>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Packages */}
-          {packages.length > 0 && (
+          {/* Packages - hide if KidsPlan */}
+          {!isKidsPlan && packages.length > 0 && (
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-2">Usar Pacote</label>
+              <label className="block text-xs font-semibold text-slate-600 mb-2">Usar Pacotes</label>
               <div className="space-y-1">
-                <button type="button" onClick={() => setSelectedPackage('')}
-                  className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all ${!selectedPackage ? 'bg-violet-50 border border-violet-300' : 'hover:bg-slate-50 border border-transparent'}`}>
+                <button type="button" onClick={() => { setUsePackages(false); setSelectedAdminPackage(''); }}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all ${!usePackages && !selectedAdminPackage ? 'bg-violet-50 border border-violet-300' : 'hover:bg-slate-50 border border-transparent'}`}>
                   <p className="font-semibold text-slate-800">Pagamento Avulso</p>
                 </button>
-                {packages.map(pkg => {
-                  const remainingHours = pkg.hours - pkg.usedHours;
-                  const remainingMin = Math.round(remainingHours * 60);
-                  const hasTime = remainingHours > 0;
-                  return (
-                    <button key={pkg.id} type="button" onClick={() => hasTime && setSelectedPackage(pkg.id)} disabled={!hasTime}
-                      className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all ${selectedPackage === pkg.id ? 'bg-emerald-50 border border-emerald-300' : hasTime ? 'hover:bg-slate-50 border border-transparent' : 'opacity-40 cursor-not-allowed border border-transparent'}`}>
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <p className="font-semibold text-slate-800">{pkg.type}</p>
-                          <p className="text-xs text-slate-500">{remainingMin}min de {Math.round(pkg.hours * 60)}min</p>
-                        </div>
-                        {!hasTime && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded">Esgotado</span>}
-                      </div>
-                    </button>
-                  );
-                })}
+                <button type="button" onClick={() => { setUsePackages(true); setSelectedAdminPackage(''); }}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all ${usePackages ? 'bg-emerald-50 border border-emerald-300' : 'hover:bg-slate-50 border border-transparent'}`}>
+                  <div>
+                    <p className="font-semibold text-slate-800">Usar Pacotes do Cliente</p>
+                    <p className="text-xs text-slate-500">Consome automaticamente do menor para o maior</p>
+                  </div>
+                </button>
+                {usePackages && (
+                  <div className="ml-3 pl-3 border-l-2 border-emerald-200 space-y-1">
+                    {packages
+                      .sort((a, b) => (a.hours - a.usedHours) - (b.hours - b.usedHours))
+                      .map((pkg, idx) => {
+                        const remainingHours = pkg.hours - pkg.usedHours;
+                        const remainingMin = Math.round(remainingHours * 60);
+                        const hasTime = remainingHours > 0;
+                        const coverage = getMultiPackageCoverage();
+                        const pkgCoverage = coverage.breakdown.find(b => b.pkg.id === pkg.id);
+                        return (
+                          <div key={pkg.id} className={`px-3 py-2 rounded-lg text-sm ${hasTime ? 'bg-white border border-slate-200' : 'bg-slate-50 border border-slate-100 opacity-50'}`}>
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <p className="font-semibold text-slate-800">
+                                  <span className="text-xs text-slate-400 mr-1">#{idx + 1}</span>
+                                  {pkg.type}
+                                </p>
+                                <p className="text-xs text-slate-500">{remainingMin}min restantes de {Math.round(pkg.hours * 60)}min</p>
+                              </div>
+                              {pkgCoverage ? (
+                                <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-semibold">-{pkgCoverage.coveredMin}min</span>
+                              ) : !hasTime ? (
+                                <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded">Esgotado</span>
+                              ) : null}
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
               </div>
             </div>
           )}
 
-          {/* Admin Packages */}
-          {allPackages.length > 0 && (
+          {/* Admin Packages - hide if KidsPlan */}
+          {!isKidsPlan && allPackages.length > 0 && (
             <div className="border border-amber-200 rounded-lg p-3 bg-amber-50">
               <p className="text-xs font-semibold text-amber-800 mb-2">Pacote de Outro Cliente (Admin)</p>
               {!isAdminAuthenticated ? (
@@ -385,15 +535,15 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
                 <div className="space-y-1">
                   <div className="flex justify-between items-center mb-1">
                     <span className="text-[11px] text-emerald-700 font-medium">Admin autenticado</span>
-                    <button onClick={() => { setIsAdminAuthenticated(false); setAdminPassword(''); if (allPackages.find(p => p.id === selectedPackage)) setSelectedPackage(''); }} className="text-[11px] text-slate-500 hover:text-slate-700">Sair</button>
+                    <button onClick={() => { setIsAdminAuthenticated(false); setAdminPassword(''); setSelectedAdminPackage(''); }} className="text-[11px] text-slate-500 hover:text-slate-700">Sair</button>
                   </div>
                   {allPackages.map(pkg => {
                     const remainingHours = pkg.hours - pkg.usedHours;
                     const remainingMin = Math.round(remainingHours * 60);
                     const hasTime = remainingHours > 0;
                     return (
-                      <button key={pkg.id} type="button" onClick={() => hasTime && setSelectedPackage(pkg.id)} disabled={!hasTime}
-                        className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${selectedPackage === pkg.id ? 'bg-amber-100 border border-amber-400' : hasTime ? 'hover:bg-white border border-transparent' : 'opacity-40 cursor-not-allowed border border-transparent'}`}>
+                      <button key={pkg.id} type="button" onClick={() => { if (hasTime) { setSelectedAdminPackage(pkg.id); setUsePackages(false); } }} disabled={!hasTime}
+                        className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${selectedAdminPackage === pkg.id ? 'bg-amber-100 border border-amber-400' : hasTime ? 'hover:bg-white border border-transparent' : 'opacity-40 cursor-not-allowed border border-transparent'}`}>
                         <p className="font-semibold text-slate-800">{pkg.type} <span className="text-xs text-amber-700">({customers.find(c => c.id === pkg.customerId)?.name || '-'})</span></p>
                         <p className="text-xs text-slate-500">{remainingMin}min de {Math.round(pkg.hours * 60)}min</p>
                       </button>
@@ -405,12 +555,90 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
           )}
 
           {/* Total */}
-          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex justify-between items-center">
-            <span className="text-sm font-semibold text-slate-700">Total</span>
-            <span className="text-2xl font-bold text-emerald-600">
-              {selectedPackage ? 'PACOTE' : `R$ ${totalValue.toFixed(2)}`}
-            </span>
-          </div>
+          {(() => {
+            if (isKidsPlan) {
+              const kidsCov = getKidsPlanCoverage();
+              return (
+                <div className={`rounded-lg p-4 border ${kidsCov.isPartial ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-200'}`}>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-slate-600">Plano Kids (grátis)</span>
+                      <span className="font-semibold text-blue-600">{kidsCov.coveredMin}min</span>
+                    </div>
+                    {kidsCov.isPartial && (
+                      <>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-slate-600">Excedente</span>
+                          <span className="font-semibold text-amber-600">{kidsCov.excessMin}min</span>
+                        </div>
+                        {kidsCov.billableExcessMin > kidsCov.excessMin && (
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-slate-600">Tempo mínimo cobrado</span>
+                            <span className="font-semibold text-amber-600">{kidsCov.billableExcessMin}min</span>
+                          </div>
+                        )}
+                        <div className="border-t border-amber-200 pt-2 flex justify-between items-center">
+                          <span className="text-sm font-semibold text-slate-700">Valor a pagar (excedente)</span>
+                          <span className="text-xl font-bold text-amber-600">R$ {totalValue.toFixed(2)}</span>
+                        </div>
+                      </>
+                    )}
+                    {kidsCov.isFullyCovered && (
+                      <div className="border-t border-blue-200 pt-2 flex justify-between items-center">
+                        <span className="text-sm font-semibold text-slate-700">Total</span>
+                        <span className="text-2xl font-bold text-blue-600">PLANO KIDS</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+
+            const coverage = (usePackages || selectedAdminPackage) ? getMultiPackageCoverage() : null;
+            return (
+              <div className={`rounded-lg p-4 border ${coverage?.isPartial ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'}`}>
+                {coverage && coverage.hasPackages && (coverage.isPartial || coverage.isFullyCovered) ? (
+                  <div className="space-y-2">
+                    {coverage.breakdown.map((b) => (
+                      <div key={b.pkg.id} className="flex justify-between items-center text-sm">
+                        <span className="text-slate-600">{b.pkg.type}</span>
+                        <span className="font-semibold text-emerald-600">-{b.coveredMin}min</span>
+                      </div>
+                    ))}
+                    {coverage.isPartial && (
+                      <>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-slate-600">Excedente</span>
+                          <span className="font-semibold text-amber-600">{coverage.excessMin}min</span>
+                        </div>
+                        {coverage.billableExcessMin > coverage.excessMin && (
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-slate-600">Tempo mínimo cobrado</span>
+                            <span className="font-semibold text-amber-600">{coverage.billableExcessMin}min</span>
+                          </div>
+                        )}
+                        <div className="border-t border-amber-200 pt-2 flex justify-between items-center">
+                          <span className="text-sm font-semibold text-slate-700">Valor a pagar (excedente)</span>
+                          <span className="text-xl font-bold text-amber-600">R$ {totalValue.toFixed(2)}</span>
+                        </div>
+                      </>
+                    )}
+                    {coverage.isFullyCovered && (
+                      <div className="border-t border-emerald-200 pt-2 flex justify-between items-center">
+                        <span className="text-sm font-semibold text-slate-700">Total</span>
+                        <span className="text-2xl font-bold text-emerald-600">PACOTE</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-semibold text-slate-700">Total</span>
+                    <span className="text-2xl font-bold text-emerald-600">R$ {totalValue.toFixed(2)}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Print */}
           {fiscalConfig?.enableFiscalPrint && (
@@ -421,7 +649,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
           )}
 
           {/* Payment Method */}
-          {!selectedPackage && totalValue > 0 && (
+          {totalValue > 0 && paymentMethod !== 'package' && (
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-2">Forma de Pagamento</label>
               <div className="grid grid-cols-3 gap-2">
@@ -441,7 +669,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={handleClose} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
               <button type="button" onClick={() => {
-                if (!selectedPackage && paymentMethod === 'package') {
+                if (!isKidsPlan && !(usePackages || selectedAdminPackage) && paymentMethod === 'package') {
                   toast.error('Selecione um pacote ou escolha outra forma de pagamento');
                   return;
                 }
@@ -456,14 +684,50 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
               <div className="text-xs text-slate-700 space-y-1">
                 <p><span className="font-semibold">Criança:</span> {child?.name}</p>
                 <p><span className="font-semibold">Duração:</span> {Math.floor(duration / 60)}h {duration % 60}min</p>
-                {selectedPackage ? (
-                  <p><span className="font-semibold">Pagamento:</span> <span className="text-violet-700 font-bold">Via Pacote</span></p>
-                ) : (
-                  <>
-                    <p><span className="font-semibold">Valor:</span> <span className="text-emerald-700 font-bold">R$ {totalValue.toFixed(2)}</span></p>
-                    <p><span className="font-semibold">Forma:</span> {paymentMethod === 'pix' ? 'PIX' : paymentMethod === 'credit' ? 'Crédito' : 'Débito'}</p>
-                  </>
-                )}
+                {(() => {
+                  if (isKidsPlan) {
+                    const kidsCov = getKidsPlanCoverage();
+                    if (kidsCov.isFullyCovered) {
+                      return <p><span className="font-semibold">Pagamento:</span> <span className="text-blue-700 font-bold">Plano Kids ({kidsCov.coveredMin}min grátis)</span></p>;
+                    } else {
+                      return (
+                        <>
+                          <p><span className="font-semibold">Plano Kids:</span> <span className="text-blue-700 font-bold">{kidsCov.coveredMin}min grátis</span></p>
+                          <p><span className="font-semibold">Excedente:</span> <span className="text-amber-700 font-bold">{kidsCov.excessMin}min{kidsCov.billableExcessMin > kidsCov.excessMin ? ` (mín. ${kidsCov.billableExcessMin}min)` : ''} → R$ {totalValue.toFixed(2)}</span></p>
+                          <p><span className="font-semibold">Forma:</span> {paymentMethod === 'pix' ? 'PIX' : paymentMethod === 'credit' ? 'Crédito' : 'Débito'}</p>
+                        </>
+                      );
+                    }
+                  }
+                  const coverage = (usePackages || selectedAdminPackage) ? getMultiPackageCoverage() : null;
+                  if (coverage?.isFullyCovered) {
+                    return (
+                      <>
+                        <p><span className="font-semibold">Pagamento:</span> <span className="text-violet-700 font-bold">Via Pacote</span></p>
+                        {coverage.breakdown.map(b => (
+                          <p key={b.pkg.id} className="text-[11px] text-slate-500 ml-2">• {b.pkg.type}: -{b.coveredMin}min</p>
+                        ))}
+                      </>
+                    );
+                  } else if (coverage?.isPartial) {
+                    return (
+                      <>
+                        {coverage.breakdown.map(b => (
+                          <p key={b.pkg.id}><span className="font-semibold">{b.pkg.type}:</span> <span className="text-emerald-700 font-bold">-{b.coveredMin}min</span></p>
+                        ))}
+                        <p><span className="font-semibold">Excedente:</span> <span className="text-amber-700 font-bold">{coverage.excessMin}min{coverage.billableExcessMin > coverage.excessMin ? ` (mín. ${coverage.billableExcessMin}min)` : ''} → R$ {totalValue.toFixed(2)}</span></p>
+                        <p><span className="font-semibold">Forma:</span> {paymentMethod === 'pix' ? 'PIX' : paymentMethod === 'credit' ? 'Crédito' : 'Débito'}</p>
+                      </>
+                    );
+                  } else {
+                    return (
+                      <>
+                        <p><span className="font-semibold">Valor:</span> <span className="text-emerald-700 font-bold">R$ {totalValue.toFixed(2)}</span></p>
+                        <p><span className="font-semibold">Forma:</span> {paymentMethod === 'pix' ? 'PIX' : paymentMethod === 'credit' ? 'Crédito' : 'Débito'}</p>
+                      </>
+                    );
+                  }
+                })()}
               </div>
               <div className="flex gap-3">
                 <button type="button" onClick={() => setShowConfirmation(false)} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Voltar</button>

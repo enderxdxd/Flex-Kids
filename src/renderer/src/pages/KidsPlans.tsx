@@ -59,7 +59,7 @@ const KidsPlans: React.FC = () => {
     }
   };
 
-  const getChildName = (childId: string) => children.find(c => c.id === childId)?.name || '-';
+  const getChildName = (plan: KidsPlan) => children.find(c => c.id === plan.childId)?.name || plan.childName || '-';
   const getCustomerName = (customerId: string) => customers.find(c => c.id === customerId)?.name || '-';
 
   const coaches = Array.from(new Set(plans.map(p => p.coach).filter(Boolean))) as string[];
@@ -70,7 +70,7 @@ const KidsPlans: React.FC = () => {
     if (filterCoach !== 'all' && p.coach !== filterCoach) return false;
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
-      const childName = getChildName(p.childId).toLowerCase();
+      const childName = getChildName(p).toLowerCase();
       const customerName = getCustomerName(p.customerId).toLowerCase();
       const contract = p.contractNumber?.toLowerCase() || '';
       const enrollment = p.enrollmentCode?.toLowerCase() || '';
@@ -240,7 +240,7 @@ const KidsPlans: React.FC = () => {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-semibold text-slate-800 text-sm">{getChildName(plan.childId)}</p>
+                          <p className="font-semibold text-slate-800 text-sm">{getChildName(plan)}</p>
                           {getPlanTypeBadge(plan.planType)}
                           {getStatusBadge(plan.status)}
                         </div>

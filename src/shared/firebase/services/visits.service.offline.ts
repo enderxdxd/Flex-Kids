@@ -35,7 +35,7 @@ export const visitsServiceOffline = {
   },
 
   async _doCheckIn(data: CheckInData): Promise<Visit> {
-    const visitData = {
+    const visitData: any = {
       childId: data.childId,
       unitId: data.unitId,
       checkIn: new Date(),
@@ -43,11 +43,12 @@ export const visitsServiceOffline = {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
+    if (data.kidsPlanId) visitData.kidsPlanId = data.kidsPlanId;
 
     if (syncService.isOnline()) {
       try {
         const db = getDb();
-        const firestoreData = {
+        const firestoreData: any = {
           childId: data.childId,
           unitId: data.unitId,
           checkIn: Timestamp.now(),
@@ -55,6 +56,7 @@ export const visitsServiceOffline = {
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
         };
+        if (data.kidsPlanId) firestoreData.kidsPlanId = data.kidsPlanId;
 
         const docRef = await addDoc(collection(db, COLLECTION), firestoreData);
         const visit = {

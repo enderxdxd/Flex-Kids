@@ -583,6 +583,7 @@ const ImportData: React.FC = () => {
             name: crianca.nome,
             age: calcAge(crianca.dtNascimento),
             birthDate: birthDate ? Timestamp.fromDate(birthDate) : null,
+            enrollmentCode: crianca.codCrianca || '',
             customerId,
             unitId: currentUnit,
             createdAt: Timestamp.now(),
@@ -598,6 +599,7 @@ const ImportData: React.FC = () => {
             name: crianca.nome,
             age: calcAge(crianca.dtNascimento),
             birthDate,
+            enrollmentCode: crianca.codCrianca || '',
             customerId,
             unitId: currentUnit,
             legacyVisitCount: crianca.legacyVisitCount,
@@ -842,6 +844,7 @@ const ImportData: React.FC = () => {
         // Try to match child by enrollmentCode (matricula) or name
         let childId = '';
         let customerId = '';
+        const kpNameUpper = kp.nome.toUpperCase().trim();
         if (kp.matricula) {
           const child = fullChildrenData.find((ch: any) => ch.enrollmentCode === kp.matricula);
           if (child) {
@@ -850,11 +853,23 @@ const ImportData: React.FC = () => {
           }
         }
         if (!childId) {
-          const child = existingChildren.find(c => c.name === kp.nome.toUpperCase().trim());
+          // Try fullChildrenData first (includes all children from DB)
+          const child = fullChildrenData.find((ch: any) => (ch.name || '').toUpperCase().trim() === kpNameUpper);
           if (child) {
             childId = child.id;
             customerId = child.customerId;
           }
+        }
+        if (!childId) {
+          // Fallback: try existingChildren (populated during this import)
+          const child = existingChildren.find(c => c.name === kpNameUpper);
+          if (child) {
+            childId = child.id;
+            customerId = child.customerId;
+          }
+        }
+        if (!childId) {
+          addLog({ type: 'warning', message: `Plano Kids "${kp.nome}" (Mat: ${kp.matricula}) - criança não encontrada no sistema` });
         }
 
         // Extract coach from vínculo (e.g. "CO: AMANDA TOMAZ..." -> "AMANDA TOMAZ...")
@@ -874,6 +889,7 @@ const ImportData: React.FC = () => {
           const firebaseId = ref.id;
           const planFirestore: Record<string, any> = {
             childId,
+            childName: kp.nome || undefined,
             customerId,
             enrollmentCode: kp.matricula || undefined,
             planType,
@@ -897,6 +913,7 @@ const ImportData: React.FC = () => {
           batchCache.push({
             id: firebaseId,
             childId,
+            childName: kp.nome || undefined,
             customerId,
             enrollmentCode: kp.matricula || undefined,
             planType,
