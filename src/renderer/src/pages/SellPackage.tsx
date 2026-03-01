@@ -43,7 +43,7 @@ const SellPackage: React.FC = () => {
     try {
       const [allCustomers, plans] = await Promise.all([
         customersServiceOffline.getAllCustomers(currentUnit),
-        settingsServiceOffline.getPackagePlans(),
+        settingsServiceOffline.getPackagePlans(currentUnit),
       ]);
       setCustomers(allCustomers);
       setFilteredCustomers(allCustomers);

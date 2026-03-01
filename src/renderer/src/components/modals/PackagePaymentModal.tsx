@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import ModalWrapper from './ModalWrapper';
 import { toast } from 'react-toastify';
 import { format } from 'date-fns';
 import { Child, Customer } from '../../../../shared/types';
@@ -37,11 +38,9 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
   const [printReceipt, setPrintReceipt] = useState(true);
   const processingRef = useRef(false);
 
-  if (!isOpen) return null;
-
   const printFiscalReceipt = async () => {
     try {
-      const fiscalConfig = await settingsServiceOffline.getFiscalConfig();
+      const fiscalConfig = await settingsServiceOffline.getFiscalConfig(currentUnit);
       if (!fiscalConfig?.enableFiscalPrint) return;
 
       const { bematechService } = await import('../../../../shared/services/bematech.service');
@@ -124,7 +123,7 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <ModalWrapper isOpen={isOpen} onClose={onClose}>
       <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-slate-200">
@@ -209,7 +208,7 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </ModalWrapper>
   );
 };
 

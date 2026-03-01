@@ -30,7 +30,7 @@ const CheckInOut: React.FC = () => {
       const [visits, allChildren, settings] = await Promise.all([
         visitsServiceOffline.getActiveVisits(currentUnit),
         customersServiceOffline.getAllChildren(currentUnit),
-        settingsServiceOffline.getSettings(),
+        settingsServiceOffline.getSettings(currentUnit),
       ]);
       setActiveVisits(visits);
       setChildren(allChildren);

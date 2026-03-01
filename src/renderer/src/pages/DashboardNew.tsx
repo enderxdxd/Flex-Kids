@@ -12,6 +12,42 @@ import PackageModal from '../components/modals/PackageModal';
 import CheckOutModal from '../components/modals/CheckOutModal';
 import CancelCheckInModal from '../components/modals/CancelCheckInModal';
 
+// Helper: color based on elapsed minutes
+const getTimeColor = (minutes: number) => {
+  if (minutes <= 60) return { bg: 'bg-emerald-500', text: 'text-emerald-600', light: 'bg-emerald-100' };
+  if (minutes <= 120) return { bg: 'bg-amber-400', text: 'text-amber-600', light: 'bg-amber-100' };
+  if (minutes <= 180) return { bg: 'bg-orange-500', text: 'text-orange-600', light: 'bg-orange-100' };
+  return { bg: 'bg-red-500', text: 'text-red-600', light: 'bg-red-100' };
+};
+
+const formatDuration = (minutes: number) => {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h > 0 ? `${h}h ${m}min` : `${m}min`;
+};
+
+const getPaymentMethodIcon = (method: string) => {
+  switch (method) {
+    case 'pix': return '⚡';
+    case 'credit': return '💳';
+    case 'debit': return '💳';
+    case 'cash': return '💵';
+    case 'package': return '📦';
+    default: return '💰';
+  }
+};
+
+const getPaymentMethodLabel = (method: string) => {
+  switch (method) {
+    case 'pix': return 'PIX';
+    case 'credit': return 'Crédito';
+    case 'debit': return 'Débito';
+    case 'cash': return 'Dinheiro';
+    case 'package': return 'Pacote';
+    default: return method;
+  }
+};
+
 const DashboardNew: React.FC = () => {
   const { currentUnit, getCurrentUnitInfo } = useUnit();
   const [stats, setStats] = useState<DashboardStats>({
@@ -135,7 +171,7 @@ const DashboardNew: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <Navbar onRefresh={() => loadStats(true)} loading={loading} />
+      <Navbar onRefresh={() => loadStats(true)} loading={loading} activeVisitsCount={activeVisits.length} />
 
       <div className="ml-[240px] p-6 space-y-6">
         {/* Header */}
@@ -227,43 +263,56 @@ const DashboardNew: React.FC = () => {
                   <p className="text-sm mt-1">Faça um check-in para começar</p>
                 </div>
               ) : (
-                activeVisits.map((visit) => (
-                  <div key={visit.id} className="flex items-center justify-between bg-slate-50 rounded-lg p-4 border border-slate-100 hover:border-violet-200 transition-colors">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <div className="w-10 h-10 bg-violet-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <span className="text-lg">👶</span>
+                [...activeVisits]
+                .sort((a, b) => new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime())
+                .map((visit) => {
+                  const elapsed = Math.max(0, Math.floor((now - new Date(visit.checkIn).getTime()) / 60000));
+                  const colors = getTimeColor(elapsed);
+                  const progressPct = Math.min((elapsed / 240) * 100, 100);
+                  return (
+                  <div key={visit.id} className="bg-slate-50 rounded-lg border border-slate-100 hover:border-violet-200 transition-colors overflow-hidden">
+                    <div className="flex items-center justify-between p-4">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className={`w-10 h-10 ${colors.light} rounded-full flex items-center justify-center flex-shrink-0`}>
+                          <span className="text-lg">👶</span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-semibold text-slate-800 truncate">{visit.child?.name || 'Criança'}</p>
+                            {visit.kidsPlanId && <span className="text-[9px] bg-blue-100 text-blue-700 px-1 py-0.5 rounded font-semibold flex-shrink-0">Kids</span>}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                            <span>Check-in: {new Date(visit.checkIn).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                            <span className="text-slate-300">|</span>
+                            <span className={`${colors.text} font-bold`}>{formatDuration(elapsed)}</span>
+                            <span className="text-slate-300">|</span>
+                            <span className="truncate">{visit.child?.customer?.name || 'Cliente'}</span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <p className="font-semibold text-slate-800 truncate">{visit.child?.name || 'Criança'}</p>
-                          {visit.kidsPlanId && <span className="text-[9px] bg-blue-100 text-blue-700 px-1 py-0.5 rounded font-semibold flex-shrink-0">Kids</span>}
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-                          <span>Check-in: {new Date(visit.checkIn).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
-                          <span className="text-slate-300">|</span>
-                          <span className="text-violet-600 font-semibold">{Math.max(0, Math.floor((now - new Date(visit.checkIn).getTime()) / 60000))} min</span>
-                          <span className="text-slate-300">|</span>
-                          <span className="truncate">{visit.child?.customer?.name || 'Cliente'}</span>
-                        </div>
+                      <div className="flex gap-1.5 flex-shrink-0 ml-3">
+                        <button
+                          onClick={() => handleCancelCheckIn(visit)}
+                          className="p-2 rounded-lg bg-slate-200 hover:bg-red-100 text-slate-600 hover:text-red-600 transition-colors"
+                          title="Cancelar check-in"
+                        >
+                          ❌
+                        </button>
+                        <button
+                          onClick={() => handleCheckOut(visit)}
+                          className="px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white font-semibold text-sm transition-colors"
+                        >
+                          Check-Out
+                        </button>
                       </div>
                     </div>
-                    <div className="flex gap-1.5 flex-shrink-0 ml-3">
-                      <button
-                        onClick={() => handleCancelCheckIn(visit)}
-                        className="p-2 rounded-lg bg-slate-200 hover:bg-red-100 text-slate-600 hover:text-red-600 transition-colors"
-                        title="Cancelar check-in"
-                      >
-                        ❌
-                      </button>
-                      <button
-                        onClick={() => handleCheckOut(visit)}
-                        className="px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white font-semibold text-sm transition-colors"
-                      >
-                        Check-Out
-                      </button>
+                    {/* Time progress bar */}
+                    <div className="h-1 bg-slate-200">
+                      <div className={`h-full ${colors.bg} transition-all duration-1000 ease-linear rounded-r-full`} style={{ width: `${progressPct}%` }} />
                     </div>
                   </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
@@ -305,14 +354,23 @@ const DashboardNew: React.FC = () => {
                   <p className="text-center text-slate-400 py-4 text-sm">Nenhum pagamento hoje</p>
                 ) : (
                   recentPayments.map((payment) => (
-                    <div key={payment.id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
-                      <div>
-                        <p className="font-medium text-sm text-slate-700">{payment.childName || payment.description || 'Pagamento'}</p>
-                        <p className="text-xs text-slate-400">
-                          {new Date(payment.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                        </p>
+                    <div key={payment.id} className="flex items-center gap-3 py-2.5 border-b border-slate-100 last:border-0">
+                      <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0 text-sm">
+                        {getPaymentMethodIcon(payment.method)}
                       </div>
-                      <p className="font-bold text-sm text-emerald-600">R$ {payment.amount.toFixed(2)}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm text-slate-700 truncate">{payment.childName || payment.description || 'Pagamento'}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[10px] text-slate-400">
+                            {new Date(payment.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          <span className={`text-[9px] font-bold px-1 py-0.5 rounded ${payment.type === 'package' ? 'bg-violet-100 text-violet-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                            {payment.type === 'package' ? 'Pacote' : 'Visita'}
+                          </span>
+                          <span className="text-[9px] text-slate-400">{getPaymentMethodLabel(payment.method)}</span>
+                        </div>
+                      </div>
+                      <p className="font-bold text-sm text-emerald-600 flex-shrink-0">R$ {payment.amount.toFixed(2)}</p>
                     </div>
                   ))
                 )}

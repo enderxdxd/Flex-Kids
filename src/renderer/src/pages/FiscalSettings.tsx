@@ -3,8 +3,10 @@ import { toast } from 'react-toastify';
 import { FiscalConfig } from '../../../shared/types';
 import { settingsServiceOffline } from '../../../shared/firebase/services/settings.service.offline';
 import { bematechService } from '../../../shared/services/bematech.service';
+import { useUnit } from '../contexts/UnitContext';
 
 const FiscalSettings: React.FC = () => {
+  const { currentUnit } = useUnit();
   const [loading, setLoading] = useState(false);
   const [testing, setTesting] = useState(false);
   const [config, setConfig] = useState<Omit<FiscalConfig, 'id' | 'createdAt' | 'updatedAt'>>({
@@ -28,7 +30,7 @@ const FiscalSettings: React.FC = () => {
   const loadConfig = async () => {
     try {
       setLoading(true);
-      const savedConfig = await settingsServiceOffline.getFiscalConfig();
+      const savedConfig = await settingsServiceOffline.getFiscalConfig(currentUnit);
       if (savedConfig) {
         setConfig({
           companyName: savedConfig.companyName,
@@ -60,7 +62,7 @@ const FiscalSettings: React.FC = () => {
 
     try {
       setLoading(true);
-      await settingsServiceOffline.saveFiscalConfig(config);
+      await settingsServiceOffline.saveFiscalConfig(config, currentUnit);
       toast.success('✅ Configurações salvas com sucesso!');
     } catch (error) {
       console.error('Error saving fiscal config:', error);

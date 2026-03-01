@@ -134,7 +134,7 @@ const CashReport: React.FC = () => {
       setPrinting(true);
 
       // Carregar configurações fiscais
-      const fiscalConfig = await settingsServiceOffline.getFiscalConfig();
+      const fiscalConfig = await settingsServiceOffline.getFiscalConfig(currentUnit);
       
       if (!fiscalConfig?.enableFiscalPrint) {
         toast.warning('Impressão não configurada. Gerando visualização...');

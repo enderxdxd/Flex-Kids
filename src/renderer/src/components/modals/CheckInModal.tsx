@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ModalWrapper from './ModalWrapper';
 import { toast } from 'react-toastify';
 import { Customer, Child, KidsPlan } from '../../../../shared/types';
 import { customersService } from '../../../../shared/firebase/services/customers.service';
@@ -151,10 +152,8 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
     onClose();
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <ModalWrapper isOpen={isOpen} onClose={handleClose}>
       <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-slate-200">
           <h2 className="text-lg font-bold text-slate-800">Novo Check-In</h2>
@@ -287,7 +286,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
           </div>
         </form>
       </div>
-    </div>
+    </ModalWrapper>
   );
 };
 

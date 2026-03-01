@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import ModalWrapper from './ModalWrapper';
 import { Visit } from '../../../../shared/types';
 import { visitsServiceOffline } from '../../../../shared/firebase/services/visits.service.offline';
 import { toast } from 'react-toastify';
@@ -23,8 +24,6 @@ const CancelCheckInModal: React.FC<CancelCheckInModalProps> = ({
   const [minutesToDeduct, setMinutesToDeduct] = useState('');
   const [loading, setLoading] = useState(false);
   const processingRef = useRef(false);
-
-  if (!isOpen) return null;
 
   const checkInTime = visit.checkIn instanceof Date ? visit.checkIn : new Date(visit.checkIn);
   const timeSinceCheckIn = Date.now() - checkInTime.getTime();
@@ -76,7 +75,7 @@ const CancelCheckInModal: React.FC<CancelCheckInModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <ModalWrapper isOpen={isOpen} onClose={onClose}>
       <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-slate-200">
@@ -152,7 +151,7 @@ const CancelCheckInModal: React.FC<CancelCheckInModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </ModalWrapper>
   );
 };
 

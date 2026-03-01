@@ -6,12 +6,12 @@ import { syncService } from '../../database/syncService';
 const COLLECTION = 'settings';
 
 export const settingsServiceOffline = {
-  async getSettings(): Promise<{ hourlyRate: number; minimumTime: number; pixKey: string }> {
+  async getSettings(unitId?: string): Promise<{ hourlyRate: number; minimumTime: number; pixKey: string }> {
     try {
       const [hourlyRate, minimumTime, pixKey] = await Promise.all([
-        this.getHourlyRate(),
-        this.getMinimumTime(),
-        this.getPixKey(),
+        this.getHourlyRate(unitId),
+        this.getMinimumTime(unitId),
+        this.getPixKey(unitId),
       ]);
       return { hourlyRate, minimumTime, pixKey };
     } catch (error) {
@@ -146,35 +146,50 @@ export const settingsServiceOffline = {
     }
   },
 
-  async getHourlyRate(): Promise<number> {
-    const value = await this.getSetting('hourlyRate');
+  // Helper: build unit-scoped key
+  _unitKey(base: string, unitId?: string): string {
+    return unitId ? `${base}_${unitId}` : base;
+  },
+
+  // Helper: get setting with unit fallback (tries unit-specific first, then global)
+  async _getSettingWithFallback(base: string, unitId?: string): Promise<string | null> {
+    if (unitId) {
+      const unitValue = await this.getSetting(`${base}_${unitId}`);
+      if (unitValue !== null) return unitValue;
+    }
+    // Fallback to global (migration support)
+    return await this.getSetting(base);
+  },
+
+  async getHourlyRate(unitId?: string): Promise<number> {
+    const value = await this._getSettingWithFallback('hourlyRate', unitId);
     return value ? parseFloat(value) : 30.0;
   },
 
-  async setHourlyRate(rate: number): Promise<void> {
-    await this.setSetting('hourlyRate', rate.toString());
+  async setHourlyRate(rate: number, unitId?: string): Promise<void> {
+    await this.setSetting(this._unitKey('hourlyRate', unitId), rate.toString());
   },
 
-  async getMinimumTime(): Promise<number> {
-    const value = await this.getSetting('minimumTime');
+  async getMinimumTime(unitId?: string): Promise<number> {
+    const value = await this._getSettingWithFallback('minimumTime', unitId);
     return value ? parseInt(value) : 30;
   },
 
-  async setMinimumTime(minutes: number): Promise<void> {
-    await this.setSetting('minimumTime', minutes.toString());
+  async setMinimumTime(minutes: number, unitId?: string): Promise<void> {
+    await this.setSetting(this._unitKey('minimumTime', unitId), minutes.toString());
   },
 
-  async getPixKey(): Promise<string | null> {
-    return await this.getSetting('pixKey');
+  async getPixKey(unitId?: string): Promise<string | null> {
+    return await this._getSettingWithFallback('pixKey', unitId);
   },
 
-  async setPixKey(key: string): Promise<void> {
-    await this.setSetting('pixKey', key);
+  async setPixKey(key: string, unitId?: string): Promise<void> {
+    await this.setSetting(this._unitKey('pixKey', unitId), key);
   },
 
-  async getFiscalConfig(): Promise<FiscalConfig | null> {
+  async getFiscalConfig(unitId?: string): Promise<FiscalConfig | null> {
     try {
-      const configStr = await this.getSetting('fiscalConfig');
+      const configStr = await this._getSettingWithFallback('fiscalConfig', unitId);
       if (!configStr) return null;
       
       const config = JSON.parse(configStr);
@@ -189,7 +204,7 @@ export const settingsServiceOffline = {
     }
   },
 
-  async saveFiscalConfig(config: Omit<FiscalConfig, 'id' | 'createdAt' | 'updatedAt'>): Promise<void> {
+  async saveFiscalConfig(config: Omit<FiscalConfig, 'id' | 'createdAt' | 'updatedAt'>, unitId?: string): Promise<void> {
     try {
       const fiscalConfig: FiscalConfig = {
         id: 'fiscalConfig',
@@ -198,16 +213,16 @@ export const settingsServiceOffline = {
         updatedAt: new Date(),
       };
       
-      await this.setSetting('fiscalConfig', JSON.stringify(fiscalConfig));
+      await this.setSetting(this._unitKey('fiscalConfig', unitId), JSON.stringify(fiscalConfig));
     } catch (error) {
       console.error('Error saving fiscal config:', error);
       throw error;
     }
   },
 
-  async getPackagePlans(): Promise<{ name: string; hours: number; price: number; expiryDays: number }[]> {
+  async getPackagePlans(unitId?: string): Promise<{ name: string; hours: number; price: number; expiryDays: number }[]> {
     try {
-      const plansStr = await this.getSetting('packagePlans');
+      const plansStr = await this._getSettingWithFallback('packagePlans', unitId);
       if (!plansStr) {
         return [
           { name: 'Pacote 5h', hours: 5, price: 150, expiryDays: 30 },
@@ -223,7 +238,7 @@ export const settingsServiceOffline = {
     }
   },
 
-  async savePackagePlans(plans: { name: string; hours: number; price: number; expiryDays: number }[]): Promise<void> {
-    await this.setSetting('packagePlans', JSON.stringify(plans));
+  async savePackagePlans(plans: { name: string; hours: number; price: number; expiryDays: number }[], unitId?: string): Promise<void> {
+    await this.setSetting(this._unitKey('packagePlans', unitId), JSON.stringify(plans));
   },
 };

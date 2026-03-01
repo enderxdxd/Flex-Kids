@@ -30,16 +30,16 @@ const Settings: React.FC = () => {
     syncService.getPendingSyncCount().then(setPendingSync).catch(() => {});
     const unsub = syncService.onPendingCountChange(setPendingSync);
     return () => unsub();
-  }, []);
+  }, [currentUnit]);
 
   const loadSettings = async () => {
     try {
       setLoading(true);
       const [hourlyRateValue, minimumTimeValue, pixKeyValue, fiscalConfig] = await Promise.all([
-        settingsServiceOffline.getHourlyRate(),
-        settingsServiceOffline.getMinimumTime(),
-        settingsServiceOffline.getPixKey(),
-        settingsServiceOffline.getFiscalConfig(),
+        settingsServiceOffline.getHourlyRate(currentUnit),
+        settingsServiceOffline.getMinimumTime(currentUnit),
+        settingsServiceOffline.getPixKey(currentUnit),
+        settingsServiceOffline.getFiscalConfig(currentUnit),
       ]);
       setHourlyRate(hourlyRateValue.toString());
       setMinimumTime(minimumTimeValue.toString());
@@ -70,9 +70,9 @@ const Settings: React.FC = () => {
     try {
       setSaving(true);
       await Promise.all([
-        settingsServiceOffline.setHourlyRate(parseFloat(hourlyRate)),
-        settingsServiceOffline.setMinimumTime(parseInt(minimumTime)),
-        settingsServiceOffline.setPixKey(pixKey),
+        settingsServiceOffline.setHourlyRate(parseFloat(hourlyRate), currentUnit),
+        settingsServiceOffline.setMinimumTime(parseInt(minimumTime), currentUnit),
+        settingsServiceOffline.setPixKey(pixKey, currentUnit),
         settingsServiceOffline.saveFiscalConfig({
           companyName: 'Flex-Kids',
           cnpj: '',
@@ -85,7 +85,7 @@ const Settings: React.FC = () => {
           printerPort: printerPort,
           printerModel: 'MP-4200',
           enableFiscalPrint: enablePrinting,
-        }),
+        }, currentUnit),
       ]);
       toast.success('✅ Configurações salvas com sucesso!');
     } catch (error) {
@@ -113,7 +113,7 @@ const Settings: React.FC = () => {
         printerPort: printerPort,
         printerModel: 'MP-4200',
         enableFiscalPrint: enabled,
-      });
+      }, currentUnit);
       toast.success(enabled ? '✅ Impressão habilitada!' : '✅ Impressão desabilitada!');
     } catch (error) {
       console.error('Error saving print config:', error);
@@ -138,7 +138,7 @@ const Settings: React.FC = () => {
         printerPort: port,
         printerModel: 'MP-4200',
         enableFiscalPrint: enablePrinting,
-      });
+      }, currentUnit);
       toast.success('✅ Porta atualizada!');
     } catch (error) {
       console.error('Error saving port config:', error);
@@ -201,7 +201,7 @@ const Settings: React.FC = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-800">Configurações</h1>
-        <p className="text-sm text-slate-500">Configurações gerais do sistema</p>
+        <p className="text-sm text-slate-500">Configurações da unidade <span className="font-semibold text-violet-600">{currentUnit}</span></p>
       </div>
 
       {loading ? (

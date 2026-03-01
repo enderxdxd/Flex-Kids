@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ModalWrapper from './ModalWrapper';
 import { toast } from 'react-toastify';
 import { Visit, Package, Child, Customer, FiscalConfig } from '../../../../shared/types';
 import { visitsServiceOffline } from '../../../../shared/firebase/services/visits.service.offline';
@@ -58,7 +59,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
     try {
       const [childData, settings, allCustomers] = await Promise.all([
         customersServiceOffline.getChildById(visit.childId),
-        settingsServiceOffline.getSettings(),
+        settingsServiceOffline.getSettings(currentUnit),
         customersServiceOffline.getAllCustomers(currentUnit),
       ]);
       
@@ -122,7 +123,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
       setMinimumTime(settings.minimumTime || 30);
 
       // Carregar configurações fiscais
-      const fiscalSettings = await settingsServiceOffline.getFiscalConfig();
+      const fiscalSettings = await settingsServiceOffline.getFiscalConfig(currentUnit);
       if (fiscalSettings) {
         setFiscalConfig(fiscalSettings);
         setPrintFiscalNote(fiscalSettings.enableFiscalPrint);
@@ -424,8 +425,6 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
     onClose();
   };
 
-  if (!isOpen) return null;
-
   const formatTime = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
@@ -433,8 +432,8 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+    <ModalWrapper isOpen={isOpen} onClose={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-slate-200">
           <h2 className="text-lg font-bold text-slate-800">Check-Out</h2>
           <button onClick={handleClose} className="p-1 rounded-md hover:bg-slate-100 text-slate-400">✕</button>
@@ -656,7 +655,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
                 {(['pix', 'credit', 'debit'] as const).map(method => (
                   <button key={method} type="button" onClick={() => setPaymentMethod(method)}
                     className={`p-3 rounded-lg border text-center transition-all ${paymentMethod === method ? 'border-violet-500 bg-violet-50' : 'border-slate-200 hover:border-violet-300'}`}>
-                    <div className="text-xl mb-1">{method === 'pix' ? '�' : method === 'credit' ? '💳' : '�'}</div>
+                    <div className="text-xl mb-1">{method === 'pix' ? '⚡' : method === 'credit' ? '💳' : '💳'}</div>
                     <div className="text-xs font-medium text-slate-700">{method === 'pix' ? 'PIX' : method === 'credit' ? 'Crédito' : 'Débito'}</div>
                   </button>
                 ))}
@@ -739,7 +738,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
           )}
         </div>
       </div>
-    </div>
+    </ModalWrapper>
   );
 };
 

@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 interface NavbarProps {
   onRefresh?: () => void;
   loading?: boolean;
+  activeVisitsCount?: number;
 }
 
 const navItems = [
@@ -21,7 +22,7 @@ const navItems = [
   { href: '#/settings', icon: '⚙️', label: 'Configurações' },
 ];
 
-const Navbar: React.FC<NavbarProps> = ({ onRefresh, loading }) => {
+const Navbar: React.FC<NavbarProps> = ({ onRefresh, loading, activeVisitsCount }) => {
   const { currentUnit, isUnitLocked, getCurrentUnitInfo } = useUnit();
   const { isAdmin, logoutAdmin, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
@@ -80,6 +81,9 @@ const Navbar: React.FC<NavbarProps> = ({ onRefresh, loading }) => {
                 {item.icon}
               </span>
               {!collapsed && <span>{item.label}</span>}
+              {!collapsed && item.href === '#/dashboard' && activeVisitsCount !== undefined && activeVisitsCount > 0 && (
+                <span className="ml-auto min-w-[20px] h-5 flex items-center justify-center text-[10px] bg-violet-500 text-white px-1.5 rounded-full font-bold animate-pulse">{activeVisitsCount}</span>
+              )}
               {!collapsed && item.admin && (
                 <span className="ml-auto text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-bold">ADM</span>
               )}

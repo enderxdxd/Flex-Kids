@@ -75,7 +75,7 @@ const Packages: React.FC = () => {
         packagesServiceOffline.getAllPackages(currentUnit),
         customersServiceOffline.getAllCustomers(currentUnit),
         customersServiceOffline.getAllChildren(currentUnit),
-        settingsServiceOffline.getPackagePlans(),
+        settingsServiceOffline.getPackagePlans(currentUnit),
       ]);
 
       setPackages(showActiveOnly ? allPackages.filter(p => p.active && p.usedHours < p.hours) : allPackages);
@@ -108,7 +108,7 @@ const Packages: React.FC = () => {
       }
       updated = [...plans, { ...newPlan }];
     }
-    await settingsServiceOffline.savePackagePlans(updated);
+    await settingsServiceOffline.savePackagePlans(updated, currentUnit);
     setPlans(updated);
     setNewPlan({ name: '', hours: 10, price: 300, expiryDays: 30 });
     toast.success(editingPlanIdx !== null ? 'Plano atualizado!' : 'Plano adicionado!');
@@ -116,7 +116,7 @@ const Packages: React.FC = () => {
 
   const handleDeletePlan = async (idx: number) => {
     const updated = plans.filter((_, i) => i !== idx);
-    await settingsServiceOffline.savePackagePlans(updated);
+    await settingsServiceOffline.savePackagePlans(updated, currentUnit);
     setPlans(updated);
     toast.success('Plano removido');
   };
@@ -171,6 +171,7 @@ const Packages: React.FC = () => {
           type: formData.type,
           hours: formData.hours,
           price: formData.price,
+          expiryDays: formData.expiryDays || 30,
           unitId: currentUnit,
         });
         toast.success('Pacote atualizado!');
