@@ -406,8 +406,8 @@ const Customers: React.FC = () => {
             </div>
             <form onSubmit={handleChildSubmit} className="p-5 space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Matrícula</label>
-                <input type="text" value={childFormData.enrollmentCode || ''} onChange={(e) => setChildFormData({ ...childFormData, enrollmentCode: e.target.value.toUpperCase() })} placeholder="Código do sistema anterior" className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500 placeholder:font-sans" />
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Matrícula Criança</label>
+                <input type="text" value={childFormData.enrollmentCode || ''} onChange={(e) => setChildFormData({ ...childFormData, enrollmentCode: e.target.value.toUpperCase() })} placeholder="Código de matrícula da criança" className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500 placeholder:font-sans" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">Nome *</label>

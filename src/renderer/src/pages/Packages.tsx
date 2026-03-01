@@ -244,9 +244,6 @@ const Packages: React.FC = () => {
           <button onClick={loadData} disabled={loading} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors">
             {loading ? '⏳' : '🔄'} Atualizar
           </button>
-          <button onClick={() => openModal()} className="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors shadow-sm">
-            + Novo Pacote
-          </button>
         </div>
       </div>
 

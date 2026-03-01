@@ -59,7 +59,15 @@ const KidsPlans: React.FC = () => {
     }
   };
 
-  const getChildName = (plan: KidsPlan) => children.find(c => c.id === plan.childId)?.name || plan.childName || '-';
+  const getChildName = (plan: KidsPlan) => {
+    const byId = children.find(c => c.id === plan.childId);
+    if (byId) return byId.name;
+    if (plan.enrollmentCode) {
+      const byCode = children.find(c => c.enrollmentCode === plan.enrollmentCode);
+      if (byCode) return byCode.name;
+    }
+    return plan.childName || '-';
+  };
   const getCustomerName = (customerId: string) => customers.find(c => c.id === customerId)?.name || '-';
 
   const coaches = Array.from(new Set(plans.map(p => p.coach).filter(Boolean))) as string[];

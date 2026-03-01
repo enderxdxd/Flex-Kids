@@ -125,9 +125,32 @@ export const kidsPlansServiceOffline = {
 
   async getAllPlans(unitId?: string): Promise<KidsPlan[]> {
     try {
+      // 1. Busca do cache local primeiro
       const localPlans = unitId
         ? await syncService.getAllFromLocalByUnit(COLLECTION, unitId) as KidsPlan[]
         : await syncService.getAllFromLocal(COLLECTION) as KidsPlan[];
+
+      // 2. Se offline, retorna cache
+      if (!syncService.isOnline()) {
+        return localPlans.filter((p: any) => !p.deletedAt);
+      }
+
+      // 3. Se online, busca Firebase em background para sincronizar
+      if (unitId) {
+        this.fetchFromFirebase(unitId)
+          .catch(err => console.error('Background fetch kidsPlans failed:', err));
+      }
+
+      // 4. Se cache vazio e online, aguarda o fetch do Firebase
+      if (localPlans.length === 0 && unitId) {
+        try {
+          const firebasePlans = await this.fetchFromFirebase(unitId);
+          return firebasePlans;
+        } catch {
+          return [];
+        }
+      }
+
       return localPlans.filter((p: any) => !p.deletedAt);
     } catch (error) {
       console.error('Error getting all kids plans:', error);
