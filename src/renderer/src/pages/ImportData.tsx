@@ -305,15 +305,15 @@ const ImportData: React.FC = () => {
       const matricula = stripQuotes(firstMatch(row, ['Matrícula', 'Matricula', 'MATRÍCULA', 'MATRICULA', 'Mat.']) ?? '');
       const nome = stripQuotes(firstMatch(row, ['Nome', 'NOME', 'NomeAluno']) ?? '').toUpperCase();
       const situacao = stripQuotes(firstMatch(row, ['Situação', 'Situacao', 'SITUAÇÃO', 'SITUACAO', 'Status']) ?? '');
-      const vinculo = stripQuotes(firstMatch(row, ['Vínculo', 'Vinculo', 'VÍNCULO', 'VINCULO', 'Coach'] ) ?? '');
+      const vinculo = stripQuotes(firstMatch(row, ['Vínculo', 'Vinculo', 'VÍNCULO', 'VINCULO', 'Coach', 'Consultor/Professor', 'Consultor', 'Professor'] ) ?? '');
       const plano = stripQuotes(firstMatch(row, ['Plano', 'PLANO', 'TipoPlano']) ?? '');
-      const contrato = stripQuotes(firstMatch(row, ['Contrato', 'CONTRATO', 'NrContrato', 'Nr Contrato']) ?? '');
-      const modalidade = stripQuotes(firstMatch(row, ['Modalidade', 'MODALIDADE']) ?? '');
+      const contrato = stripQuotes(firstMatch(row, ['Contrato', 'CONTRATO', 'NrContrato', 'Nr Contrato']) ?? matricula);
+      const modalidade = stripQuotes(firstMatch(row, ['Modalidade', 'MODALIDADE', 'Modalidades']) ?? '');
       const valorRaw = stripQuotes(firstMatch(row, ['Valor Modalidade', 'ValorModalidade', 'VALOR MODALIDADE', 'Valor']) ?? '0');
       const valorModalidade = parseFloat(valorRaw.replace(/[R$\s.]/g, '').replace(',', '.')) || 0;
-      const duracao = Number(stripQuotes(firstMatch(row, ['Duração', 'Duracao', 'DURAÇÃO', 'DURACAO']) ?? '0')) || 0;
-      const inicio = stripQuotes(firstMatch(row, ['Início', 'Inicio', 'INÍCIO', 'INICIO', 'Data Início']) ?? '');
-      const vence = stripQuotes(firstMatch(row, ['Vence', 'VENCE', 'Vencimento', 'Data Vencimento']) ?? '');
+      const duracao = Number(stripQuotes(firstMatch(row, ['Duração', 'Duracao', 'DURAÇÃO', 'DURACAO', 'Duração do Plano']) ?? '0')) || 0;
+      const inicio = stripQuotes(firstMatch(row, ['Início', 'Inicio', 'INÍCIO', 'INICIO', 'Data Início', 'Início Plano']) ?? '');
+      const vence = stripQuotes(firstMatch(row, ['Vence', 'VENCE', 'Vencimento', 'Data Vencimento', 'Vencimento Plano']) ?? '');
       const faturamentoRaw = stripQuotes(firstMatch(row, ['Faturamento', 'FATURAMENTO', 'Valor Total']) ?? '0');
       const faturamento = parseFloat(faturamentoRaw.replace(/[R$\s.]/g, '').replace(',', '.')) || 0;
       const email = stripQuotes(firstMatch(row, ['Email', 'EMAIL', 'E-mail', 'E-Mail']) ?? '');
@@ -826,7 +826,8 @@ const ImportData: React.FC = () => {
         }
 
         // Determine plan type
-        const planType = kp.plano.toUpperCase().includes('FULL') ? 'KIDS_FULL' : 'KIDS_2X';
+        const planoUpper = kp.plano.toUpperCase();
+        const planType = (planoUpper.includes('FULL') || planoUpper.includes('EVOLUTION')) ? 'KIDS_FULL' : 'KIDS_2X';
 
         // Determine status from situação
         const situacaoUpper = kp.situacao.toUpperCase();
