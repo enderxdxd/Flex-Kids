@@ -11,7 +11,7 @@ import CustomerModal from '../components/modals/CustomerModal';
 import PackageModal from '../components/modals/PackageModal';
 import CheckOutModal from '../components/modals/CheckOutModal';
 import CancelCheckInModal from '../components/modals/CancelCheckInModal';
-import { TargetIcon, MoneyIcon, ChartIcon, PackageIcon, GamepadIcon, PlusIcon, UserPlusIcon } from '../components/icons/Icons';
+import { TargetIcon, MoneyIcon, ChartIcon, PackageIcon, GamepadIcon, PlusIcon, UserPlusIcon, CreditCardIcon } from '../components/icons/Icons';
 
 // Helper: color based on elapsed minutes
 const getTimeColor = (minutes: number) => {
@@ -324,60 +324,93 @@ const DashboardNew: React.FC = () => {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Ações Rápidas */}
-            <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-white/20 p-6 shadow-lg">
-              <h2 className="text-xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent mb-4">Ações Rápidas</h2>
+            <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-white/20 p-6 shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <div className="flex items-center gap-2 mb-5">
+                <div className="w-8 h-8 bg-gradient-to-br from-violet-100 to-purple-200 rounded-xl flex items-center justify-center">
+                  <span className="text-lg">⚡</span>
+                </div>
+                <h2 className="text-lg font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">Ações Rápidas</h2>
+              </div>
               <div className="space-y-3">
                 <button
                   onClick={() => setShowCheckInModal(true)}
-                  className="w-full flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-100/50 border border-emerald-200/50 hover:border-emerald-300 hover:shadow-lg hover:scale-105 transition-all duration-300 text-left group"
+                  className="w-full flex items-center gap-4 p-4 rounded-2xl bg-gradient-to-br from-emerald-50 via-emerald-50 to-teal-50 border border-emerald-200/60 hover:border-emerald-400 hover:shadow-xl hover:scale-[1.02] transition-all duration-300 text-left group relative overflow-hidden"
                 >
-                  <PlusIcon className="text-emerald-600 group-hover:scale-110 transition-transform duration-300" size={24} />
-                  <div>
-                    <p className="font-semibold text-sm text-slate-800">Check-In</p>
-                    <p className="text-xs text-slate-500">Registrar entrada</p>
+                  <div className="absolute inset-0 bg-gradient-to-r from-emerald-400/0 via-emerald-400/5 to-emerald-400/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
+                  <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/30 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                    <PlusIcon className="text-white" size={24} />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-bold text-sm text-slate-800 group-hover:text-emerald-700 transition-colors">Check-In</p>
+                    <p className="text-xs text-slate-500 mt-0.5">Registrar entrada de criança</p>
+                  </div>
+                  <div className="text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                      <path d="M9 18L15 12L9 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
                   </div>
                 </button>
                 <button
                   onClick={() => setShowCustomerModal(true)}
-                  className="w-full flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100/50 border border-blue-200/50 hover:border-blue-300 hover:shadow-lg hover:scale-105 transition-all duration-300 text-left group"
+                  className="w-full flex items-center gap-4 p-4 rounded-2xl bg-gradient-to-br from-blue-50 via-blue-50 to-indigo-50 border border-blue-200/60 hover:border-blue-400 hover:shadow-xl hover:scale-[1.02] transition-all duration-300 text-left group relative overflow-hidden"
                 >
-                  <UserPlusIcon className="text-blue-600 group-hover:scale-110 transition-transform duration-300" size={24} />
-                  <div>
-                    <p className="font-semibold text-sm text-slate-800">Novo Cliente</p>
-                    <p className="text-xs text-slate-500">Cadastrar responsável</p>
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400/0 via-blue-400/5 to-blue-400/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                    <UserPlusIcon className="text-white" size={24} />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-bold text-sm text-slate-800 group-hover:text-blue-700 transition-colors">Novo Cliente</p>
+                    <p className="text-xs text-slate-500 mt-0.5">Cadastrar responsável</p>
+                  </div>
+                  <div className="text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                      <path d="M9 18L15 12L9 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
                   </div>
                 </button>
               </div>
             </div>
 
             {/* Pagamentos Recentes */}
-            <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-white/20 p-6 shadow-lg">
-              <h2 className="text-xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent mb-4">Pagamentos Recentes</h2>
-              <div className="space-y-2">
+            <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-white/20 p-6 shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <div className="flex items-center gap-2 mb-5">
+                <div className="w-8 h-8 bg-gradient-to-br from-emerald-100 to-teal-200 rounded-xl flex items-center justify-center">
+                  <CreditCardIcon className="text-emerald-600" size={18} />
+                </div>
+                <h2 className="text-lg font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">Pagamentos Recentes</h2>
+              </div>
+              <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
                 {recentPayments.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-4xl mb-2">💳</p>
-                    <p className="text-sm font-medium text-slate-500">Nenhum pagamento hoje</p>
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 bg-gradient-to-br from-slate-100 to-slate-200 rounded-2xl flex items-center justify-center mx-auto mb-3 animate-[pulse-slow_3s_ease-in-out_infinite]">
+                      <CreditCardIcon className="text-slate-400" size={32} />
+                    </div>
+                    <p className="text-sm font-bold text-slate-700 mb-1">Nenhum pagamento hoje</p>
+                    <p className="text-xs text-slate-500">Os pagamentos aparecerão aqui</p>
                   </div>
                 ) : (
                   recentPayments.map((payment) => (
-                    <div key={payment.id} className="flex items-center gap-3 py-3 px-3 rounded-xl hover:bg-slate-50/50 transition-all duration-200 border-b border-slate-100/50 last:border-0">
-                      <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0 text-sm">
+                    <div key={payment.id} className="group flex items-center gap-3 py-3 px-3 rounded-xl hover:bg-gradient-to-r hover:from-emerald-50/50 hover:to-teal-50/30 transition-all duration-200 border border-transparent hover:border-emerald-200/50 hover:shadow-md">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 group-hover:from-emerald-100 group-hover:to-teal-100 flex items-center justify-center flex-shrink-0 text-base transition-all duration-200 shadow-sm">
                         {getPaymentMethodIcon(payment.method)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm text-slate-700 truncate">{payment.childName || payment.description || 'Pagamento'}</p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-[10px] text-slate-400">
+                        <p className="font-bold text-sm text-slate-800 truncate group-hover:text-emerald-700 transition-colors">{payment.childName || payment.description || 'Pagamento'}</p>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span className="text-[10px] text-slate-500 font-medium">
                             {new Date(payment.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                           </span>
-                          <span className={`text-[9px] font-bold px-1 py-0.5 rounded ${payment.type === 'package' ? 'bg-violet-100 text-violet-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                            {payment.type === 'package' ? 'Pacote' : 'Visita'}
+                          <span className="text-slate-300">•</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${payment.type === 'package' ? 'bg-violet-100 text-violet-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                            {payment.type === 'package' ? 'Pacote' : 'Avulso'}
                           </span>
-                          <span className="text-[9px] text-slate-400">{getPaymentMethodLabel(payment.method)}</span>
+                          <span className="text-slate-300">•</span>
+                          <span className="text-[10px] text-slate-500 font-medium">{getPaymentMethodLabel(payment.method)}</span>
                         </div>
                       </div>
-                      <p className="font-bold text-sm text-emerald-600 flex-shrink-0">R$ {payment.amount.toFixed(2)}</p>
+                      <div className="flex flex-col items-end">
+                        <p className="font-bold text-base text-emerald-600 group-hover:text-emerald-700 transition-colors">R$ {payment.amount.toFixed(2)}</p>
+                      </div>
                     </div>
                   ))
                 )}

@@ -162,76 +162,79 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
 
   return (
     <ModalWrapper isOpen={isOpen} onClose={handleClose}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-slate-200">
-          <h2 className="text-lg font-bold text-slate-800">Novo Check-In</h2>
-          <button onClick={handleClose} className="p-1 rounded-md hover:bg-slate-100 text-slate-400">✕</button>
+      <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-end p-4 border-b border-slate-200/50">
+          <button onClick={handleClose} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <div className="flex rounded-lg bg-slate-100 p-0.5">
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          <div className="flex rounded-2xl bg-gradient-to-br from-slate-100 to-slate-50 p-1 shadow-inner">
             <button type="button" onClick={() => { setSearchMode('client'); setSearchTerm(''); setSelectedCustomer(''); setSelectedChild(''); }}
-              className={`flex-1 py-2 text-xs font-semibold rounded-md transition-all ${searchMode === 'client' ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-              Por Cliente
+              className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-2 ${searchMode === 'client' ? 'bg-white text-violet-700 shadow-lg shadow-violet-500/20' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}>
+              <span className="text-lg">👥</span> Por Cliente
             </button>
             <button type="button" onClick={() => { setSearchMode('child'); setSearchTerm(''); setSelectedCustomer(''); setSelectedChild(''); }}
-              className={`flex-1 py-2 text-xs font-semibold rounded-md transition-all ${searchMode === 'child' ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-              Por Criança
+              className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-2 ${searchMode === 'child' ? 'bg-white text-violet-700 shadow-lg shadow-violet-500/20' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}>
+              <span className="text-lg">🧒</span> Por Criança
             </button>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-              {searchMode === 'client' ? 'Buscar Cliente' : 'Buscar Criança'}
+            <label className="block text-sm font-bold text-slate-700 mb-2">
+              {searchMode === 'client' ? '🔍 Buscar Cliente' : '🔍 Buscar Criança'}
             </label>
             <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder={searchMode === 'client' ? 'Nome ou telefone...' : 'Nome da criança...'}
-              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+              placeholder={searchMode === 'client' ? 'Digite nome ou telefone...' : 'Digite o nome da criança...'}
+              className="w-full px-4 py-3 border border-slate-200 rounded-2xl text-sm bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent focus:bg-white transition-all duration-200 shadow-sm hover:shadow-md" />
           </div>
 
           {searchMode === 'client' && (
             <>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Cliente</label>
-                <div className="space-y-1 max-h-36 overflow-y-auto border border-slate-200 rounded-lg p-1.5">
+                <label className="block text-sm font-bold text-slate-700 mb-2">Cliente</label>
+                <div className="space-y-2 max-h-40 overflow-y-auto border border-slate-200/50 rounded-2xl p-2 bg-slate-50/30">
                   {filteredCustomers.length === 0 ? (
-                    <p className="text-center text-slate-400 py-3 text-xs">Nenhum cliente encontrado</p>
+                    <p className="text-center text-slate-400 py-4 text-sm">Nenhum cliente encontrado</p>
                   ) : filteredCustomers.map(customer => (
                     <button key={customer.id} type="button" onClick={() => { setSelectedCustomer(customer.id); setSelectedChild(''); }}
-                      className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${selectedCustomer === customer.id ? 'bg-violet-50 border border-violet-300' : 'hover:bg-slate-50 border border-transparent'}`}>
-                      <p className="font-semibold text-slate-800">{customer.name}</p>
-                      <p className="text-xs text-slate-500">{customer.phone}</p>
+                      className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-all duration-200 ${selectedCustomer === customer.id ? 'bg-gradient-to-r from-violet-50 to-purple-50 border-2 border-violet-300 shadow-md' : 'hover:bg-white border-2 border-transparent hover:shadow-sm'}`}>
+                      <p className="font-bold text-slate-800">{customer.name}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">📞 {customer.phone}</p>
                     </button>
                   ))}
                 </div>
               </div>
               {selectedCustomer && (
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-semibold text-slate-600">Criança</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-bold text-slate-700">Criança</label>
                     {customerChildren.length > 1 && (
                       <button type="button" onClick={handleCheckInAll} disabled={loading}
-                        className="text-xs font-semibold text-violet-600 hover:text-violet-700 disabled:opacity-50 transition-colors">
-                        Check-in em Todos ({customerChildren.length})
+                        className="text-xs font-bold text-violet-600 hover:text-violet-700 disabled:opacity-50 transition-colors px-3 py-1.5 rounded-lg hover:bg-violet-50">
+                        ✓ Check-in em Todos ({customerChildren.length})
                       </button>
                     )}
                   </div>
-                  <div className="space-y-1">
+                  <div className="space-y-2">
                     {customerChildren.length === 0 ? (
-                      <p className="text-center text-slate-400 py-3 text-xs bg-slate-50 rounded-lg">Sem crianças cadastradas</p>
+                      <p className="text-center text-slate-400 py-4 text-sm bg-slate-50 rounded-xl">Sem crianças cadastradas</p>
                     ) : customerChildren.map(child => {
                       const plan = getChildPlan(child.id);
                       return (
                         <button key={child.id} type="button" onClick={() => setSelectedChild(child.id)}
-                          className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${selectedChild === child.id ? 'bg-emerald-50 border border-emerald-300' : 'hover:bg-slate-50 border border-transparent'}`}>
+                          className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-all duration-200 ${selectedChild === child.id ? 'bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-300 shadow-md' : 'hover:bg-white border-2 border-transparent hover:shadow-sm'}`}>
                           <div className="flex justify-between items-center">
                             <div>
-                              <p className="font-semibold text-slate-800">{child.name}</p>
-                              <p className="text-xs text-slate-500">{getChildAge(child)} anos</p>
+                              <p className="font-bold text-slate-800">{child.name}</p>
+                              <p className="text-xs text-slate-500 mt-0.5">🎂 {getChildAge(child)} anos</p>
                             </div>
                             {plan && (
-                              <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-semibold">
-                                Plano Kids
+                              <span className="text-[10px] bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-2 py-1 rounded-full font-bold shadow-sm">
+                                🎓 Plano Kids
                               </span>
                             )}
                           </div>
@@ -246,26 +249,26 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
 
           {searchMode === 'child' && (
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Resultados</label>
-              <div className="space-y-1 max-h-48 overflow-y-auto border border-slate-200 rounded-lg p-1.5">
+              <label className="block text-sm font-bold text-slate-700 mb-2">Resultados</label>
+              <div className="space-y-2 max-h-52 overflow-y-auto border border-slate-200/50 rounded-2xl p-2 bg-slate-50/30">
                 {searchTerm.trim().length === 0 ? (
-                  <p className="text-center text-slate-400 py-3 text-xs">Digite o nome da criança acima</p>
+                  <p className="text-center text-slate-400 py-4 text-sm">Digite o nome da criança acima</p>
                 ) : filteredChildrenByName.length === 0 ? (
-                  <p className="text-center text-slate-400 py-3 text-xs">Nenhuma criança encontrada</p>
+                  <p className="text-center text-slate-400 py-4 text-sm">Nenhuma criança encontrada</p>
                 ) : filteredChildrenByName.map(child => {
                   const parent = customers.find(c => c.id === child.customerId);
                   const plan = getChildPlan(child.id);
                   return (
                     <button key={child.id} type="button" onClick={() => setSelectedChild(child.id)}
-                      className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${selectedChild === child.id ? 'bg-emerald-50 border border-emerald-300' : 'hover:bg-slate-50 border border-transparent'}`}>
+                      className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-all duration-200 ${selectedChild === child.id ? 'bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-300 shadow-md' : 'hover:bg-white border-2 border-transparent hover:shadow-sm'}`}>
                       <div className="flex justify-between items-center">
                         <div>
-                          <p className="font-semibold text-slate-800">{child.name}</p>
-                          <p className="text-xs text-slate-500">{getChildAge(child)} anos {parent ? `- ${parent.name}` : ''}</p>
+                          <p className="font-bold text-slate-800">{child.name}</p>
+                          <p className="text-xs text-slate-500 mt-0.5">🎂 {getChildAge(child)} anos {parent ? `• ${parent.name}` : ''}</p>
                         </div>
                         {plan && (
-                          <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-semibold">
-                            Plano Kids
+                          <span className="text-[10px] bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-2 py-1 rounded-full font-bold shadow-sm">
+                            🎓 Plano Kids
                           </span>
                         )}
                       </div>
@@ -277,19 +280,21 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
           )}
 
           {selectedChild && getChildPlan(selectedChild) && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2">
-              <span className="text-lg">🎓</span>
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200/50 rounded-2xl p-4 flex items-center gap-3 shadow-sm">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30">
+                <span className="text-white text-lg">🎓</span>
+              </div>
               <div>
-                <p className="text-xs font-semibold text-blue-800">Plano Kids ativo</p>
-                <p className="text-[11px] text-blue-600">3 horas gratuitas por dia — excedente cobrado no check-out</p>
+                <p className="text-sm font-bold text-blue-800">Plano Kids Ativo</p>
+                <p className="text-xs text-blue-600 mt-0.5">3 horas gratuitas por dia • Excedente cobrado no check-out</p>
               </div>
             </div>
           )}
 
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={handleClose} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
-            <button type="submit" disabled={!selectedChild || loading} className="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors disabled:opacity-50">
-              {loading ? 'Processando...' : selectedChild && getChildPlan(selectedChild) ? 'Check-In (Plano Kids)' : 'Confirmar Check-In'}
+          <div className="flex gap-3 pt-3">
+            <button type="button" onClick={handleClose} className="flex-1 py-3 rounded-xl border-2 border-slate-300 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:border-slate-400 transition-all duration-200 shadow-sm hover:shadow-md">Cancelar</button>
+            <button type="submit" disabled={!selectedChild || loading} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-sm font-bold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed">
+              {loading ? '⏳ Processando...' : selectedChild && getChildPlan(selectedChild) ? '✓ Check-In (Plano Kids)' : '✓ Confirmar Check-In'}
             </button>
           </div>
         </form>

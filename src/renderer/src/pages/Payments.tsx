@@ -48,22 +48,45 @@ const Payments: React.FC = () => {
   };
 
   const getPaymentsByMethod = () => {
-    const methods = ['dinheiro', 'pix', 'cartao', 'pacote'];
-    return methods.map(method => ({
-      method,
-      count: payments.filter(p => p.method === method).length,
-      total: payments.filter(p => p.method === method).reduce((sum, p) => sum + p.amount, 0),
-    }));
+    const methods = ['cash', 'pix', 'card', 'package'];
+    return methods.map(method => {
+      const filtered = method === 'card' 
+        ? payments.filter(p => p.method === 'credit' || p.method === 'debit')
+        : payments.filter(p => p.method === method);
+      return {
+        method,
+        count: filtered.length,
+        total: filtered.reduce((sum, p) => sum + p.amount, 0),
+      };
+    });
   };
 
   const getPaymentMethodLabel = (method: string) => {
     const labels: Record<string, string> = {
-      dinheiro: '💵 Dinheiro',
-      pix: '📱 PIX',
-      cartao: '💳 Cartão',
-      pacote: '📦 Pacote',
+      cash: '💵 Dinheiro',
+      pix: '⚡ PIX',
+      card: '💳 Cartão',
+      credit: '💳 Cartão',
+      debit: '💳 Cartão',
+      package: '📦 Pacote',
     };
     return labels[method] || method;
+  };
+
+  const getPaymentMethodBadge = (method: string) => {
+    const badges: Record<string, { bg: string; text: string; label: string }> = {
+      cash: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Dinheiro' },
+      pix: { bg: 'bg-cyan-100', text: 'text-cyan-700', label: 'PIX' },
+      credit: { bg: 'bg-blue-100', text: 'text-blue-700', label: method === 'credit' ? 'Crédito' : 'Débito' },
+      debit: { bg: 'bg-blue-100', text: 'text-blue-700', label: method === 'credit' ? 'Crédito' : 'Débito' },
+      package: { bg: 'bg-violet-100', text: 'text-violet-700', label: 'Pacote' },
+    };
+    const badge = badges[method] || { bg: 'bg-slate-100', text: 'text-slate-700', label: method };
+    return (
+      <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${badge.bg} ${badge.text}`}>
+        {badge.label}
+      </span>
+    );
   };
 
   const getStatusBadge = (status: string) => {
@@ -82,7 +105,9 @@ const Payments: React.FC = () => {
 
   const filteredPayments = selectedMethod === 'all'
     ? payments
-    : payments.filter(p => p.method === selectedMethod);
+    : selectedMethod === 'card'
+      ? payments.filter(p => p.method === 'credit' || p.method === 'debit')
+      : payments.filter(p => p.method === selectedMethod);
 
   const methodStats = getPaymentsByMethod();
 
@@ -141,10 +166,10 @@ const Payments: React.FC = () => {
           </div>
           <select value={selectedMethod} onChange={(e) => setSelectedMethod(e.target.value)} className="px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-violet-500">
             <option value="all">Todos os métodos</option>
-            <option value="dinheiro">Dinheiro</option>
+            <option value="cash">Dinheiro</option>
             <option value="pix">PIX</option>
-            <option value="cartao">Cartão</option>
-            <option value="pacote">Pacote</option>
+            <option value="card">Cartão</option>
+            <option value="package">Pacote</option>
           </select>
         </div>
 
@@ -161,18 +186,23 @@ const Payments: React.FC = () => {
           <div className="divide-y divide-slate-100">
             {filteredPayments.map((payment) => (
               <div key={payment.id} className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <span className="text-lg flex-shrink-0">{getPaymentMethodLabel(payment.method).split(' ')[0]}</span>
-                  <div className="min-w-0">
-                    <p className="font-semibold text-sm text-slate-800">R$ {payment.amount.toFixed(2)}</p>
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center flex-shrink-0 text-lg">
+                    {getPaymentMethodLabel(payment.method).split(' ')[0]}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="font-bold text-base text-slate-800">R$ {payment.amount.toFixed(2)}</p>
+                      {getPaymentMethodBadge(payment.method)}
+                    </div>
                     <p className="text-xs text-slate-500 truncate">
                       {format(new Date(payment.createdAt), 'dd/MM/yyyy HH:mm')}
-                      {payment.description ? ` — ${payment.description}` : ''}
+                      {payment.description ? ` • ${payment.description}` : ''}
+                      {payment.childName ? ` • ${payment.childName}` : ''}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0 ml-4">
-                  <span className="text-xs text-slate-500">{getPaymentMethodLabel(payment.method).split(' ')[1]}</span>
                   {getStatusBadge(payment.status)}
                 </div>
               </div>

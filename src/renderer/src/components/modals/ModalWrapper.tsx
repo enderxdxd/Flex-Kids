@@ -31,7 +31,7 @@ const ModalWrapper: React.FC<ModalWrapperProps> = ({ isOpen, onClose, children }
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className={`transition-opacity duration-150 ease-out ${animate ? 'opacity-100' : 'opacity-0'}`}
+        className={`w-full max-w-2xl transition-all duration-200 ease-out ${animate ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
       >
         {children}
       </div>
