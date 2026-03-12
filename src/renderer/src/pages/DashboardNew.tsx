@@ -11,6 +11,7 @@ import CustomerModal from '../components/modals/CustomerModal';
 import PackageModal from '../components/modals/PackageModal';
 import CheckOutModal from '../components/modals/CheckOutModal';
 import CancelCheckInModal from '../components/modals/CancelCheckInModal';
+import { TargetIcon, MoneyIcon, ChartIcon, PackageIcon, GamepadIcon, PlusIcon, UserPlusIcon } from '../components/icons/Icons';
 
 // Helper: color based on elapsed minutes
 const getTimeColor = (minutes: number) => {
@@ -173,7 +174,7 @@ const DashboardNew: React.FC = () => {
     <div className="min-h-screen bg-slate-50">
       <Navbar onRefresh={() => loadStats(true)} loading={loading} activeVisitsCount={activeVisits.length} />
 
-      <div className="ml-[240px] p-6 space-y-6">
+      <div className="ml-[240px] p-8 space-y-8">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -197,70 +198,73 @@ const DashboardNew: React.FC = () => {
             </div>
             <button
               onClick={() => setShowCheckInModal(true)}
-              className="bg-violet-600 hover:bg-violet-700 text-white px-5 py-2.5 rounded-lg font-semibold transition-colors flex items-center gap-2 shadow-sm"
+              className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105"
             >
-              <span>➕</span> Novo Check-In
+              <PlusIcon size={20} /> Novo Check-In
             </button>
           </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <span className="text-xl">🎯</span>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-white/20 p-7 hover:shadow-2xl hover:border-blue-200 hover:scale-105 transition-all duration-300 group shadow-lg">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 animate-[pulse-slow_3s_ease-in-out_infinite]">
+                <TargetIcon className="text-blue-600 group-hover:animate-[bounce-subtle_0.6s_ease-in-out]" size={28} />
               </div>
               {loading && isInitialLoad && <div className="animate-spin text-sm">⏳</div>}
             </div>
-            <p className="text-sm text-slate-500 font-medium">Visitas Ativas</p>
-            <p className="text-3xl font-bold text-slate-800 mt-1">{stats.activeVisits}</p>
+            <p className="text-xs text-slate-600 font-semibold uppercase tracking-wide">Visitas Ativas</p>
+            <p className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent mt-2">{stats.activeVisits}</p>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition-shadow">
-            <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center mb-3">
-              <span className="text-xl">💰</span>
+          <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-white/20 p-7 hover:shadow-2xl hover:border-emerald-200 hover:scale-105 transition-all duration-300 group shadow-lg">
+            <div className="w-12 h-12 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 animate-[pulse-slow_3s_ease-in-out_infinite_0.5s]">
+              <MoneyIcon className="text-emerald-600 group-hover:animate-[bounce-subtle_0.6s_ease-in-out]" size={28} />
             </div>
-            <p className="text-sm text-slate-500 font-medium">Receita Hoje</p>
-            <p className="text-3xl font-bold text-slate-800 mt-1">R$ {stats.todayRevenue.toFixed(2)}</p>
+            <p className="text-xs text-slate-600 font-semibold uppercase tracking-wide">Receita Hoje</p>
+            <p className="text-4xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-700 bg-clip-text text-transparent mt-2">R$ {stats.todayRevenue.toFixed(2)}</p>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition-shadow">
-            <div className="w-10 h-10 bg-violet-100 rounded-lg flex items-center justify-center mb-3">
-              <span className="text-xl">📊</span>
+          <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-white/20 p-7 hover:shadow-2xl hover:border-violet-200 hover:scale-105 transition-all duration-300 group shadow-lg">
+            <div className="w-12 h-12 bg-gradient-to-br from-violet-100 to-violet-200 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 animate-[pulse-slow_3s_ease-in-out_infinite_1s]">
+              <ChartIcon className="text-violet-600 group-hover:animate-[bounce-subtle_0.6s_ease-in-out]" size={28} />
             </div>
-            <p className="text-sm text-slate-500 font-medium">Total Visitas Hoje</p>
-            <p className="text-3xl font-bold text-slate-800 mt-1">{stats.todayVisits}</p>
+            <p className="text-xs text-slate-600 font-semibold uppercase tracking-wide">Total Visitas Hoje</p>
+            <p className="text-4xl font-bold bg-gradient-to-r from-violet-600 to-violet-700 bg-clip-text text-transparent mt-2">{stats.todayVisits}</p>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition-shadow">
-            <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center mb-3">
-              <span className="text-xl">📦</span>
+          <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-white/20 p-7 hover:shadow-2xl hover:border-amber-200 hover:scale-105 transition-all duration-300 group shadow-lg">
+            <div className="w-12 h-12 bg-gradient-to-br from-amber-100 to-amber-200 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 animate-[pulse-slow_3s_ease-in-out_infinite_1.5s]">
+              <PackageIcon className="text-amber-600 group-hover:animate-[bounce-subtle_0.6s_ease-in-out]" size={28} />
             </div>
-            <p className="text-sm text-slate-500 font-medium">Pacotes Ativos</p>
-            <p className="text-3xl font-bold text-slate-800 mt-1">{stats.activePackages}</p>
+            <p className="text-xs text-slate-600 font-semibold uppercase tracking-wide">Pacotes Ativos</p>
+            <p className="text-4xl font-bold bg-gradient-to-r from-amber-600 to-amber-700 bg-clip-text text-transparent mt-2">{stats.activePackages}</p>
           </div>
         </div>
 
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Visitas Ativas */}
-          <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-5">
-            <h2 className="text-lg font-bold text-slate-800 mb-4">Visitas Ativas</h2>
+          <div className="lg:col-span-2 bg-white/80 backdrop-blur-xl rounded-3xl border border-white/20 p-7 shadow-lg">
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent mb-6">Visitas Ativas</h2>
 
             <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
               {loading && isInitialLoad ? (
                 [1, 2, 3].map((i) => (
-                  <div key={i} className="animate-pulse bg-slate-100 rounded-lg p-4">
-                    <div className="h-5 bg-slate-200 rounded w-3/4 mb-2"></div>
-                    <div className="h-4 bg-slate-200 rounded w-1/2"></div>
+                  <div key={i} className="relative overflow-hidden bg-gradient-to-r from-slate-100 via-slate-50 to-slate-100 rounded-xl p-5 animate-pulse">
+                    <div className="h-6 bg-slate-200 rounded-lg w-3/4 mb-3"></div>
+                    <div className="h-4 bg-slate-200 rounded-lg w-1/2"></div>
+                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/60 to-transparent"></div>
                   </div>
                 ))
               ) : activeVisits.length === 0 ? (
-                <div className="text-center py-12 text-slate-400">
-                  <p className="text-5xl mb-3">🎮</p>
-                  <p className="font-medium">Nenhuma visita ativa</p>
-                  <p className="text-sm mt-1">Faça um check-in para começar</p>
+                <div className="text-center py-16">
+                  <div className="w-20 h-20 bg-gradient-to-br from-slate-100 to-slate-200 rounded-3xl flex items-center justify-center mx-auto mb-4 animate-[pulse-slow_3s_ease-in-out_infinite]">
+                    <GamepadIcon className="text-slate-400" size={48} />
+                  </div>
+                  <p className="text-lg font-bold text-slate-700 mb-2">Nenhuma visita ativa</p>
+                  <p className="text-sm text-slate-500">Faça um check-in para começar</p>
                 </div>
               ) : (
                 [...activeVisits]
@@ -270,7 +274,7 @@ const DashboardNew: React.FC = () => {
                   const colors = getTimeColor(elapsed);
                   const progressPct = Math.min((elapsed / 240) * 100, 100);
                   return (
-                  <div key={visit.id} className="bg-slate-50 rounded-lg border border-slate-100 hover:border-violet-200 transition-colors overflow-hidden">
+                  <div key={visit.id} className="bg-white/90 backdrop-blur-sm rounded-2xl border border-slate-200/50 hover:border-violet-200 hover:shadow-xl transition-all duration-300 overflow-hidden group shadow-sm">
                     <div className="flex items-center justify-between p-4">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <div className={`w-10 h-10 ${colors.light} rounded-full flex items-center justify-center flex-shrink-0`}>
@@ -318,16 +322,16 @@ const DashboardNew: React.FC = () => {
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-5">
+          <div className="space-y-6">
             {/* Ações Rápidas */}
-            <div className="bg-white rounded-xl border border-slate-200 p-5">
-              <h2 className="text-lg font-bold text-slate-800 mb-3">Ações Rápidas</h2>
-              <div className="space-y-2">
+            <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-white/20 p-6 shadow-lg">
+              <h2 className="text-xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent mb-4">Ações Rápidas</h2>
+              <div className="space-y-3">
                 <button
                   onClick={() => setShowCheckInModal(true)}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-colors text-left"
+                  className="w-full flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-100/50 border border-emerald-200/50 hover:border-emerald-300 hover:shadow-lg hover:scale-105 transition-all duration-300 text-left group"
                 >
-                  <span className="text-xl">➕</span>
+                  <PlusIcon className="text-emerald-600 group-hover:scale-110 transition-transform duration-300" size={24} />
                   <div>
                     <p className="font-semibold text-sm text-slate-800">Check-In</p>
                     <p className="text-xs text-slate-500">Registrar entrada</p>
@@ -335,9 +339,9 @@ const DashboardNew: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setShowCustomerModal(true)}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors text-left"
+                  className="w-full flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100/50 border border-blue-200/50 hover:border-blue-300 hover:shadow-lg hover:scale-105 transition-all duration-300 text-left group"
                 >
-                  <span className="text-xl">👥</span>
+                  <UserPlusIcon className="text-blue-600 group-hover:scale-110 transition-transform duration-300" size={24} />
                   <div>
                     <p className="font-semibold text-sm text-slate-800">Novo Cliente</p>
                     <p className="text-xs text-slate-500">Cadastrar responsável</p>
@@ -347,14 +351,17 @@ const DashboardNew: React.FC = () => {
             </div>
 
             {/* Pagamentos Recentes */}
-            <div className="bg-white rounded-xl border border-slate-200 p-5">
-              <h2 className="text-lg font-bold text-slate-800 mb-3">Pagamentos Recentes</h2>
+            <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-white/20 p-6 shadow-lg">
+              <h2 className="text-xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent mb-4">Pagamentos Recentes</h2>
               <div className="space-y-2">
                 {recentPayments.length === 0 ? (
-                  <p className="text-center text-slate-400 py-4 text-sm">Nenhum pagamento hoje</p>
+                  <div className="text-center py-8">
+                    <p className="text-4xl mb-2">💳</p>
+                    <p className="text-sm font-medium text-slate-500">Nenhum pagamento hoje</p>
+                  </div>
                 ) : (
                   recentPayments.map((payment) => (
-                    <div key={payment.id} className="flex items-center gap-3 py-2.5 border-b border-slate-100 last:border-0">
+                    <div key={payment.id} className="flex items-center gap-3 py-3 px-3 rounded-xl hover:bg-slate-50/50 transition-all duration-200 border-b border-slate-100/50 last:border-0">
                       <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0 text-sm">
                         {getPaymentMethodIcon(payment.method)}
                       </div>

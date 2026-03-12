@@ -98,13 +98,13 @@ const KidsPlans: React.FC = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
-        return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">Ativo</span>;
+        return <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-gradient-to-r from-emerald-100 to-emerald-50 text-emerald-700 border border-emerald-200">✓ Ativo</span>;
       case 'expiring':
-        return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">A vencer</span>;
+        return <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-gradient-to-r from-amber-100 to-amber-50 text-amber-700 border border-amber-200">⚠ A vencer</span>;
       case 'expired':
-        return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700">Expirado</span>;
+        return <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-gradient-to-r from-red-100 to-red-50 text-red-700 border border-red-200">✕ Expirado</span>;
       case 'cancelled':
-        return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">Cancelado</span>;
+        return <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-gradient-to-r from-slate-100 to-slate-50 text-slate-500 border border-slate-200">⊘ Cancelado</span>;
       default:
         return null;
     }
@@ -113,9 +113,9 @@ const KidsPlans: React.FC = () => {
   const getPlanTypeBadge = (type: string) => {
     switch (type) {
       case 'KIDS_2X':
-        return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">2X</span>;
+        return <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-gradient-to-r from-blue-100 to-blue-50 text-blue-700 border border-blue-200">2X</span>;
       case 'KIDS_FULL':
-        return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700">FULL</span>;
+        return <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-gradient-to-r from-violet-100 to-violet-50 text-violet-700 border border-violet-200">FULL</span>;
       default:
         return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">{type}</span>;
     }

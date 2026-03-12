@@ -222,10 +222,10 @@ const Customers: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Clientes</h1>
-          <p className="text-sm text-slate-500">{customers.length} cadastrados</p>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">Clientes</h1>
+          <p className="text-sm text-slate-600 font-medium mt-1">{customers.length} cadastrados</p>
         </div>
-        <button onClick={() => openModal()} className="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors shadow-sm">
+        <button onClick={() => openModal()} className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105">
           + Novo Cliente
         </button>
       </div>
@@ -238,18 +238,22 @@ const Customers: React.FC = () => {
           onChange={(e) => setSearchTerm(e.target.value)}
           onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
           placeholder="Buscar por responsável, criança, telefone ou email..."
-          className="flex-1 px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+          className="flex-1 px-5 py-3.5 border border-slate-200 rounded-2xl text-sm bg-white/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent focus:bg-white shadow-sm hover:shadow-md transition-all duration-200"
         />
         {searchTerm && (
-          <button onClick={() => { setSearchTerm(''); loadData(); }} className="px-3 py-2 rounded-lg border border-slate-300 text-sm text-slate-600 hover:bg-slate-50">Limpar</button>
+          <button onClick={() => { setSearchTerm(''); loadData(); }} className="px-5 py-3.5 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 shadow-sm hover:shadow-md">Limpar</button>
         )}
       </div>
 
       {/* List */}
-      <div className="bg-white rounded-xl border border-slate-200">
+      <div className="bg-white/80 backdrop-blur-sm rounded-3xl border border-slate-200/50 shadow-lg">
         {loading ? (
           <div className="p-5 space-y-3">
-            {[1, 2, 3].map(i => <div key={i} className="animate-pulse h-16 bg-slate-100 rounded-lg" />)}
+            {[1, 2, 3].map(i => (
+              <div key={i} className="relative overflow-hidden bg-gradient-to-r from-slate-100 via-slate-50 to-slate-100 rounded-xl h-20 animate-pulse">
+                <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/60 to-transparent"></div>
+              </div>
+            ))}
           </div>
         ) : filteredCustomers.length === 0 ? (
           <div className="text-center py-12 text-slate-400">
@@ -261,7 +265,7 @@ const Customers: React.FC = () => {
             {filteredCustomers.map((customer) => {
               const custChildren = getCustomerChildren(customer.id);
               return (
-                <div key={customer.id} className="hover:bg-slate-50 transition-colors">
+                <div key={customer.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden hover:shadow-lg hover:border-violet-200 transition-all duration-200">
                   <div className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onClick={() => setExpandedCustomer(expandedCustomer === customer.id ? null : customer.id)}>
@@ -286,7 +290,7 @@ const Customers: React.FC = () => {
                             const hours = Math.floor(remaining);
                             const mins = Math.round((remaining - hours) * 60);
                             return (
-                              <span className="text-[11px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-medium whitespace-nowrap">
+                              <span className="text-[11px] bg-gradient-to-r from-emerald-100 to-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full font-bold whitespace-nowrap border border-emerald-200">
                                 ⏱ {hours}h{mins > 0 ? `${mins}m` : ''} restantes
                               </span>
                             );
@@ -300,7 +304,7 @@ const Customers: React.FC = () => {
                             <span className="text-xs text-slate-400">Sem crianças</span>
                           ) : (
                             custChildren.map(ch => (
-                              <span key={ch.id} className="text-[11px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium cursor-pointer hover:bg-blue-100 transition-colors" onClick={() => openChildModal(customer.id, ch)} title={ch.enrollmentCode ? `Matrícula: ${ch.enrollmentCode}` : 'Clique para editar'}>
+                              <span key={ch.id} className="text-[11px] bg-gradient-to-r from-blue-100 to-blue-50 text-blue-700 px-2.5 py-1 rounded-full font-bold cursor-pointer hover:from-blue-200 hover:to-blue-100 hover:scale-105 transition-all duration-200 border border-blue-200" onClick={() => openChildModal(customer.id, ch)} title={ch.enrollmentCode ? `Matrícula: ${ch.enrollmentCode}` : 'Clique para editar'}>
                                 {ch.name} ({getChildAge(ch)}a){ch.enrollmentCode ? ` [${ch.enrollmentCode}]` : ''} ✏️
                               </span>
                             ))
@@ -356,40 +360,40 @@ const Customers: React.FC = () => {
 
       {/* Modal Cliente */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-5 border-b border-slate-200">
-              <h2 className="text-lg font-bold text-slate-800">{editingCustomer ? 'Editar Cliente' : 'Novo Cliente'}</h2>
-              <button onClick={() => setShowModal(false)} className="p-1 rounded-md hover:bg-slate-100 text-slate-400">✕</button>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 max-w-lg w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-300">
+            <div className="flex items-center justify-between p-6 border-b border-slate-200/50">
+              <h2 className="text-xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">{editingCustomer ? 'Editar Cliente' : 'Novo Cliente'}</h2>
+              <button onClick={() => setShowModal(false)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all duration-200 hover:rotate-90">✕</button>
             </div>
-            <form onSubmit={handleSubmit} className="p-5 space-y-3">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">Nome Completo *</label>
-                <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" required />
+                <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent focus:bg-white transition-all duration-200" required />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1.5">Telefone *</label>
-                  <input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" required />
+                  <input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent focus:bg-white transition-all duration-200" required />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1.5">Email</label>
-                  <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                  <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent focus:bg-white transition-all duration-200" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1.5">CPF</label>
-                  <input type="text" value={formData.cpf} onChange={(e) => setFormData({ ...formData, cpf: e.target.value })} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                  <input type="text" value={formData.cpf} onChange={(e) => setFormData({ ...formData, cpf: e.target.value })} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent focus:bg-white transition-all duration-200" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1.5">Endereço</label>
-                  <input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                  <input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent focus:bg-white transition-all duration-200" />
                 </div>
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
-                <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">{saving ? 'Salvando...' : (editingCustomer ? 'Salvar' : 'Cadastrar')}</button>
+                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-400 transition-all duration-200">Cancelar</button>
+                <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-sm font-bold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed">{saving ? 'Salvando...' : (editingCustomer ? 'Salvar' : 'Cadastrar')}</button>
               </div>
             </form>
           </div>
@@ -398,31 +402,31 @@ const Customers: React.FC = () => {
 
       {/* Modal Criança */}
       {showChildModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full">
-            <div className="flex items-center justify-between p-5 border-b border-slate-200">
-              <h2 className="text-lg font-bold text-slate-800">{editingChild ? 'Editar Criança' : 'Adicionar Criança'}</h2>
-              <button onClick={() => { setShowChildModal(false); setEditingChild(null); }} className="p-1 rounded-md hover:bg-slate-100 text-slate-400">✕</button>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 max-w-sm w-full animate-in zoom-in-95 duration-300">
+            <div className="flex items-center justify-between p-6 border-b border-slate-200/50">
+              <h2 className="text-xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">{editingChild ? 'Editar Criança' : 'Adicionar Criança'}</h2>
+              <button onClick={() => { setShowChildModal(false); setEditingChild(null); }} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all duration-200 hover:rotate-90">✕</button>
             </div>
-            <form onSubmit={handleChildSubmit} className="p-5 space-y-3">
+            <form onSubmit={handleChildSubmit} className="p-6 space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">Matrícula Criança</label>
-                <input type="text" value={childFormData.enrollmentCode || ''} onChange={(e) => setChildFormData({ ...childFormData, enrollmentCode: e.target.value.toUpperCase() })} placeholder="Código de matrícula da criança" className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500 placeholder:font-sans" />
+                <input type="text" value={childFormData.enrollmentCode || ''} onChange={(e) => setChildFormData({ ...childFormData, enrollmentCode: e.target.value.toUpperCase() })} placeholder="Código de matrícula da criança" className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-mono bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent focus:bg-white transition-all duration-200 placeholder:font-sans" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">Nome *</label>
-                <input type="text" value={childFormData.name} onChange={(e) => setChildFormData({ ...childFormData, name: e.target.value })} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" required />
+                <input type="text" value={childFormData.name} onChange={(e) => setChildFormData({ ...childFormData, name: e.target.value })} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent focus:bg-white transition-all duration-200" required />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">Data de Nascimento *</label>
-                <input type="date" value={childFormData.birthDate} onChange={(e) => setChildFormData({ ...childFormData, birthDate: e.target.value })} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" required />
+                <input type="date" value={childFormData.birthDate} onChange={(e) => setChildFormData({ ...childFormData, birthDate: e.target.value })} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent focus:bg-white transition-all duration-200" required />
                 {childFormData.birthDate && (
                   <p className="text-xs text-slate-500 mt-1">Idade: {getChildAge({ age: 0, birthDate: new Date(childFormData.birthDate + 'T00:00:00') })} anos</p>
                 )}
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => { setShowChildModal(false); setEditingChild(null); }} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
-                <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">{saving ? 'Salvando...' : (editingChild ? 'Salvar' : 'Adicionar')}</button>
+                <button type="button" onClick={() => { setShowChildModal(false); setEditingChild(null); }} className="flex-1 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-400 transition-all duration-200">Cancelar</button>
+                <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-sm font-bold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed">{saving ? 'Salvando...' : (editingChild ? 'Salvar' : 'Adicionar')}</button>
               </div>
             </form>
           </div>
