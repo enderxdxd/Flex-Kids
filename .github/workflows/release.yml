@@ -27,8 +27,31 @@ jobs:
 
       - name: Create Firebase config
         run: |
-          echo "export const FIREBASE_CONFIG = { apiKey: '${{ secrets.FIREBASE_API_KEY }}', authDomain: '${{ secrets.FIREBASE_AUTH_DOMAIN }}', databaseURL: '${{ secrets.FIREBASE_DATABASE_URL }}', projectId: '${{ secrets.FIREBASE_PROJECT_ID }}', storageBucket: '${{ secrets.FIREBASE_STORAGE_BUCKET }}', messagingSenderId: '${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}', appId: '${{ secrets.FIREBASE_APP_ID }}', measurementId: '${{ secrets.FIREBASE_MEASUREMENT_ID }}' };" > src/shared/firebase/firebase.env.ts
-        shell: bash
+          node -e "
+            const fs = require('fs');
+            const config = {
+              apiKey: process.env.FB_API_KEY,
+              authDomain: process.env.FB_AUTH_DOMAIN,
+              databaseURL: process.env.FB_DATABASE_URL,
+              projectId: process.env.FB_PROJECT_ID,
+              storageBucket: process.env.FB_STORAGE_BUCKET,
+              messagingSenderId: process.env.FB_MESSAGING_SENDER_ID,
+              appId: process.env.FB_APP_ID,
+              measurementId: process.env.FB_MEASUREMENT_ID
+            };
+            const content = 'export const FIREBASE_CONFIG = ' + JSON.stringify(config, null, 2) + ';';
+            fs.writeFileSync('src/shared/firebase/firebase.env.ts', content);
+            console.log('Firebase config created successfully');
+          "
+        env:
+          FB_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          FB_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+          FB_DATABASE_URL: ${{ secrets.FIREBASE_DATABASE_URL }}
+          FB_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FB_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+          FB_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          FB_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+          FB_MEASUREMENT_ID: ${{ secrets.FIREBASE_MEASUREMENT_ID }}
 
       - name: Build application
         run: npm run build
