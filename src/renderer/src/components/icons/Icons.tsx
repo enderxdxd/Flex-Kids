@@ -157,3 +157,18 @@ export const BuildingIcon: React.FC<IconProps> = ({ className = '', size = 24 })
     <path d="M6 10H6.01M6 14H6.01M6 18H6.01M12 10H12.01M12 14H12.01M12 18H12.01M18 10H18.01M18 14H18.01M18 18H18.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
   </svg>
 );
+
+export const BellIcon: React.FC<IconProps> = ({ className = '', size = 24 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <path d="M18 8C18 6.4087 17.3679 4.88258 16.2426 3.75736C15.1174 2.63214 13.5913 2 12 2C10.4087 2 8.88258 2.63214 7.75736 3.75736C6.63214 4.88258 6 6.4087 6 8C6 15 3 17 3 17H21C21 17 18 15 18 8Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M13.73 21C13.5542 21.3031 13.3019 21.5547 12.9982 21.7295C12.6946 21.9044 12.3504 21.9965 12 21.9965C11.6496 21.9965 11.3054 21.9044 11.0018 21.7295C10.6982 21.5547 10.4458 21.3031 10.27 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+export const DownloadCloudIcon: React.FC<IconProps> = ({ className = '', size = 24 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <path d="M8 17L12 21L16 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M12 12V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M20.88 18.09C21.7499 17.4785 22.4002 16.6066 22.7413 15.6029C23.0825 14.5992 23.0978 13.5143 22.7852 12.5018C22.4727 11.4893 21.8471 10.5997 21 9.96C20.1529 9.32028 19.1268 8.97322 18.07 8.97C17.9435 7.82645 17.5768 6.72295 16.9944 5.73526C16.412 4.74758 15.6267 3.89877 14.6929 3.24789C13.7592 2.59702 12.6987 2.16007 11.5843 1.96718C10.4699 1.77429 9.32846 1.82993 8.23613 2.13039C7.1438 2.43085 6.12749 2.96903 5.25467 3.70754C4.38186 4.44605 3.67326 5.36748 3.17703 6.40899C2.6808 7.4505 2.40826 8.58976 2.37841 9.74824C2.34856 10.9067 2.56208 12.0582 3.00613 13.1253" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);

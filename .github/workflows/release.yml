@@ -1,0 +1,69 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Build Windows installer
+        run: npm run dist:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: |
+            release/*.exe
+            release/*.yml
+          retention-days: 5
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          files: |
+            release/*.exe
+            release/latest.yml
+          body: |
+            ## 🎉 Nova Versão do Flex-Kids Manager
+            
+            ### 📦 Instalação
+            Baixe o arquivo `Flex-Kids-Manager-Setup-${{ github.ref_name }}.exe` e execute.
+            
+            ### ✨ Novidades
+            <!-- Adicione as novidades desta versão aqui -->
+            
+            ### 🔧 Correções
+            <!-- Adicione as correções desta versão aqui -->
+            
+            ---
+            
+            **Versão:** ${{ github.ref_name }}  
+            **Data:** ${{ github.event.head_commit.timestamp }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

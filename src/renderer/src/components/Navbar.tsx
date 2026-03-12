@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useUnit } from '../contexts/UnitContext';
 import { useAuth } from '../contexts/AuthContext';
-import { HomeIcon, UsersIcon, ShoppingCartIcon, PackageIcon, CreditCardIcon, ClipboardIcon, GraduationCapIcon, BarChartIcon, BanIcon, DownloadIcon, SettingsIcon, BuildingIcon, RefreshIcon } from './icons/Icons';
+import { HomeIcon, UsersIcon, ShoppingCartIcon, PackageIcon, CreditCardIcon, ClipboardIcon, GraduationCapIcon, BarChartIcon, BanIcon, DownloadIcon, SettingsIcon, BuildingIcon, RefreshIcon, BellIcon } from './icons/Icons';
+import { updateChecker, UpdateInfo } from '../services/updateChecker';
+import UpdateModal from './modals/UpdateModal';
 
 interface NavbarProps {
   onRefresh?: () => void;
@@ -27,9 +29,25 @@ const Navbar: React.FC<NavbarProps> = ({ onRefresh, loading, activeVisitsCount }
   const { currentUnit, isUnitLocked, getCurrentUnitInfo } = useUnit();
   const { isAdmin, logoutAdmin, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
 
   const currentPath = window.location.hash;
   const unitInfo = getCurrentUnitInfo();
+
+  useEffect(() => {
+    const handleUpdate = (info: UpdateInfo) => {
+      if (info.hasUpdate) {
+        setUpdateInfo(info);
+      }
+    };
+
+    updateChecker.startAutoCheck(handleUpdate);
+
+    return () => {
+      updateChecker.stopAutoCheck();
+    };
+  }, []);
 
   return (
     <aside className={`no-print fixed left-0 top-0 h-screen bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800 text-white flex flex-col transition-all duration-300 z-40 shadow-2xl ${collapsed ? 'w-[68px]' : 'w-[240px]'}`}>
@@ -93,6 +111,21 @@ const Navbar: React.FC<NavbarProps> = ({ onRefresh, loading, activeVisitsCount }
 
       {/* Actions */}
       <div className="px-3 py-4 border-t border-slate-700/30 space-y-2">
+        {/* Update Notification */}
+        {updateInfo?.hasUpdate && (
+          <button
+            onClick={() => setShowUpdateModal(true)}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white transition-all shadow-lg hover:shadow-xl relative ${collapsed ? 'justify-center' : ''}`}
+            title="Nova atualização disponível"
+          >
+            <div className="relative">
+              <BellIcon size={18} className="animate-[bounce-subtle_1s_ease-in-out_infinite]" />
+              <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+            </div>
+            {!collapsed && <span>Nova Atualização</span>}
+          </button>
+        )}
+
         {onRefresh && (
           <button
             onClick={onRefresh}
@@ -133,6 +166,17 @@ const Navbar: React.FC<NavbarProps> = ({ onRefresh, loading, activeVisitsCount }
           {!collapsed && <span>Recolher</span>}
         </button>
       </div>
+
+      {/* Update Modal */}
+      {updateInfo && (
+        <UpdateModal
+          isOpen={showUpdateModal}
+          onClose={() => setShowUpdateModal(false)}
+          currentVersion={updateInfo.currentVersion}
+          latestVersion={updateInfo.latestVersion}
+          releaseNotes={updateInfo.releaseNotes}
+        />
+      )}
     </aside>
   );
 };
