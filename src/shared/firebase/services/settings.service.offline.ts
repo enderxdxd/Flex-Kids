@@ -80,21 +80,29 @@ export const settingsServiceOffline = {
       updatedAt: new Date(),
     };
 
+    // Salva no cache local primeiro (garante que nunca trava)
+    await syncService.saveToCacheOnly(COLLECTION, settingData);
+
     if (syncService.isOnline()) {
       try {
         const db = getDb();
         const settingRef = doc(db, COLLECTION, key);
         
-        await setDoc(settingRef, {
+        // Timeout de 5s para evitar travamento
+        const firebasePromise = setDoc(settingRef, {
           key,
           value,
           updatedAt: Timestamp.now(),
         }, { merge: true });
 
-        await syncService.saveToCacheOnly(COLLECTION, settingData);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Firebase save timeout')), 5000)
+        );
+
+        await Promise.race([firebasePromise, timeoutPromise]);
         return;
       } catch (error) {
-        console.error('Failed to save to Firebase, saving locally:', error);
+        console.error('Failed to save to Firebase, saved locally:', error);
       }
     }
 

@@ -53,6 +53,9 @@ jobs:
           FB_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
           FB_MEASUREMENT_ID: ${{ secrets.FIREBASE_MEASUREMENT_ID }}
 
+      - name: Rebuild native modules for Electron
+        run: npx electron-rebuild -f -w serialport
+
       - name: Build application
         run: npm run build
 
