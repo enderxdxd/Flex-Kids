@@ -1,6 +1,6 @@
 {
   "name": "flex-kids-manager",
-  "version": "2.2.1",
+  "version": "2.2.2",
   "description": "Sistema de gerenciamento para Flex-Kids Playground",
   "main": "dist/main/index.js",
   "author": "Flex-Kids",
