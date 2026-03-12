@@ -45,16 +45,25 @@ async function listPorts(): Promise<any[]> {
  */
 async function connect(portPath: string, baudRate: number = 9600): Promise<boolean> {
   if (!SerialPort) {
-    console.error('SerialPort não disponível');
+    console.error('[PRINTER] SerialPort não disponível');
     return false;
   }
 
+  console.log(`[PRINTER] Tentando conectar: ${portPath} @ ${baudRate} baud`);
+
   try {
     // Fecha porta anterior se existir
-    if (port && port.isOpen) {
-      await new Promise<void>((resolve) => {
-        port.close(() => resolve());
-      });
+    if (port) {
+      try {
+        if (port.isOpen) {
+          await new Promise<void>((resolve) => {
+            port.close(() => resolve());
+          });
+        }
+      } catch (e) {
+        console.warn('[PRINTER] Erro ao fechar porta anterior:', e);
+      }
+      port = null;
     }
 
     // Abre nova conexão
@@ -67,11 +76,16 @@ async function connect(portPath: string, baudRate: number = 9600): Promise<boole
       autoOpen: false,
     });
 
-    // Abre a porta
+    // Abre a porta com timeout de 5 segundos
     await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error(`Timeout ao abrir porta ${portPath}`));
+      }, 5000);
+
       port.open((err: any) => {
+        clearTimeout(timeout);
         if (err) {
-          console.error('Erro ao abrir porta:', err);
+          console.error(`[PRINTER] Erro ao abrir porta ${portPath}:`, err.message);
           reject(err);
         } else {
           resolve();
@@ -80,11 +94,12 @@ async function connect(portPath: string, baudRate: number = 9600): Promise<boole
     });
 
     isConnected = true;
-    console.log(`✅ Conectado à impressora na porta ${portPath}`);
+    console.log(`[PRINTER] ✅ Conectado na porta ${portPath} @ ${baudRate} baud`);
     return true;
-  } catch (error) {
-    console.error('Erro ao conectar:', error);
+  } catch (error: any) {
+    console.error(`[PRINTER] ❌ Falha ao conectar ${portPath} @ ${baudRate}:`, error.message);
     isConnected = false;
+    port = null;
     return false;
   }
 }

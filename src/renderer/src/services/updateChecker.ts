@@ -20,16 +20,21 @@ class UpdateChecker {
 
   async checkForUpdates(): Promise<UpdateInfo> {
     try {
+      console.log(`[UpdateChecker] Verificando atualizações... (versão atual: ${this.currentVersion})`);
       const response = await fetch(GITHUB_API);
       
       if (!response.ok) {
-        throw new Error('Failed to fetch release info');
+        console.error(`[UpdateChecker] API retornou status ${response.status}`);
+        throw new Error(`Failed to fetch release info: ${response.status}`);
       }
 
       const data = await response.json();
       const latestVersion = data.tag_name?.replace('v', '') || data.name?.replace('v', '');
       
+      console.log(`[UpdateChecker] Versão mais recente no GitHub: ${latestVersion} (draft: ${data.draft})`);
+      
       const hasUpdate = this.compareVersions(latestVersion, this.currentVersion) > 0;
+      console.log(`[UpdateChecker] Tem atualização: ${hasUpdate}`);
 
       return {
         hasUpdate,
@@ -38,7 +43,7 @@ class UpdateChecker {
         releaseNotes: data.body || 'Sem notas de atualização disponíveis.',
       };
     } catch (error) {
-      console.error('Error checking for updates:', error);
+      console.error('[UpdateChecker] Erro ao verificar atualizações:', error);
       return {
         hasUpdate: false,
         currentVersion: this.currentVersion,

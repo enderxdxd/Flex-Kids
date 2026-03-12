@@ -130,21 +130,28 @@ export class BematechService {
         }
       }
 
-      // Conecta via IPC
-      const connected = await api.connect(portPath, 9600);
-      
-      if (connected) {
-        console.log(`✅ Conectado à impressora fiscal na porta ${portPath}`);
-        this.isConnected = true;
-        this.isSimulationMode = false;
-        this.port = portPath; // Guarda a porta para referência
-        return true;
-      } else {
-        console.error(`❌ Falha ao conectar na porta ${portPath}`);
-        this.isConnected = false;
-        this.isSimulationMode = true;
-        return false;
+      // Tenta múltiplos baud rates (MP-4200 TH usa 115200, modelos antigos usam 9600)
+      const baudRates = [115200, 9600, 19200, 38400];
+      let connected = false;
+
+      for (const baudRate of baudRates) {
+        console.log(`[BEMATECH] Tentando conectar em ${portPath} @ ${baudRate} baud...`);
+        connected = await api.connect(portPath, baudRate);
+        if (connected) {
+          console.log(`✅ Conectado à impressora fiscal na porta ${portPath} @ ${baudRate} baud`);
+          this.isConnected = true;
+          this.isSimulationMode = false;
+          this.port = portPath;
+          return true;
+        }
+        // Pequena pausa entre tentativas
+        await new Promise(r => setTimeout(r, 500));
       }
+
+      console.error(`❌ Falha ao conectar na porta ${portPath} em todos os baud rates`);
+      this.isConnected = false;
+      this.isSimulationMode = true;
+      return false;
     } catch (error) {
       console.error('Erro ao conectar com impressora fiscal:', error);
       this.isConnected = false;
