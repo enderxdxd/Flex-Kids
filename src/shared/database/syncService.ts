@@ -73,6 +73,11 @@ class SyncService {
         console.error('Failed to purge soft-deleted items:', err)
       );
 
+      // Clean up settings items from sync queue (settings no longer use sync queue)
+      this.purgeSettingsFromSyncQueue().catch(err =>
+        console.error('Failed to purge settings from sync queue:', err)
+      );
+
       // Start periodic sync if online
       if (this.isOnline()) {
         this.startPeriodicSync();
@@ -501,6 +506,32 @@ class SyncService {
       console.log(`🗑️ Purged ${purged} soft-deleted items older than ${retentionDays} days`);
     }
     return purged;
+  }
+
+  /**
+   * Remove all 'settings' items from the sync queue.
+   * Settings are now saved directly to Firebase (fire-and-forget) and don't need the queue.
+   */
+  private async purgeSettingsFromSyncQueue(): Promise<number> {
+    try {
+      const pendingItems = await localDb.getPendingSyncItems();
+      let purged = 0;
+      for (const item of pendingItems) {
+        if (item.collection === 'settings') {
+          await localDb.markAsSynced(item.id);
+          purged++;
+        }
+      }
+      if (purged > 0) {
+        console.log(`🧹 Purged ${purged} settings items from sync queue`);
+        await localDb.cleanupSyncedItems();
+        await this.notifyPendingCount();
+      }
+      return purged;
+    } catch (error) {
+      console.error('Failed to purge settings from sync queue:', error);
+      return 0;
+    }
   }
 
   async clearLocalData(): Promise<void> {

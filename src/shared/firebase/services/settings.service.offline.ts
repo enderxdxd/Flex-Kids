@@ -83,30 +83,31 @@ export const settingsServiceOffline = {
     // Salva no cache local primeiro (garante que nunca trava)
     await syncService.saveToCacheOnly(COLLECTION, settingData);
 
+    // Tenta salvar no Firebase em background (não bloqueia, não entra na sync queue)
     if (syncService.isOnline()) {
-      try {
-        const db = getDb();
-        const settingRef = doc(db, COLLECTION, key);
-        
-        // Timeout de 5s para evitar travamento
-        const firebasePromise = setDoc(settingRef, {
-          key,
-          value,
-          updatedAt: Timestamp.now(),
-        }, { merge: true });
+      const firebaseSave = async () => {
+        try {
+          const db = getDb();
+          const settingRef = doc(db, COLLECTION, key);
+          
+          const firebasePromise = setDoc(settingRef, {
+            key,
+            value,
+            updatedAt: Timestamp.now(),
+          }, { merge: true });
 
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Firebase save timeout')), 5000)
-        );
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Firebase save timeout')), 5000)
+          );
 
-        await Promise.race([firebasePromise, timeoutPromise]);
-        return;
-      } catch (error) {
-        console.error('Failed to save to Firebase, saved locally:', error);
-      }
+          await Promise.race([firebasePromise, timeoutPromise]);
+        } catch (error) {
+          console.warn(`[Settings] Firebase save failed for "${key}" (saved locally):`, error);
+        }
+      };
+      // Fire and forget - don't block the UI
+      firebaseSave();
     }
-
-    await syncService.saveLocally(COLLECTION, 'update', settingData);
   },
 
   async getAllSettings(): Promise<Settings[]> {
