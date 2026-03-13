@@ -482,7 +482,7 @@ const Settings: React.FC = () => {
             <div className="bg-slate-50 rounded-xl border border-slate-200 p-5">
               <h2 className="text-sm font-bold text-slate-600 uppercase tracking-wider mb-3">Sistema</h2>
               <div className="space-y-2 text-xs text-slate-500">
-                <div className="flex justify-between"><span>Versão</span><span className="font-medium text-slate-700">1.0.0</span></div>
+                <div className="flex justify-between"><span>Versão</span><span className="font-medium text-slate-700">{import.meta.env.VITE_APP_VERSION || '—'}</span></div>
                 <div className="flex justify-between"><span>Plataforma</span><span className="font-medium text-slate-700">Electron + React</span></div>
                 <div className="flex justify-between"><span>Banco</span><span className="font-medium text-slate-700">Cloud Firestore</span></div>
               </div>
