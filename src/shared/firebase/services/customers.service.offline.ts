@@ -213,7 +213,13 @@ export const customersServiceOffline = {
         return localCustomers;
       }
 
-      // 3. Busca Firebase em background
+      // 3. Se cache vazio, aguarda Firebase (primeira carga / cache limpo)
+      if (localCustomers.length === 0) {
+        const firebaseCustomers = await this.fetchCustomersFromFirebase(unitId);
+        return firebaseCustomers;
+      }
+
+      // 4. Se já tem cache, busca Firebase em background para atualizar
       this.fetchCustomersFromFirebase(unitId)
         .catch(err => console.error('Background fetch failed:', err));
       
@@ -444,7 +450,12 @@ export const customersServiceOffline = {
         return customerChildren;
       }
 
-      // 3. Busca do Firebase em background
+      // 3. Se cache vazio, aguarda Firebase
+      if (customerChildren.length === 0) {
+        return await this.fetchChildrenByCustomerFromFirebase(customerId);
+      }
+
+      // 4. Se já tem cache, busca Firebase em background
       this.fetchChildrenByCustomerFromFirebase(customerId)
         .catch(err => console.error('Background fetch failed:', err));
       
@@ -503,7 +514,12 @@ export const customersServiceOffline = {
         return localChildren;
       }
 
-      // 3. Busca Firebase em background
+      // 3. Se cache vazio, aguarda Firebase
+      if (localChildren.length === 0) {
+        return await this.fetchChildrenFromFirebase(unitId);
+      }
+
+      // 4. Se já tem cache, busca Firebase em background
       this.fetchChildrenFromFirebase(unitId)
         .catch(err => console.error('Background fetch failed:', err));
       

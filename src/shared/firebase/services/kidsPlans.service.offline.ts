@@ -135,13 +135,7 @@ export const kidsPlansServiceOffline = {
         return localPlans.filter((p: any) => !p.deletedAt);
       }
 
-      // 3. Se online, busca Firebase em background para sincronizar
-      if (unitId) {
-        this.fetchFromFirebase(unitId)
-          .catch(err => console.error('Background fetch kidsPlans failed:', err));
-      }
-
-      // 4. Se cache vazio e online, aguarda o fetch do Firebase
+      // 3. Se cache vazio e online, aguarda o fetch do Firebase
       if (localPlans.length === 0 && unitId) {
         try {
           const firebasePlans = await this.fetchFromFirebase(unitId);
@@ -149,6 +143,12 @@ export const kidsPlansServiceOffline = {
         } catch {
           return [];
         }
+      }
+
+      // 4. Se já tem cache, busca Firebase em background para sincronizar
+      if (unitId) {
+        this.fetchFromFirebase(unitId)
+          .catch(err => console.error('Background fetch kidsPlans failed:', err));
       }
 
       return localPlans.filter((p: any) => !p.deletedAt);

@@ -31,12 +31,10 @@ export const settingsServiceOffline = {
         return cached ? cached.value : null;
       }
 
-      // 3. SEMPRE retorna cache primeiro e busca Firebase em background
+      // 3. Se não tem cache e está online, aguarda Firebase (cache limpo)
       if (syncService.isOnline() && !cached) {
-        // Só busca do Firebase em background se não tem no cache
-        this.fetchSettingFromFirebase(key).catch(err => 
-          console.error('Background fetch failed:', err)
-        );
+        const firebaseValue = await this.fetchSettingFromFirebase(key);
+        return firebaseValue;
       }
       
       return cached ? cached.value : null;

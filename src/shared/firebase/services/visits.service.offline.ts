@@ -174,21 +174,22 @@ export const visitsServiceOffline = {
         return cachedActiveVisits;
       }
 
-      // 3. Sempre retorna cache primeiro (mesmo vazio) e busca Firebase em background
-      // Isso garante resposta instantânea sempre
-      if (syncService.isOnline()) {
-        // Busca do Firebase em background (não bloqueia)
-        this.fetchActiveVisitsFromFirebase(unitId, limit)
-          .then(visits => {
-            // Emite evento para atualizar UI se necessário
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('visits-updated', { 
-                detail: { visits, unitId } 
-              }));
-            }
-          })
-          .catch(err => console.error('Background fetch failed:', err));
+      // 3. Se cache vazio, aguarda Firebase (primeira carga / cache limpo)
+      if (cachedActiveVisits.length === 0) {
+        const firebaseVisits = await this.fetchActiveVisitsFromFirebase(unitId, limit);
+        return await this.enrichVisitsWithChildData(firebaseVisits);
       }
+
+      // 4. Se já tem cache, busca Firebase em background para atualizar
+      this.fetchActiveVisitsFromFirebase(unitId, limit)
+        .then(visits => {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('visits-updated', { 
+              detail: { visits, unitId } 
+            }));
+          }
+        })
+        .catch(err => console.error('Background fetch failed:', err));
       
       return cachedActiveVisits;
     } catch (error) {

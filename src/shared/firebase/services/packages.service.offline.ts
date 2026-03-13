@@ -213,18 +213,21 @@ export const packagesServiceOffline = {
         return cachedPackages;
       }
 
-      // 3. Sempre retorna cache primeiro e busca Firebase em background
-      if (syncService.isOnline()) {
-        this.fetchActivePackagesFromFirebase(customerId, unitId)
-          .then(packages => {
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('packages-updated', { 
-                detail: { packages, customerId } 
-              }));
-            }
-          })
-          .catch(err => console.error('Background fetch failed:', err));
+      // 3. Se cache vazio, aguarda Firebase (primeira carga / cache limpo)
+      if (cachedPackages.length === 0) {
+        return await this.fetchActivePackagesFromFirebase(customerId, unitId);
       }
+
+      // 4. Se já tem cache, busca Firebase em background para atualizar
+      this.fetchActivePackagesFromFirebase(customerId, unitId)
+        .then(packages => {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('packages-updated', { 
+              detail: { packages, customerId } 
+            }));
+          }
+        })
+        .catch(err => console.error('Background fetch failed:', err));
       
       return cachedPackages;
     } catch (error) {

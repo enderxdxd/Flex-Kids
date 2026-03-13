@@ -85,18 +85,21 @@ export const paymentsServiceOffline = {
         return cachedTodayPayments;
       }
 
-      // 3. Sempre retorna cache primeiro e busca Firebase em background
-      if (syncService.isOnline()) {
-        this.fetchTodayPaymentsFromFirebase()
-          .then(payments => {
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('payments-updated', { 
-                detail: { payments } 
-              }));
-            }
-          })
-          .catch(err => console.error('Background fetch failed:', err));
+      // 3. Se cache vazio, aguarda Firebase (primeira carga / cache limpo)
+      if (cachedTodayPayments.length === 0) {
+        return await this.fetchTodayPaymentsFromFirebase();
       }
+
+      // 4. Se já tem cache, busca Firebase em background para atualizar
+      this.fetchTodayPaymentsFromFirebase()
+        .then(payments => {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('payments-updated', { 
+              detail: { payments } 
+            }));
+          }
+        })
+        .catch(err => console.error('Background fetch failed:', err));
       
       return cachedTodayPayments;
     } catch (error) {
@@ -221,17 +224,21 @@ export const paymentsServiceOffline = {
         return cachedMonthPayments;
       }
 
-      if (syncService.isOnline()) {
-        this.fetchMonthPaymentsFromFirebase(date)
-          .then(payments => {
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('payments-updated', { 
-                detail: { payments } 
-              }));
-            }
-          })
-          .catch(err => console.error('Background fetch failed:', err));
+      // Se cache vazio, aguarda Firebase
+      if (cachedMonthPayments.length === 0) {
+        return await this.fetchMonthPaymentsFromFirebase(date);
       }
+
+      // Se já tem cache, busca Firebase em background
+      this.fetchMonthPaymentsFromFirebase(date)
+        .then(payments => {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('payments-updated', { 
+              detail: { payments } 
+            }));
+          }
+        })
+        .catch(err => console.error('Background fetch failed:', err));
       
       return cachedMonthPayments;
     } catch (error) {
