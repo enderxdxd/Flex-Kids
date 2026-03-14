@@ -39,9 +39,20 @@ jobs:
               appId: process.env.FB_APP_ID,
               measurementId: process.env.FB_MEASUREMENT_ID
             };
+
+            // Validate that secrets are present
+            const missing = Object.entries(config).filter(([k, v]) => !v).map(([k]) => k);
+            if (missing.length > 0) {
+              console.error('ERROR: Missing Firebase secrets:', missing.join(', '));
+              console.error('Please add these secrets in GitHub repo Settings > Secrets > Actions');
+              process.exit(1);
+            }
+
             const content = 'export const FIREBASE_CONFIG = ' + JSON.stringify(config, null, 2) + ';';
             fs.writeFileSync('src/shared/firebase/firebase.env.ts', content);
             console.log('Firebase config created successfully');
+            console.log('Project ID:', config.projectId);
+            console.log('Auth Domain:', config.authDomain);
           "
         env:
           FB_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
@@ -55,9 +66,6 @@ jobs:
 
       - name: Rebuild native modules for Electron
         run: npx electron-rebuild -f -w serialport
-
-      - name: Build application
-        run: npm run build
 
       - name: Build Windows installer
         run: npm run dist:win

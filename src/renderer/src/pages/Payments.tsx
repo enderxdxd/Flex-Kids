@@ -23,15 +23,14 @@ const Payments: React.FC = () => {
       let allPayments: Payment[];
       
       if (filterType === 'today') {
-        allPayments = await paymentsServiceOffline.getTodayPayments();
+        allPayments = await paymentsServiceOffline.getTodayPayments(currentUnit);
       } else if (filterType === 'month') {
-        allPayments = await paymentsServiceOffline.getMonthPayments(selectedMonth);
+        allPayments = await paymentsServiceOffline.getMonthPayments(selectedMonth, currentUnit);
       } else {
         allPayments = await paymentsServiceOffline.getAllPayments(currentUnit);
       }
       
-      const unitPayments = allPayments.filter(p => p.unitId === currentUnit);
-      setPayments(unitPayments);
+      setPayments(allPayments);
     } catch (error) {
       console.error('Error loading payments:', error);
       toast.error('Erro ao carregar pagamentos');

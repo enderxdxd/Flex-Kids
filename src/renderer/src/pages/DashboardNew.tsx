@@ -87,11 +87,11 @@ const DashboardNew: React.FC = () => {
       const [visits, allVisits, payments, packages] = await Promise.all([
         visitsServiceOffline.getActiveVisits(currentUnit),
         visitsServiceOffline.getAllVisits(currentUnit),
-        paymentsServiceOffline.getTodayPayments(),
+        paymentsServiceOffline.getTodayPayments(currentUnit),
         packagesServiceOffline.getActivePackages(undefined, currentUnit),
       ]);
 
-      const unitPayments = payments.filter(p => p.unitId === currentUnit);
+      const unitPayments = payments;
 
       // Contar visitas de hoje (todas, não só ativas)
       const todayStart = new Date();

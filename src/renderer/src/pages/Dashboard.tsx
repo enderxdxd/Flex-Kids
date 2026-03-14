@@ -79,11 +79,11 @@ const Dashboard: React.FC = () => {
       // Carrega dados em paralelo do cache local (muito rápido)
       const [activeVisits, todayPayments, activePackages] = await Promise.all([
         visitsServiceOffline.getActiveVisits(currentUnit),
-        paymentsServiceOffline.getTodayPayments(),
+        paymentsServiceOffline.getTodayPayments(currentUnit),
         packagesServiceOffline.getActivePackages(undefined, currentUnit),
       ]);
 
-      const unitPayments = todayPayments.filter(p => p.unitId === currentUnit);
+      const unitPayments = todayPayments;
       const todayRevenue = unitPayments.reduce((sum, p) => sum + p.amount, 0);
 
       const newStats = {

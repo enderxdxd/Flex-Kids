@@ -59,10 +59,12 @@ export const paymentsServiceOffline = {
     };
   },
 
-  async getTodayPayments(): Promise<Payment[]> {
+  async getTodayPayments(unitId?: string): Promise<Payment[]> {
     try {
       // 1. SEMPRE busca do cache primeiro
-      const localPayments = await syncService.getAllFromLocal(COLLECTION);
+      const localPayments = unitId
+        ? await syncService.getAllFromLocalByUnit(COLLECTION, unitId)
+        : await syncService.getAllFromLocal(COLLECTION);
       
       const startOfDay = new Date();
       startOfDay.setHours(0, 0, 0, 0);
@@ -87,11 +89,11 @@ export const paymentsServiceOffline = {
 
       // 3. Se cache vazio, aguarda Firebase (primeira carga / cache limpo)
       if (cachedTodayPayments.length === 0) {
-        return await this.fetchTodayPaymentsFromFirebase();
+        return await this.fetchTodayPaymentsFromFirebase(unitId);
       }
 
       // 4. Se já tem cache, busca Firebase em background para atualizar
-      this.fetchTodayPaymentsFromFirebase()
+      this.fetchTodayPaymentsFromFirebase(unitId)
         .then(payments => {
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('payments-updated', { 
@@ -108,17 +110,24 @@ export const paymentsServiceOffline = {
     }
   },
 
-  async fetchTodayPaymentsFromFirebase(): Promise<Payment[]> {
+  async fetchTodayPaymentsFromFirebase(unitId?: string): Promise<Payment[]> {
     try {
       const db = getDb();
       const startOfDay = new Date();
       startOfDay.setHours(0, 0, 0, 0);
       const startOfDayTimestamp = Timestamp.fromDate(startOfDay);
       
+      const constraints: any[] = [
+        where('createdAt', '>=', startOfDayTimestamp),
+      ];
+      if (unitId) {
+        constraints.push(where('unitId', '==', unitId));
+      }
+      constraints.push(orderBy('createdAt', 'desc'));
+
       const q = query(
         collection(db, COLLECTION),
-        where('createdAt', '>=', startOfDayTimestamp),
-        orderBy('createdAt', 'desc')
+        ...constraints
       );
 
       const snapshot = await getDocs(q);
@@ -197,9 +206,11 @@ export const paymentsServiceOffline = {
     return allPayments.filter((payment: Payment) => payment.customerId === customerId);
   },
 
-  async getMonthPayments(date: Date = new Date()): Promise<Payment[]> {
+  async getMonthPayments(date: Date = new Date(), unitId?: string): Promise<Payment[]> {
     try {
-      const localPayments = await syncService.getAllFromLocal(COLLECTION);
+      const localPayments = unitId
+        ? await syncService.getAllFromLocalByUnit(COLLECTION, unitId)
+        : await syncService.getAllFromLocal(COLLECTION);
       
       const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
       startOfMonth.setHours(0, 0, 0, 0);
@@ -226,11 +237,11 @@ export const paymentsServiceOffline = {
 
       // Se cache vazio, aguarda Firebase
       if (cachedMonthPayments.length === 0) {
-        return await this.fetchMonthPaymentsFromFirebase(date);
+        return await this.fetchMonthPaymentsFromFirebase(date, unitId);
       }
 
       // Se já tem cache, busca Firebase em background
-      this.fetchMonthPaymentsFromFirebase(date)
+      this.fetchMonthPaymentsFromFirebase(date, unitId)
         .then(payments => {
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('payments-updated', { 
@@ -247,7 +258,7 @@ export const paymentsServiceOffline = {
     }
   },
 
-  async fetchMonthPaymentsFromFirebase(date: Date = new Date()): Promise<Payment[]> {
+  async fetchMonthPaymentsFromFirebase(date: Date = new Date(), unitId?: string): Promise<Payment[]> {
     try {
       const db = getDb();
       const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
@@ -256,11 +267,18 @@ export const paymentsServiceOffline = {
       const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
       endOfMonth.setHours(23, 59, 59, 999);
       
-      const q = query(
-        collection(db, COLLECTION),
+      const constraints: any[] = [
         where('createdAt', '>=', Timestamp.fromDate(startOfMonth)),
         where('createdAt', '<=', Timestamp.fromDate(endOfMonth)),
-        orderBy('createdAt', 'desc')
+      ];
+      if (unitId) {
+        constraints.push(where('unitId', '==', unitId));
+      }
+      constraints.push(orderBy('createdAt', 'desc'));
+
+      const q = query(
+        collection(db, COLLECTION),
+        ...constraints
       );
 
       const snapshot = await getDocs(q);
