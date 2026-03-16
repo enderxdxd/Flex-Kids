@@ -7,38 +7,49 @@ import { paymentsServiceOffline } from '../../../shared/firebase/services/paymen
 import { settingsServiceOffline } from '../../../shared/firebase/services/settings.service.offline';
 import { useUnit } from '../contexts/UnitContext';
 
+type ViewMode = 'daily' | 'monthly';
+
 const CashReport: React.FC = () => {
   const { currentUnit } = useUnit();
+  const [viewMode, setViewMode] = useState<ViewMode>('daily');
   const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), 'yyyy-MM'));
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
   const [printing, setPrinting] = useState(false);
 
   useEffect(() => {
     loadPayments();
-  }, [selectedDate, currentUnit]);
+  }, [selectedDate, selectedMonth, viewMode, currentUnit]);
 
   const loadPayments = async () => {
     try {
       setLoading(true);
-      
-      const date = new Date(selectedDate + 'T00:00:00');
-      const startOfDay = new Date(date);
-      startOfDay.setHours(0, 0, 0, 0);
-      
-      const endOfDay = new Date(date);
-      endOfDay.setHours(23, 59, 59, 999);
 
-      console.log('[CASH REPORT] Carregando pagamentos para:', selectedDate);
-      console.log('[CASH REPORT] Range:', startOfDay, 'até', endOfDay);
+      let rangeStart: Date;
+      let rangeEnd: Date;
 
-      // Buscar todos os pagamentos e filtrar pela data
+      if (viewMode === 'monthly') {
+        const [year, month] = selectedMonth.split('-').map(Number);
+        rangeStart = new Date(year, month - 1, 1);
+        rangeStart.setHours(0, 0, 0, 0);
+        rangeEnd = new Date(year, month, 0); // last day of month
+        rangeEnd.setHours(23, 59, 59, 999);
+      } else {
+        const date = new Date(selectedDate + 'T00:00:00');
+        rangeStart = new Date(date);
+        rangeStart.setHours(0, 0, 0, 0);
+        rangeEnd = new Date(date);
+        rangeEnd.setHours(23, 59, 59, 999);
+      }
+
+      console.log(`[CASH REPORT] Mode: ${viewMode}, Range:`, rangeStart, 'até', rangeEnd);
+
       const allPayments = await paymentsServiceOffline.getAllPayments(currentUnit);
-      console.log('[CASH REPORT] Total de pagamentos no sistema:', allPayments.length);
 
       const dayPayments = allPayments.filter(p => {
         const paymentDate = p.createdAt instanceof Date ? p.createdAt : new Date(p.createdAt);
-        const matchesDate = paymentDate >= startOfDay && paymentDate <= endOfDay;
+        const matchesDate = paymentDate >= rangeStart && paymentDate <= rangeEnd;
         const matchesUnit = p.unitId === currentUnit;
         return matchesDate && matchesUnit;
       });
@@ -236,7 +247,7 @@ const CashReport: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Relatório de Caixa</h1>
-          <p className="text-sm text-slate-500">Fechamento diário</p>
+          <p className="text-sm text-slate-500">{viewMode === 'daily' ? 'Fechamento diário' : 'Resumo mensal'}</p>
         </div>
         <div className="flex gap-2 no-print">
           <button onClick={handlePrintNormal} className="px-4 py-2.5 rounded-xl border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-400 transition-all duration-200 flex items-center gap-2">
@@ -253,18 +264,50 @@ const CashReport: React.FC = () => {
         </div>
       </div>
 
-      {/* Date Picker */}
-      <div className="flex items-center gap-3 no-print">
-        <div className="relative">
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="pl-9 pr-3 py-2.5 border border-slate-300 rounded-xl text-sm font-medium text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-400 transition-all hover:border-slate-400"
-          />
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-sm">📅</span>
+      {/* View Mode Toggle + Date Picker */}
+      <div className="flex items-center gap-4 no-print">
+        <div className="flex bg-slate-100 rounded-xl p-1">
+          <button
+            onClick={() => setViewMode('daily')}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${viewMode === 'daily' ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            Diário
+          </button>
+          <button
+            onClick={() => setViewMode('monthly')}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${viewMode === 'monthly' ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            Mensal
+          </button>
         </div>
-        <span className="text-sm text-slate-500 capitalize">{format(new Date(selectedDate + 'T12:00:00'), "EEEE, dd 'de' MMMM", { locale: ptBR })}</span>
+
+        {viewMode === 'daily' ? (
+          <>
+            <div className="relative">
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="pl-9 pr-3 py-2.5 border border-slate-300 rounded-xl text-sm font-medium text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-400 transition-all hover:border-slate-400"
+              />
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-sm">📅</span>
+            </div>
+            <span className="text-sm text-slate-500 capitalize">{format(new Date(selectedDate + 'T12:00:00'), "EEEE, dd 'de' MMMM", { locale: ptBR })}</span>
+          </>
+        ) : (
+          <>
+            <div className="relative">
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="pl-9 pr-3 py-2.5 border border-slate-300 rounded-xl text-sm font-medium text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-400 transition-all hover:border-slate-400"
+              />
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-sm">📅</span>
+            </div>
+            <span className="text-sm text-slate-500 capitalize">{format(new Date(selectedMonth + '-15'), "MMMM 'de' yyyy", { locale: ptBR })}</span>
+          </>
+        )}
       </div>
 
       {/* Stats */}
@@ -349,6 +392,7 @@ const CashReport: React.FC = () => {
                   <th className="text-left px-5 py-3 font-semibold text-[11px] text-slate-500 uppercase tracking-wider">Nome</th>
                   <th className="text-left px-4 py-3 font-semibold text-[11px] text-slate-500 uppercase tracking-wider">Tipo</th>
                   <th className="text-left px-4 py-3 font-semibold text-[11px] text-slate-500 uppercase tracking-wider">Método</th>
+                  {viewMode === 'monthly' && <th className="text-left px-4 py-3 font-semibold text-[11px] text-slate-500 uppercase tracking-wider">Data</th>}
                   <th className="text-left px-4 py-3 font-semibold text-[11px] text-slate-500 uppercase tracking-wider">Hora</th>
                   <th className="text-right px-5 py-3 font-semibold text-[11px] text-slate-500 uppercase tracking-wider">Valor</th>
                 </tr>
@@ -368,6 +412,11 @@ const CashReport: React.FC = () => {
                         {getPaymentMethodLabel(payment.method)}
                       </span>
                     </td>
+                    {viewMode === 'monthly' && (
+                      <td className="px-4 py-3.5 text-slate-500 text-xs">
+                        {new Date(payment.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                      </td>
+                    )}
                     <td className="px-4 py-3.5 text-slate-500">
                       <span className="flex items-center gap-1">
                         <span className="text-slate-400 text-xs">🕐</span>
@@ -380,7 +429,7 @@ const CashReport: React.FC = () => {
               </tbody>
               <tfoot>
                 <tr className="bg-gradient-to-r from-slate-800 to-slate-700">
-                  <td colSpan={4} className="px-5 py-3.5 font-bold text-sm text-white">TOTAL DO DIA</td>
+                  <td colSpan={viewMode === 'monthly' ? 5 : 4} className="px-5 py-3.5 font-bold text-sm text-white">{viewMode === 'daily' ? 'TOTAL DO DIA' : 'TOTAL DO MÊS'}</td>
                   <td className="px-5 py-3.5 text-right font-bold text-lg text-emerald-400">R$ {totalGeneral.toFixed(2)}</td>
                 </tr>
               </tfoot>
