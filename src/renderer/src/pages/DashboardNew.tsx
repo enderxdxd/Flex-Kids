@@ -272,47 +272,44 @@ const DashboardNew: React.FC = () => {
                 .map((visit) => {
                   const elapsed = Math.max(0, Math.floor((now - new Date(visit.checkIn).getTime()) / 60000));
                   const colors = getTimeColor(elapsed);
-                  const progressPct = Math.min((elapsed / 240) * 100, 100);
                   return (
-                  <div key={visit.id} className="bg-white/90 backdrop-blur-sm rounded-2xl border border-slate-200/50 hover:border-violet-200 hover:shadow-xl transition-all duration-300 overflow-hidden group shadow-sm">
+                  <div key={visit.id} className="bg-white/90 backdrop-blur-sm rounded-2xl border border-slate-200/50 hover:border-violet-200 hover:shadow-xl transition-all duration-300 group shadow-sm">
                     <div className="flex items-center justify-between p-4">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <div className={`w-10 h-10 ${colors.light} rounded-full flex items-center justify-center flex-shrink-0`}>
-                          <span className="text-lg">👶</span>
+                          <span className="text-base">🧒</span>
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
                             <p className="font-semibold text-slate-800 truncate">{visit.child?.name || 'Criança'}</p>
-                            {visit.kidsPlanId && <span className="text-[9px] bg-blue-100 text-blue-700 px-1 py-0.5 rounded font-semibold flex-shrink-0">Kids</span>}
+                            {visit.kidsPlanId && <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0">Kids</span>}
                           </div>
-                          <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-                            <span>Check-in: {new Date(visit.checkIn).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
-                            <span className="text-slate-300">|</span>
-                            <span className={`${colors.text} font-bold`}>{formatDuration(elapsed)}</span>
-                            <span className="text-slate-300">|</span>
-                            <span className="truncate">{visit.child?.customer?.name || 'Cliente'}</span>
+                          <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
+                            <span className="flex items-center gap-1">
+                              <span className="text-slate-400">🕐</span>
+                              {new Date(visit.checkIn).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <span className={`${colors.text} ${colors.light} font-bold px-2 py-0.5 rounded-full text-[11px]`}>{formatDuration(elapsed)}</span>
+                            <span className="text-slate-300">·</span>
+                            <span className="truncate text-slate-400">{visit.child?.customer?.name || 'Cliente'}</span>
                           </div>
                         </div>
                       </div>
-                      <div className="flex gap-1.5 flex-shrink-0 ml-3">
+                      <div className="flex items-center gap-2 flex-shrink-0 ml-3">
                         <button
                           onClick={() => handleCancelCheckIn(visit)}
-                          className="p-2 rounded-lg bg-slate-200 hover:bg-red-100 text-slate-600 hover:text-red-600 transition-colors"
+                          className="p-2 rounded-lg border border-slate-200 hover:border-red-300 hover:bg-red-50 text-slate-400 hover:text-red-500 transition-all duration-200"
                           title="Cancelar check-in"
                         >
-                          ❌
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
                         </button>
                         <button
                           onClick={() => handleCheckOut(visit)}
-                          className="px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white font-semibold text-sm transition-colors"
+                          className="px-4 py-2 rounded-xl bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white font-semibold text-sm transition-all duration-200 shadow-sm hover:shadow-md"
                         >
                           Check-Out
                         </button>
                       </div>
-                    </div>
-                    {/* Time progress bar */}
-                    <div className="h-1 bg-slate-200">
-                      <div className={`h-full ${colors.bg} transition-all duration-1000 ease-linear rounded-r-full`} style={{ width: `${progressPct}%` }} />
                     </div>
                   </div>
                   );

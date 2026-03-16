@@ -38,6 +38,14 @@ export function initAutoUpdater(win: BrowserWindow): void {
 
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.logger = {
+    info: (msg: any) => console.log('[UPDATER-LIB]', msg),
+    warn: (msg: any) => console.warn('[UPDATER-LIB]', msg),
+    error: (msg: any) => console.error('[UPDATER-LIB]', msg),
+    debug: (msg: any) => console.log('[UPDATER-LIB-DBG]', msg),
+  } as any;
+
+  console.log(`[UPDATER] App version: ${app.getVersion()}`);
 
   autoUpdater.on('checking-for-update', () => {
     console.log('[UPDATER] Verificando atualizações...');

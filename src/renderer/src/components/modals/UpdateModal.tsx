@@ -60,11 +60,34 @@ const UpdateModal: React.FC<UpdateModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (api) {
-      setDownloadState('downloading');
-      setDownloadPercent(0);
-      api.download();
+      try {
+        setDownloadState('downloading');
+        setDownloadPercent(0);
+
+        // Garante que o electron-updater sabe qual versão baixar
+        const checkResult = await api.check();
+        console.log('[UpdateModal] Check result:', checkResult);
+
+        if (!checkResult?.success) {
+          setDownloadState('error');
+          setErrorMsg(checkResult?.error || 'Erro ao verificar atualização');
+          return;
+        }
+
+        const dlResult = await api.download();
+        console.log('[UpdateModal] Download result:', dlResult);
+
+        if (!dlResult?.success) {
+          setDownloadState('error');
+          setErrorMsg(dlResult?.error || 'Erro ao iniciar download');
+        }
+      } catch (err: any) {
+        console.error('[UpdateModal] Download error:', err);
+        setDownloadState('error');
+        setErrorMsg(err?.message || 'Erro inesperado no download');
+      }
     } else {
       // Fallback: open GitHub releases page
       window.open('https://github.com/enderxdxd/Flex-Kids/releases/latest', '_blank');
