@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Unit } from '../../../shared/types';
 import { useAuth } from './AuthContext';
+import { prefetchAllData, resetPrefetch } from '../../../shared/firebase/services/prefetchService';
 
 interface UnitContextType {
   currentUnit: string;
@@ -48,6 +49,15 @@ export const UnitProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [isAuthenticated, authenticatedUnit]);
 
+  // Prefetch data from Firebase when unit is set
+  useEffect(() => {
+    if (currentUnit) {
+      prefetchAllData(currentUnit).catch(err =>
+        console.error('[UnitContext] Prefetch error:', err)
+      );
+    }
+  }, [currentUnit]);
+
   const isUnitLocked = isAuthenticated && !!authenticatedUnit;
 
   const setCurrentUnit = (unit: string) => {
@@ -57,9 +67,11 @@ export const UnitProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
     try {
       localStorage.setItem(STORAGE_KEY, unit);
+      resetPrefetch();
       setCurrentUnitState(unit);
     } catch (error) {
       console.error('Error saving unit:', error);
+      resetPrefetch();
       setCurrentUnitState(unit);
     }
   };

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ModalWrapper from './ModalWrapper';
 import { toast } from 'react-toastify';
 import { Customer, Child } from '../../../../shared/types';
-import { customersService } from '../../../../shared/firebase/services/customers.service';
+import { customersServiceOffline } from '../../../../shared/firebase/services/customers.service.offline';
 import { packagesServiceOffline } from '../../../../shared/firebase/services/packages.service.offline';
 import { useUnit } from '../../contexts/UnitContext';
 import { getChildAge } from '../../../../shared/utils/age';
@@ -35,8 +35,8 @@ const PackageModal: React.FC<PackageModalProps> = ({ isOpen, onClose, onSuccess 
   const loadCustomers = async () => {
     try {
       const [allCustomers, allChildren] = await Promise.all([
-        customersService.getAllCustomers(currentUnit),
-        customersService.getAllChildren(currentUnit),
+        customersServiceOffline.getAllCustomers(currentUnit),
+        customersServiceOffline.getAllChildren(currentUnit),
       ]);
       setCustomers(allCustomers);
       setChildren(allChildren);

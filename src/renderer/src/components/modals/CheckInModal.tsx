@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import ModalWrapper from './ModalWrapper';
 import { toast } from 'react-toastify';
 import { Customer, Child, KidsPlan } from '../../../../shared/types';
-import { customersService } from '../../../../shared/firebase/services/customers.service';
+import { customersServiceOffline } from '../../../../shared/firebase/services/customers.service.offline';
 import { visitsServiceOffline } from '../../../../shared/firebase/services/visits.service.offline';
 import { kidsPlansServiceOffline } from '../../../../shared/firebase/services/kidsPlans.service.offline';
 import { useUnit } from '../../contexts/UnitContext';
@@ -35,8 +35,8 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
   const loadCustomers = async () => {
     try {
       const [allCustomers, allChildren, activePlans] = await Promise.all([
-        customersService.getAllCustomers(currentUnit),
-        customersService.getAllChildren(currentUnit),
+        customersServiceOffline.getAllCustomers(currentUnit),
+        customersServiceOffline.getAllChildren(currentUnit),
         kidsPlansServiceOffline.getActivePlans(currentUnit),
       ]);
       setCustomers(allCustomers);
