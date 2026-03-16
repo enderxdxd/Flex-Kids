@@ -8,6 +8,7 @@ import { ipcMain } from 'electron';
 let SerialPort: any = null;
 let port: any = null;
 let isConnected = false;
+let lastError = '';
 
 // Tenta importar serialport
 try {
@@ -46,10 +47,12 @@ async function listPorts(): Promise<any[]> {
 async function connect(portPath: string, baudRate: number = 9600): Promise<boolean> {
   if (!SerialPort) {
     console.error('[PRINTER] SerialPort não disponível');
+    lastError = 'SerialPort não disponível neste sistema';
     return false;
   }
 
   console.log(`[PRINTER] Tentando conectar: ${portPath} @ ${baudRate} baud`);
+  lastError = '';
 
   try {
     // Fecha porta anterior se existir
@@ -64,6 +67,8 @@ async function connect(portPath: string, baudRate: number = 9600): Promise<boole
         console.warn('[PRINTER] Erro ao fechar porta anterior:', e);
       }
       port = null;
+      // Aguarda o SO liberar a porta
+      await new Promise(r => setTimeout(r, 300));
     }
 
     // Abre nova conexão
@@ -97,7 +102,20 @@ async function connect(portPath: string, baudRate: number = 9600): Promise<boole
     console.log(`[PRINTER] ✅ Conectado na porta ${portPath} @ ${baudRate} baud`);
     return true;
   } catch (error: any) {
-    console.error(`[PRINTER] ❌ Falha ao conectar ${portPath} @ ${baudRate}:`, error.message);
+    const msg = error.message || '';
+    console.error(`[PRINTER] ❌ Falha ao conectar ${portPath} @ ${baudRate}:`, msg);
+
+    // Detecta erros comuns e gera mensagem amigável
+    if (msg.includes('Access denied') || msg.includes('access') || msg.includes('Permission')) {
+      lastError = `Porta ${portPath} está sendo usada por outro programa (driver Bematech, Spooler, etc). Feche o outro programa ou pare o serviço Bematech no Windows.`;
+    } else if (msg.includes('File not found') || msg.includes('not found')) {
+      lastError = `Porta ${portPath} não encontrada. Verifique se a impressora está conectada via USB.`;
+    } else if (msg.includes('Timeout')) {
+      lastError = `Timeout ao conectar em ${portPath}. A impressora pode estar desligada ou sem energia suficiente.`;
+    } else {
+      lastError = `Erro ao conectar em ${portPath}: ${msg}`;
+    }
+
     isConnected = false;
     port = null;
     return false;
@@ -183,11 +201,12 @@ async function sendRaw(data: number[]): Promise<boolean> {
 /**
  * Verifica status da conexão
  */
-function getStatus(): { connected: boolean; portOpen: boolean; serialportAvailable: boolean } {
+function getStatus(): { connected: boolean; portOpen: boolean; serialportAvailable: boolean; lastError: string } {
   return {
     connected: isConnected,
     portOpen: port?.isOpen || false,
     serialportAvailable: SerialPort !== null,
+    lastError,
   };
 }
 

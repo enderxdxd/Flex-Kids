@@ -109,7 +109,8 @@ const FiscalSettings: React.FC = () => {
           toast.error(`❌ Erro: ${status.error}`);
         }
       } else {
-        toast.error('❌ Não foi possível conectar à impressora');
+        const errorDetail = bematechService.getLastError();
+        toast.error(`❌ ${errorDetail || 'Não foi possível conectar à impressora'}`, { autoClose: 8000 });
       }
     } catch (error) {
       console.error('Error testing printer:', error);

@@ -17,7 +17,7 @@ declare global {
         disconnect: () => Promise<boolean>;
         sendCommand: (command: string) => Promise<boolean>;
         sendRaw: (data: number[]) => Promise<boolean>;
-        getStatus: () => Promise<{ connected: boolean; portOpen: boolean; serialportAvailable: boolean }>;
+        getStatus: () => Promise<{ connected: boolean; portOpen: boolean; serialportAvailable: boolean; lastError?: string }>;
         printText: (text: string) => Promise<boolean>;
         printTest: (portPath: string) => Promise<{ success: boolean; error?: string }>;
       };
@@ -42,6 +42,7 @@ export class BematechService {
   private port: any = null;
   private isConnected: boolean = false;
   private isSimulationMode: boolean = false;
+  private _lastError: string = '';
 
   /**
    * Detecta automaticamente a porta da impressora Bematech
@@ -148,16 +149,28 @@ export class BematechService {
         await new Promise(r => setTimeout(r, 500));
       }
 
-      console.error(`❌ Falha ao conectar na porta ${portPath} em todos os baud rates`);
+      // Busca erro detalhado do main process
+      const finalStatus = await api.getStatus();
+      const errorMsg = finalStatus.lastError || `Falha ao conectar na porta ${portPath} em todos os baud rates`;
+      console.error(`❌ ${errorMsg}`);
       this.isConnected = false;
       this.isSimulationMode = true;
+      this._lastError = errorMsg;
       return false;
     } catch (error) {
       console.error('Erro ao conectar com impressora fiscal:', error);
       this.isConnected = false;
       this.isSimulationMode = true;
+      this._lastError = error instanceof Error ? error.message : 'Erro desconhecido';
       return false;
     }
+  }
+
+  /**
+   * Retorna o último erro de conexão
+   */
+  getLastError(): string {
+    return this._lastError;
   }
 
   /**
