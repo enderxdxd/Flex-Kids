@@ -11,7 +11,7 @@ import CustomerModal from '../components/modals/CustomerModal';
 import PackageModal from '../components/modals/PackageModal';
 import CheckOutModal from '../components/modals/CheckOutModal';
 import CancelCheckInModal from '../components/modals/CancelCheckInModal';
-import { TargetIcon, MoneyIcon, ChartIcon, PackageIcon, GamepadIcon, PlusIcon, UserPlusIcon, CreditCardIcon } from '../components/icons/Icons';
+import { TargetIcon, MoneyIcon, ChartIcon, PackageIcon, GamepadIcon, PlusIcon, UserPlusIcon, CreditCardIcon, ShoppingCartIcon } from '../components/icons/Icons';
 
 // Helper: color based on elapsed minutes
 const getTimeColor = (minutes: number) => {
@@ -182,20 +182,11 @@ const DashboardNew: React.FC = () => {
             <p className="text-sm text-slate-500">{unitInfo?.name} &middot; {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => loadStats(true)}
-                disabled={loading}
-                className="px-4 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50 transition-colors flex items-center gap-2"
-              >
-                {loading ? '⏳' : '🔄'} Atualizar
-              </button>
-              {lastUpdated && (
-                <span className="text-[11px] text-slate-400">
-                  {lastUpdated.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                </span>
-              )}
-            </div>
+            {lastUpdated && (
+              <span className="text-[11px] text-slate-400">
+                Atualizado {lastUpdated.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
             <button
               onClick={() => setShowCheckInModal(true)}
               className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105"
@@ -206,40 +197,40 @@ const DashboardNew: React.FC = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-white/20 p-7 hover:shadow-2xl hover:border-blue-200 hover:scale-105 transition-all duration-300 group shadow-lg">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 animate-[pulse-slow_3s_ease-in-out_infinite]">
-                <TargetIcon className="text-blue-600 group-hover:animate-[bounce-subtle_0.6s_ease-in-out]" size={28} />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-white/20 p-5 hover:shadow-xl hover:border-blue-200 hover:scale-[1.03] transition-all duration-300 group shadow-md">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                <TargetIcon className="text-blue-600" size={22} />
               </div>
               {loading && isInitialLoad && <div className="animate-spin text-sm">⏳</div>}
             </div>
-            <p className="text-xs text-slate-600 font-semibold uppercase tracking-wide">Visitas Ativas</p>
-            <p className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent mt-2">{stats.activeVisits}</p>
+            <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wide">Visitas Ativas</p>
+            <p className={`text-3xl font-bold mt-1 ${stats.activeVisits > 0 ? 'bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent' : 'text-slate-300'}`}>{stats.activeVisits}</p>
           </div>
 
-          <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-white/20 p-7 hover:shadow-2xl hover:border-emerald-200 hover:scale-105 transition-all duration-300 group shadow-lg">
-            <div className="w-12 h-12 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 animate-[pulse-slow_3s_ease-in-out_infinite_0.5s]">
-              <MoneyIcon className="text-emerald-600 group-hover:animate-[bounce-subtle_0.6s_ease-in-out]" size={28} />
+          <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-white/20 p-5 hover:shadow-xl hover:border-emerald-200 hover:scale-[1.03] transition-all duration-300 group shadow-md">
+            <div className="w-10 h-10 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
+              <MoneyIcon className="text-emerald-600" size={22} />
             </div>
-            <p className="text-xs text-slate-600 font-semibold uppercase tracking-wide">Receita Hoje</p>
-            <p className="text-4xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-700 bg-clip-text text-transparent mt-2">R$ {stats.todayRevenue.toFixed(2)}</p>
+            <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wide">Receita Hoje</p>
+            <p className={`text-3xl font-bold mt-1 ${stats.todayRevenue > 0 ? 'bg-gradient-to-r from-emerald-600 to-emerald-700 bg-clip-text text-transparent' : 'text-slate-300'}`}>R$ {stats.todayRevenue.toFixed(2)}</p>
           </div>
 
-          <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-white/20 p-7 hover:shadow-2xl hover:border-violet-200 hover:scale-105 transition-all duration-300 group shadow-lg">
-            <div className="w-12 h-12 bg-gradient-to-br from-violet-100 to-violet-200 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 animate-[pulse-slow_3s_ease-in-out_infinite_1s]">
-              <ChartIcon className="text-violet-600 group-hover:animate-[bounce-subtle_0.6s_ease-in-out]" size={28} />
+          <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-white/20 p-5 hover:shadow-xl hover:border-violet-200 hover:scale-[1.03] transition-all duration-300 group shadow-md">
+            <div className="w-10 h-10 bg-gradient-to-br from-violet-100 to-violet-200 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
+              <ChartIcon className="text-violet-600" size={22} />
             </div>
-            <p className="text-xs text-slate-600 font-semibold uppercase tracking-wide">Total Visitas Hoje</p>
-            <p className="text-4xl font-bold bg-gradient-to-r from-violet-600 to-violet-700 bg-clip-text text-transparent mt-2">{stats.todayVisits}</p>
+            <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wide">Total Visitas Hoje</p>
+            <p className={`text-3xl font-bold mt-1 ${stats.todayVisits > 0 ? 'bg-gradient-to-r from-violet-600 to-violet-700 bg-clip-text text-transparent' : 'text-slate-300'}`}>{stats.todayVisits}</p>
           </div>
 
-          <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-white/20 p-7 hover:shadow-2xl hover:border-amber-200 hover:scale-105 transition-all duration-300 group shadow-lg">
-            <div className="w-12 h-12 bg-gradient-to-br from-amber-100 to-amber-200 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 animate-[pulse-slow_3s_ease-in-out_infinite_1.5s]">
-              <PackageIcon className="text-amber-600 group-hover:animate-[bounce-subtle_0.6s_ease-in-out]" size={28} />
+          <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-white/20 p-5 hover:shadow-xl hover:border-amber-200 hover:scale-[1.03] transition-all duration-300 group shadow-md">
+            <div className="w-10 h-10 bg-gradient-to-br from-amber-100 to-amber-200 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
+              <PackageIcon className="text-amber-600" size={22} />
             </div>
-            <p className="text-xs text-slate-600 font-semibold uppercase tracking-wide">Pacotes Ativos</p>
-            <p className="text-4xl font-bold bg-gradient-to-r from-amber-600 to-amber-700 bg-clip-text text-transparent mt-2">{stats.activePackages}</p>
+            <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wide">Pacotes Ativos</p>
+            <p className={`text-3xl font-bold mt-1 ${stats.activePackages > 0 ? 'bg-gradient-to-r from-amber-600 to-amber-700 bg-clip-text text-transparent' : 'text-slate-300'}`}>{stats.activePackages}</p>
           </div>
         </div>
 
@@ -259,12 +250,12 @@ const DashboardNew: React.FC = () => {
                   </div>
                 ))
               ) : activeVisits.length === 0 ? (
-                <div className="text-center py-16">
-                  <div className="w-20 h-20 bg-gradient-to-br from-slate-100 to-slate-200 rounded-3xl flex items-center justify-center mx-auto mb-4 animate-[pulse-slow_3s_ease-in-out_infinite]">
-                    <GamepadIcon className="text-slate-400" size={48} />
+                <div className="text-center py-10">
+                  <div className="w-16 h-16 bg-gradient-to-br from-slate-100 to-slate-200 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                    <GamepadIcon className="text-slate-300" size={36} />
                   </div>
-                  <p className="text-lg font-bold text-slate-700 mb-2">Nenhuma visita ativa</p>
-                  <p className="text-sm text-slate-500">Faça um check-in para começar</p>
+                  <p className="text-base font-bold text-slate-500 mb-1">Nenhuma visita ativa</p>
+                  <p className="text-xs text-slate-400">Faça um check-in para começar</p>
                 </div>
               ) : (
                 [...activeVisits]
@@ -365,6 +356,24 @@ const DashboardNew: React.FC = () => {
                     </svg>
                   </div>
                 </button>
+                <button
+                  onClick={() => setShowPackageModal(true)}
+                  className="w-full flex items-center gap-4 p-4 rounded-2xl bg-gradient-to-br from-amber-50 via-amber-50 to-orange-50 border border-amber-200/60 hover:border-amber-400 hover:shadow-xl hover:scale-[1.02] transition-all duration-300 text-left group relative overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-amber-400/0 via-amber-400/5 to-amber-400/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
+                  <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-amber-500/30 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                    <ShoppingCartIcon className="text-white" size={24} />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-bold text-sm text-slate-800 group-hover:text-amber-700 transition-colors">Vender Pacote</p>
+                    <p className="text-xs text-slate-500 mt-0.5">Venda de pacote de horas</p>
+                  </div>
+                  <div className="text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                      <path d="M9 18L15 12L9 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+                </button>
               </div>
             </div>
 
@@ -378,12 +387,12 @@ const DashboardNew: React.FC = () => {
               </div>
               <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
                 {recentPayments.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 bg-gradient-to-br from-slate-100 to-slate-200 rounded-2xl flex items-center justify-center mx-auto mb-3 animate-[pulse-slow_3s_ease-in-out_infinite]">
-                      <CreditCardIcon className="text-slate-400" size={32} />
+                  <div className="text-center py-8">
+                    <div className="w-12 h-12 bg-gradient-to-br from-slate-100 to-slate-200 rounded-xl flex items-center justify-center mx-auto mb-2">
+                      <CreditCardIcon className="text-slate-300" size={24} />
                     </div>
-                    <p className="text-sm font-bold text-slate-700 mb-1">Nenhum pagamento hoje</p>
-                    <p className="text-xs text-slate-500">Os pagamentos aparecerão aqui</p>
+                    <p className="text-sm font-semibold text-slate-500 mb-0.5">Nenhum pagamento hoje</p>
+                    <p className="text-xs text-slate-400">Os pagamentos aparecerão aqui</p>
                   </div>
                 ) : (
                   recentPayments.map((payment) => (
