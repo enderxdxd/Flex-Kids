@@ -291,6 +291,106 @@ const Settings: React.FC = () => {
                 <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salvar Configurações</>
               )}
             </button>
+
+            {/* Sistema + Atualizações + Danger Zone — na coluna principal para equilibrar */}
+            <div className="grid grid-cols-2 gap-5">
+              {/* System Info */}
+              <div className="bg-slate-50/80 backdrop-blur-xl rounded-2xl border border-slate-200/50 p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="text-base">⚙️</span>
+                  <h2 className="text-sm font-bold text-slate-600 uppercase tracking-wider">Sistema</h2>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center text-xs py-1.5">
+                    <span className="text-slate-500">Versão</span>
+                    <span className="font-bold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-full text-[10px]">{import.meta.env.VITE_APP_VERSION || '—'}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs py-1.5">
+                    <span className="text-slate-500">Plataforma</span>
+                    <span className="font-medium text-slate-700">Electron + React</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs py-1.5">
+                    <span className="text-slate-500">Banco</span>
+                    <span className="font-medium text-slate-700">Cloud Firestore</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs py-1.5">
+                    <span className="text-slate-500">Unidade</span>
+                    <span className="font-medium text-violet-600">{currentUnit || 'N/A'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Danger Zone */}
+              <div className="bg-red-50/80 backdrop-blur-xl rounded-2xl border border-red-200/50 p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-base">⚠️</span>
+                  <h2 className="text-sm font-bold text-red-600 uppercase tracking-wider">Zona de Perigo</h2>
+                </div>
+                <p className="text-[11px] text-red-400 mb-4 leading-relaxed">Limpa todo o cache local (IndexedDB). Dados no Firebase não são afetados.</p>
+                {!confirmClear ? (
+                  <button
+                    onClick={() => { setConfirmClear(true); setAdminPassword(''); }}
+                    className="w-full flex items-center justify-center gap-2 bg-red-500/90 hover:bg-red-600 text-white py-2.5 rounded-xl font-semibold text-xs transition-all hover:shadow-md"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    Limpar Cache Total
+                  </button>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-xs font-bold text-red-600 text-center">Senha de administrador:</p>
+                    <input
+                      type="password"
+                      value={adminPassword}
+                      onChange={(e) => setAdminPassword(e.target.value)}
+                      placeholder="Senha do admin"
+                      className="w-full px-4 py-2.5 border border-red-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500/40 focus:border-red-400 transition-all"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={async () => {
+                          if (adminPassword !== 'pactoflex123') {
+                            toast.error('Senha incorreta!');
+                            return;
+                          }
+                          try {
+                            setClearingCache(true);
+                            await localDb.close();
+                            const databases = await window.indexedDB.databases();
+                            for (const dbInfo of databases) {
+                              if (dbInfo.name) {
+                                window.indexedDB.deleteDatabase(dbInfo.name);
+                              }
+                            }
+                            toast.success('✅ Cache limpo! Recarregando...');
+                            setTimeout(() => window.location.reload(), 1500);
+                          } catch (error) {
+                            console.error('Error clearing cache:', error);
+                            toast.error('Erro ao limpar cache');
+                          } finally {
+                            setClearingCache(false);
+                            setConfirmClear(false);
+                            setAdminPassword('');
+                          }
+                        }}
+                        disabled={clearingCache || !adminPassword}
+                        className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-xl font-semibold text-xs transition-all disabled:opacity-50"
+                      >
+                        {clearingCache ? '⏳ Limpando...' : 'Confirmar'}
+                      </button>
+                      <button
+                        onClick={() => { setConfirmClear(false); setAdminPassword(''); }}
+                        className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 py-2.5 rounded-xl font-semibold text-xs transition-all"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Atualizações - full width na coluna principal */}
+            <UpdateChecker />
           </div>
 
           {/* Sidebar */}
@@ -510,103 +610,6 @@ const Settings: React.FC = () => {
                 <p className="text-[11px] font-semibold text-blue-700 mb-0.5">☁️ Seus dados estão seguros</p>
                 <p className="text-[10px] text-blue-500 leading-relaxed">Todos os dados são salvos automaticamente no Firebase. O CSV é para controle financeiro pessoal.</p>
               </div>
-            </div>
-
-            {/* System Info */}
-            <div className="bg-slate-50/80 backdrop-blur-xl rounded-2xl border border-slate-200/50 p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-base">⚙️</span>
-                <h2 className="text-sm font-bold text-slate-600 uppercase tracking-wider">Sistema</h2>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-xs py-1.5">
-                  <span className="text-slate-500">Versão</span>
-                  <span className="font-bold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-full text-[10px]">{import.meta.env.VITE_APP_VERSION || '—'}</span>
-                </div>
-                <div className="flex justify-between items-center text-xs py-1.5">
-                  <span className="text-slate-500">Plataforma</span>
-                  <span className="font-medium text-slate-700">Electron + React</span>
-                </div>
-                <div className="flex justify-between items-center text-xs py-1.5">
-                  <span className="text-slate-500">Banco</span>
-                  <span className="font-medium text-slate-700">Cloud Firestore</span>
-                </div>
-                <div className="flex justify-between items-center text-xs py-1.5">
-                  <span className="text-slate-500">Unidade</span>
-                  <span className="font-medium text-violet-600">{currentUnit || 'N/A'}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Atualizações */}
-            <UpdateChecker />
-
-            {/* Danger Zone - Password Protected */}
-            <div className="bg-red-50/80 backdrop-blur-xl rounded-2xl border border-red-200/50 p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-base">⚠️</span>
-                <h2 className="text-sm font-bold text-red-600 uppercase tracking-wider">Zona de Perigo</h2>
-              </div>
-              <p className="text-[11px] text-red-400 mb-4 leading-relaxed">Limpa todo o cache local (IndexedDB). Os dados no Firebase não serão afetados, mas dados offline não sincronizados serão perdidos.</p>
-              {!confirmClear ? (
-                <button
-                  onClick={() => { setConfirmClear(true); setAdminPassword(''); }}
-                  className="w-full flex items-center justify-center gap-2 bg-red-500/90 hover:bg-red-600 text-white py-2.5 rounded-xl font-semibold text-xs transition-all hover:shadow-md"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                  Limpar Cache Total
-                </button>
-              ) : (
-                <div className="space-y-3">
-                  <p className="text-xs font-bold text-red-600 text-center">Digite a senha de administrador:</p>
-                  <input
-                    type="password"
-                    value={adminPassword}
-                    onChange={(e) => setAdminPassword(e.target.value)}
-                    placeholder="Senha do admin"
-                    className="w-full px-4 py-2.5 border border-red-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500/40 focus:border-red-400 transition-all"
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      onClick={async () => {
-                        if (adminPassword !== 'pactoflex123') {
-                          toast.error('Senha incorreta!');
-                          return;
-                        }
-                        try {
-                          setClearingCache(true);
-                          await localDb.close();
-                          const databases = await window.indexedDB.databases();
-                          for (const dbInfo of databases) {
-                            if (dbInfo.name) {
-                              window.indexedDB.deleteDatabase(dbInfo.name);
-                            }
-                          }
-                          toast.success('✅ Cache limpo! Recarregando...');
-                          setTimeout(() => window.location.reload(), 1500);
-                        } catch (error) {
-                          console.error('Error clearing cache:', error);
-                          toast.error('Erro ao limpar cache');
-                        } finally {
-                          setClearingCache(false);
-                          setConfirmClear(false);
-                          setAdminPassword('');
-                        }
-                      }}
-                      disabled={clearingCache || !adminPassword}
-                      className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-xl font-semibold text-xs transition-all disabled:opacity-50"
-                    >
-                      {clearingCache ? '⏳ Limpando...' : 'Confirmar'}
-                    </button>
-                    <button
-                      onClick={() => { setConfirmClear(false); setAdminPassword(''); }}
-                      className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 py-2.5 rounded-xl font-semibold text-xs transition-all"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>
