@@ -218,6 +218,18 @@ const CashReport: React.FC = () => {
     console.log('================================');
   };
 
+  const packageCount = payments.filter(p => p.type === 'package').length;
+  const visitCount = payments.filter(p => p.type === 'visit').length;
+
+  const getMethodIcon = (method: string) => {
+    const m = method.toLowerCase();
+    if (m === 'pix') return '⚡';
+    if (['cash', 'dinheiro'].includes(m)) return '💵';
+    if (['card', 'cartao', 'credit', 'debit'].includes(m)) return '💳';
+    if (['package', 'pacote'].includes(m)) return '📦';
+    return '💰';
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -226,103 +238,150 @@ const CashReport: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-800">Relatório de Caixa</h1>
           <p className="text-sm text-slate-500">Fechamento diário</p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={handlePrintNormal} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors no-print">
-            🖨️ Imprimir
+        <div className="flex gap-2 no-print">
+          <button onClick={handlePrintNormal} className="px-4 py-2.5 rounded-xl border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-400 transition-all duration-200 flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Imprimir
           </button>
-          <button onClick={handlePrint} disabled={printing || payments.length === 0} className="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors shadow-sm disabled:opacity-50 no-print">
-            {printing ? '⏳ Imprimindo...' : '🧾 Imprimir Fiscal'}
+          <button onClick={handlePrint} disabled={printing || payments.length === 0} className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-sm font-semibold transition-all duration-200 shadow-md hover:shadow-lg disabled:opacity-50 flex items-center gap-2">
+            {printing ? (
+              <><span className="animate-spin">⏳</span> Imprimindo...</>
+            ) : (
+              <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Imprimir Fiscal</>
+            )}
           </button>
         </div>
       </div>
 
-      {/* Date + Summary */}
-      <div className="flex items-center gap-4">
-        <input
-          type="date"
-          value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
-          className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 no-print"
-        />
-        <span className="text-sm text-slate-500">{format(new Date(selectedDate + 'T12:00:00'), "EEEE, dd 'de' MMMM", { locale: ptBR })}</span>
+      {/* Date Picker */}
+      <div className="flex items-center gap-3 no-print">
+        <div className="relative">
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="pl-9 pr-3 py-2.5 border border-slate-300 rounded-xl text-sm font-medium text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-400 transition-all hover:border-slate-400"
+          />
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-sm">📅</span>
+        </div>
+        <span className="text-sm text-slate-500 capitalize">{format(new Date(selectedDate + 'T12:00:00'), "EEEE, dd 'de' MMMM", { locale: ptBR })}</span>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <p className="text-xs text-slate-500 font-medium">Pacotes</p>
-          <p className="text-2xl font-bold text-slate-800 mt-1">R$ {totalPackages.toFixed(2)}</p>
-          <p className="text-xs text-slate-400 mt-0.5">{payments.filter(p => p.type === 'package').length} vendas</p>
+        {/* Pacotes */}
+        <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-white/20 p-5 shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-300">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-base">📦</span>
+            <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wide">Pacotes</p>
+          </div>
+          <p className={`text-2xl font-bold ${totalPackages > 0 ? 'bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent' : 'text-slate-300'}`}>R$ {totalPackages.toFixed(2)}</p>
+          <p className="text-[11px] text-slate-400 mt-1">{packageCount} {packageCount === 1 ? 'venda' : 'vendas'}</p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <p className="text-xs text-slate-500 font-medium">Visitas</p>
-          <p className="text-2xl font-bold text-slate-800 mt-1">R$ {totalVisits.toFixed(2)}</p>
-          <p className="text-xs text-slate-400 mt-0.5">{payments.filter(p => p.type === 'visit').length} visitas</p>
+
+        {/* Visitas */}
+        <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-white/20 p-5 shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-300">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-base">🎮</span>
+            <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wide">Visitas</p>
+          </div>
+          <p className={`text-2xl font-bold ${totalVisits > 0 ? 'bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent' : 'text-slate-300'}`}>R$ {totalVisits.toFixed(2)}</p>
+          <p className="text-[11px] text-slate-400 mt-1">{visitCount} {visitCount === 1 ? 'visita' : 'visitas'}</p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <p className="text-xs text-slate-500 font-medium">Total Geral</p>
-          <p className="text-2xl font-bold text-emerald-600 mt-1">R$ {totalGeneral.toFixed(2)}</p>
-          <p className="text-xs text-slate-400 mt-0.5">{payments.length} pagamentos</p>
+
+        {/* Total Geral - Destaque */}
+        <div className="bg-gradient-to-br from-emerald-50 to-teal-50 backdrop-blur-xl rounded-2xl border border-emerald-200/50 p-5 shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-300">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-base">💰</span>
+            <p className="text-[11px] text-emerald-600 font-bold uppercase tracking-wide">Total Geral</p>
+          </div>
+          <p className={`text-2xl font-bold ${totalGeneral > 0 ? 'bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent' : 'text-slate-300'}`}>R$ {totalGeneral.toFixed(2)}</p>
+          <p className="text-[11px] text-emerald-500 mt-1">{payments.length} {payments.length === 1 ? 'pagamento' : 'pagamentos'}</p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <p className="text-xs text-slate-500 font-medium mb-2">Por Método</p>
-          <div className="text-xs space-y-1">
-            <div className="flex justify-between"><span className="text-slate-500">Dinheiro</span><span className="font-semibold text-slate-800">R$ {totalByMethod.dinheiro.toFixed(2)}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">PIX</span><span className="font-semibold text-slate-800">R$ {totalByMethod.pix.toFixed(2)}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">Cartão</span><span className="font-semibold text-slate-800">R$ {totalByMethod.cartao.toFixed(2)}</span></div>
+
+        {/* Por Método */}
+        <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-white/20 p-5 shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-300">
+          <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wide mb-3">Por Método</p>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-xs text-slate-500"><span>💵</span> Dinheiro</span>
+              <span className={`text-xs font-bold ${totalByMethod.dinheiro > 0 ? 'text-slate-800' : 'text-slate-300'}`}>R$ {totalByMethod.dinheiro.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-xs text-slate-500"><span>⚡</span> PIX</span>
+              <span className={`text-xs font-bold ${totalByMethod.pix > 0 ? 'text-slate-800' : 'text-slate-300'}`}>R$ {totalByMethod.pix.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-xs text-slate-500"><span>💳</span> Cartão</span>
+              <span className={`text-xs font-bold ${totalByMethod.cartao > 0 ? 'text-slate-800' : 'text-slate-300'}`}>R$ {totalByMethod.cartao.toFixed(2)}</span>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-slate-200">
-        <div className="flex justify-between items-center p-4 border-b border-slate-100 no-print">
-          <h2 className="text-sm font-bold text-slate-600 uppercase tracking-wider">Detalhamento</h2>
-          <button onClick={loadPayments} disabled={loading} className="text-sm text-violet-600 hover:text-violet-700 font-medium disabled:opacity-50">
-            {loading ? '⏳' : '🔄'} Atualizar
+      <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-white/20 shadow-md overflow-hidden">
+        <div className="flex justify-between items-center px-5 py-4 border-b border-slate-100 no-print">
+          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Detalhamento</h2>
+          <button onClick={loadPayments} disabled={loading} className="text-xs text-violet-600 hover:text-violet-700 font-semibold disabled:opacity-50 flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-violet-50 transition-all">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={loading ? 'animate-spin' : ''}><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            Atualizar
           </button>
         </div>
 
         {loading ? (
           <div className="p-5 space-y-3">
-            {[1, 2, 3].map(i => <div key={i} className="animate-pulse h-10 bg-slate-100 rounded-lg" />)}
+            {[1, 2, 3].map(i => <div key={i} className="animate-pulse h-12 bg-slate-100/50 rounded-xl" />)}
           </div>
         ) : payments.length === 0 ? (
-          <div className="text-center py-12 text-slate-400">
-            <p className="text-4xl mb-2">📊</p>
-            <p className="font-medium">Nenhum pagamento nesta data</p>
+          <div className="text-center py-10">
+            <div className="w-14 h-14 bg-gradient-to-br from-slate-100 to-slate-200 rounded-2xl flex items-center justify-center mx-auto mb-3">
+              <span className="text-2xl">📊</span>
+            </div>
+            <p className="text-sm font-semibold text-slate-500">Nenhum pagamento nesta data</p>
+            <p className="text-xs text-slate-400 mt-1">Selecione outra data para ver o relatório</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50">
-                  <th className="text-left p-3 font-semibold text-slate-600">Nome</th>
-                  <th className="text-left p-3 font-semibold text-slate-600">Tipo</th>
-                  <th className="text-left p-3 font-semibold text-slate-600">Método</th>
-                  <th className="text-left p-3 font-semibold text-slate-600">Hora</th>
-                  <th className="text-right p-3 font-semibold text-slate-600">Valor</th>
+                <tr className="border-b border-slate-200/60 bg-slate-50/50">
+                  <th className="text-left px-5 py-3 font-semibold text-[11px] text-slate-500 uppercase tracking-wider">Nome</th>
+                  <th className="text-left px-4 py-3 font-semibold text-[11px] text-slate-500 uppercase tracking-wider">Tipo</th>
+                  <th className="text-left px-4 py-3 font-semibold text-[11px] text-slate-500 uppercase tracking-wider">Método</th>
+                  <th className="text-left px-4 py-3 font-semibold text-[11px] text-slate-500 uppercase tracking-wider">Hora</th>
+                  <th className="text-right px-5 py-3 font-semibold text-[11px] text-slate-500 uppercase tracking-wider">Valor</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100/60">
                 {payments.map((payment) => (
-                  <tr key={payment.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-3 font-medium text-slate-800">{payment.childName || payment.description || '-'}</td>
-                    <td className="p-3">
-                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${payment.type === 'package' ? 'bg-violet-100 text-violet-700' : 'bg-blue-100 text-blue-700'}`}>
+                  <tr key={payment.id} className="hover:bg-violet-50/30 transition-colors duration-150">
+                    <td className="px-5 py-3.5 font-medium text-slate-800">{payment.childName || payment.description || '-'}</td>
+                    <td className="px-4 py-3.5">
+                      <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${payment.type === 'package' ? 'bg-violet-100 text-violet-700' : 'bg-emerald-100 text-emerald-700'}`}>
                         {getTypeLabel(payment)}
                       </span>
                     </td>
-                    <td className="p-3 text-slate-600">{getPaymentMethodLabel(payment.method)}</td>
-                    <td className="p-3 text-slate-500">{new Date(payment.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</td>
-                    <td className="p-3 text-right font-bold text-emerald-600">R$ {payment.amount.toFixed(2)}</td>
+                    <td className="px-4 py-3.5">
+                      <span className="flex items-center gap-1.5 text-slate-600">
+                        <span className="text-xs">{getMethodIcon(payment.method)}</span>
+                        {getPaymentMethodLabel(payment.method)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5 text-slate-500">
+                      <span className="flex items-center gap-1">
+                        <span className="text-slate-400 text-xs">🕐</span>
+                        {new Date(payment.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 text-right font-bold text-emerald-600">R$ {payment.amount.toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
-                <tr className="bg-slate-800 text-white">
-                  <td colSpan={4} className="p-3 font-bold text-sm">TOTAL DO DIA</td>
-                  <td className="p-3 text-right font-bold text-lg">R$ {totalGeneral.toFixed(2)}</td>
+                <tr className="bg-gradient-to-r from-slate-800 to-slate-700">
+                  <td colSpan={4} className="px-5 py-3.5 font-bold text-sm text-white">TOTAL DO DIA</td>
+                  <td className="px-5 py-3.5 text-right font-bold text-lg text-emerald-400">R$ {totalGeneral.toFixed(2)}</td>
                 </tr>
               </tfoot>
             </table>
