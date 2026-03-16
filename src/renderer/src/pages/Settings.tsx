@@ -234,15 +234,6 @@ const Settings: React.FC = () => {
               </div>
             </div>
 
-            {/* PIX */}
-            <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-white/20 shadow-md p-6">
-              <div className="flex items-center gap-2 mb-5">
-                <span className="text-base">⚡</span>
-                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Chave PIX</h2>
-              </div>
-              <input type="text" value={pixKey} onChange={(e) => setPixKey(e.target.value)} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-400 transition-all hover:border-slate-300" placeholder="CPF, email, telefone ou chave aleatória" />
-              <p className="text-[11px] text-slate-400 mt-1.5">Chave PIX para recebimento de pagamentos</p>
-            </div>
 
             {/* Impressora */}
             <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-white/20 shadow-md p-6">
@@ -409,10 +400,6 @@ const Settings: React.FC = () => {
                 <div className="flex justify-between items-center py-2.5 px-3 rounded-lg hover:bg-slate-50/80 transition-colors">
                   <span className="text-xs text-slate-500">Tempo Mínimo</span>
                   <span className="text-sm font-bold text-slate-800">{minimumTime} min</span>
-                </div>
-                <div className="flex justify-between items-center py-2.5 px-3 rounded-lg hover:bg-slate-50/80 transition-colors">
-                  <span className="text-xs text-slate-500">PIX</span>
-                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${pixKey ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>{pixKey ? 'Configurado' : 'Não configurado'}</span>
                 </div>
                 <div className="flex justify-between items-center py-2.5 px-3 rounded-lg hover:bg-slate-50/80 transition-colors">
                   <span className="text-xs text-slate-500">Impressora</span>
