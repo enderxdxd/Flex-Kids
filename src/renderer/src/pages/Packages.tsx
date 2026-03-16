@@ -217,7 +217,6 @@ const Packages: React.FC = () => {
 
   const getPackageProgress = (pkg: Package) => Math.min((pkg.usedHours / pkg.hours) * 100, 100);
   const getRemainingHours = (pkg: Package) => Math.max(pkg.hours - pkg.usedHours, 0);
-  const getRemainingMinutes = (pkg: Package) => Math.round(getRemainingHours(pkg) * 60);
   const getExpirationDate = (pkg: Package): Date | null => {
     if (pkg.expiresAt) return pkg.expiresAt instanceof Date ? pkg.expiresAt : new Date(pkg.expiresAt);
     if (pkg.expiryDays) {
@@ -232,26 +231,27 @@ const Packages: React.FC = () => {
   const getCustomerName = (customerId: string) => customers.find(c => c.id === customerId)?.name || '-';
   const getCustomerChildren = (customerId: string) => children.filter(c => c.customerId === customerId);
 
+  const activeCount = packages.filter(p => p.active).length;
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Gestão de Pacotes</h1>
-          <p className="text-sm text-slate-500">{packages.length} pacotes cadastrados</p>
+          <p className="text-sm text-slate-500">{packages.length} pacotes {showActiveOnly ? '' : `(${activeCount} ativos)`}</p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={loadData} disabled={loading} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors">
-            {loading ? '⏳' : '🔄'} Atualizar
-          </button>
-        </div>
+        <button onClick={loadData} disabled={loading} className="px-4 py-2.5 rounded-xl border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-400 disabled:opacity-50 transition-all flex items-center gap-2">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={loading ? 'animate-spin' : ''}><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          Atualizar
+        </button>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-fit">
+      <div className="flex bg-slate-100 rounded-xl p-1 w-fit">
         <button
           onClick={() => setActiveTab('packages')}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'packages' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${activeTab === 'packages' ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
         >
           Pacotes Vendidos
         </button>
@@ -263,7 +263,7 @@ const Packages: React.FC = () => {
             }
             setActiveTab('plans');
           }}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'plans' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${activeTab === 'plans' ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
         >
           Configurar Planos
         </button>
@@ -338,37 +338,44 @@ const Packages: React.FC = () => {
 
       {/* Tab: Pacotes Vendidos */}
       {activeTab === 'packages' && (
-        <div className="bg-white rounded-xl border border-slate-200">
-          <div className="flex items-center justify-between p-4 border-b border-slate-100 gap-3">
+        <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-white/20 shadow-md overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 gap-4">
             <div className="relative flex-1 max-w-xs">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Pesquisar por nome..."
-                className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 placeholder:text-slate-400"
+                className="w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-400 transition-all hover:border-slate-300 placeholder:text-slate-400"
               />
             </div>
-            <label className="flex items-center gap-2 cursor-pointer flex-shrink-0">
-              <input type="checkbox" checked={showActiveOnly} onChange={(e) => setShowActiveOnly(e.target.checked)} className="w-4 h-4 text-violet-600 rounded focus:ring-violet-500" />
-              <span className="text-sm text-slate-600">Apenas ativos</span>
+            <label className="flex items-center gap-2.5 cursor-pointer flex-shrink-0 px-3 py-2 rounded-xl hover:bg-slate-50 transition-all">
+              <div className="relative">
+                <input type="checkbox" checked={showActiveOnly} onChange={(e) => setShowActiveOnly(e.target.checked)} className="sr-only peer" />
+                <div className="w-9 h-5 bg-slate-300 rounded-full peer-checked:bg-violet-500 transition-colors"></div>
+                <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-4"></div>
+              </div>
+              <span className="text-xs text-slate-600 font-medium">Apenas ativos</span>
             </label>
           </div>
 
           {loading ? (
             <div className="p-5 space-y-3">
               {[1, 2, 3].map(i => (
-                <div key={i} className="animate-pulse h-16 bg-slate-100 rounded-lg" />
+                <div key={i} className="animate-pulse h-16 bg-slate-100/50 rounded-xl" />
               ))}
             </div>
           ) : packages.length === 0 ? (
-            <div className="text-center py-12 text-slate-400">
-              <p className="text-4xl mb-2">📦</p>
-              <p className="font-medium">Nenhum pacote encontrado</p>
+            <div className="text-center py-10">
+              <div className="w-14 h-14 bg-gradient-to-br from-slate-100 to-slate-200 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <span className="text-2xl">📦</span>
+              </div>
+              <p className="text-sm font-semibold text-slate-500">Nenhum pacote encontrado</p>
+              <p className="text-xs text-slate-400 mt-1">Tente mudar o filtro ou busca</p>
             </div>
           ) : (
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-slate-100/60">
               {packages.filter((pkg) => {
                 if (!searchTerm.trim()) return true;
                 const term = searchTerm.toLowerCase();
@@ -377,50 +384,61 @@ const Packages: React.FC = () => {
                 return customerName.includes(term) || childName.includes(term) || pkg.type.toLowerCase().includes(term);
               }).map((pkg) => {
                 const progress = getPackageProgress(pkg);
+                const remainingPct = 100 - progress;
                 const expirationDate = getExpirationDate(pkg);
                 const isExpired = expirationDate && expirationDate < new Date();
+                const progressColor = remainingPct <= 10 ? 'bg-red-500' : remainingPct <= 30 ? 'bg-amber-500' : 'bg-emerald-500';
+                const usedH = pkg.usedHours;
+                const totalH = pkg.hours;
+                const remainH = getRemainingHours(pkg);
 
                 return (
-                  <div key={pkg.id} className={`p-4 hover:bg-slate-50 transition-colors ${!pkg.active ? 'opacity-50' : ''}`}>
+                  <div key={pkg.id} className={`px-5 py-4 hover:bg-violet-50/30 transition-colors duration-150 ${!pkg.active ? 'opacity-40' : ''}`}>
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4 flex-1 min-w-0">
-                        <div className="w-10 h-10 bg-violet-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <span className="text-lg">📦</span>
+                      <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${isExpired ? 'bg-red-100' : 'bg-violet-100'}`}>
+                          <span className="text-base">{isExpired ? '⏰' : '📦'}</span>
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <p className="font-semibold text-slate-800 text-sm">{pkg.type}</p>
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${pkg.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                            <p className="font-bold text-slate-800 text-sm">{pkg.type}</p>
+                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${pkg.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
                               {pkg.active ? 'Ativo' : 'Inativo'}
                             </span>
-                            {isExpired && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700">Expirado</span>}
+                            {isExpired && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">Expirado</span>}
                           </div>
-                          <p className="text-xs text-slate-500 truncate">
+                          <p className="text-xs text-slate-500 truncate mt-0.5">
                             {getCustomerName(pkg.customerId)}
-                            {pkg.childId ? ` / ${getChildName(pkg.childId)}` : ''}
-                            {expirationDate ? ` — Expira: ${format(expirationDate, 'dd/MM/yyyy')}` : ''}
+                            {pkg.childId ? ` · ${getChildName(pkg.childId)}` : ''}
+                            {expirationDate ? ` · Exp: ${format(expirationDate, 'dd/MM/yy')}` : ''}
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-4 flex-shrink-0 ml-4">
+                      <div className="flex items-center gap-5 flex-shrink-0 ml-4">
                         {/* Progress */}
-                        <div className="w-32 hidden md:block">
-                          <div className="flex justify-between text-[11px] text-slate-500 mb-1">
-                            <span>{Math.round(pkg.usedHours * 60)}min / {Math.round(pkg.hours * 60)}min</span>
-                            <span className="font-semibold">{getRemainingMinutes(pkg)}min restam</span>
+                        <div className="w-40 hidden md:block">
+                          <div className="flex justify-between text-[10px] text-slate-500 mb-1.5">
+                            <span>{usedH.toFixed(1)}h / {totalH.toFixed(1)}h</span>
+                            <span className={`font-bold ${remainingPct <= 10 ? 'text-red-600' : remainingPct <= 30 ? 'text-amber-600' : 'text-emerald-600'}`}>{remainH.toFixed(1)}h restantes</span>
                           </div>
-                          <div className="w-full bg-slate-200 rounded-full h-1.5">
-                            <div className={`h-1.5 rounded-full transition-all ${progress >= 90 ? 'bg-red-500' : progress >= 70 ? 'bg-amber-500' : 'bg-violet-500'}`} style={{ width: `${progress}%` }} />
+                          <div className="w-full bg-slate-200/60 rounded-full h-2">
+                            <div className={`h-2 rounded-full transition-all duration-500 ${progressColor}`} style={{ width: `${progress}%` }} />
                           </div>
                         </div>
 
-                        <span className="text-sm font-bold text-slate-800 w-24 text-right">R$ {pkg.price.toFixed(2)}</span>
+                        <span className={`text-sm font-bold w-24 text-right ${pkg.price > 0 ? 'text-slate-800' : 'text-slate-300'}`}>R$ {pkg.price.toFixed(2)}</span>
 
                         <div className="flex gap-1">
-                          <button onClick={() => openModal(pkg)} className="p-1.5 rounded-md hover:bg-blue-50 text-blue-600 transition-colors text-sm" title="Editar">✏️</button>
-                          <button onClick={() => handleToggleActive(pkg.id, pkg.active)} className={`p-1.5 rounded-md transition-colors text-sm ${pkg.active ? 'hover:bg-red-50 text-red-500' : 'hover:bg-emerald-50 text-emerald-600'}`} title={pkg.active ? 'Desativar' : 'Ativar'}>
-                            {pkg.active ? '⏸️' : '▶️'}
+                          <button onClick={() => openModal(pkg)} className="p-2 rounded-lg hover:bg-blue-50 text-blue-500 transition-all" title="Editar">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                          </button>
+                          <button onClick={() => handleToggleActive(pkg.id, pkg.active)} className={`p-2 rounded-lg transition-all ${pkg.active ? 'hover:bg-red-50 text-red-400' : 'hover:bg-emerald-50 text-emerald-500'}`} title={pkg.active ? 'Desativar' : 'Ativar'}>
+                            {pkg.active ? (
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                            ) : (
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            )}
                           </button>
                         </div>
                       </div>
