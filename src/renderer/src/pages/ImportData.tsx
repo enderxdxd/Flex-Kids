@@ -149,10 +149,19 @@ function parseExcelDate(raw: any): Date {
     const utcDays = Math.floor(raw - 25569);
     return new Date(utcDays * 86400 * 1000);
   }
-  const str = String(raw).trim();
+  let str = String(raw).trim();
+  // Remove time portion (e.g. "29/01/26 00:00" → "29/01/26")
+  if (str.includes(' ')) {
+    str = str.split(' ')[0];
+  }
   if (str.includes('/')) {
     const [d, m, y] = str.split('/');
-    return new Date(Number(y), Number(m) - 1, Number(d));
+    let year = Number(y);
+    // Handle 2-digit year
+    if (year < 100) {
+      year += year < 50 ? 2000 : 1900;
+    }
+    return new Date(year, Number(m) - 1, Number(d));
   }
   const parsed = new Date(str);
   return isNaN(parsed.getTime()) ? new Date() : parsed;
