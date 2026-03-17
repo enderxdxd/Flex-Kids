@@ -41,8 +41,25 @@ const UpdateChecker: React.FC = () => {
     api.check();
   };
 
-  const handleDownload = () => {
-    api.download();
+  const handleDownload = async () => {
+    try {
+      setUpdateStatus(prev => ({ ...prev, status: 'downloading' }));
+      // Garante que o electron-updater sabe qual versão baixar (igual ao UpdateModal)
+      const checkResult = await api.check();
+      console.log('[UpdateChecker] Check result before download:', checkResult);
+      if (!checkResult?.success) {
+        setUpdateStatus({ status: 'error', message: checkResult?.error || 'Erro ao verificar atualização' });
+        return;
+      }
+      const dlResult = await api.download();
+      console.log('[UpdateChecker] Download result:', dlResult);
+      if (!dlResult?.success) {
+        setUpdateStatus({ status: 'error', message: dlResult?.error || 'Erro ao iniciar download' });
+      }
+    } catch (err: any) {
+      console.error('[UpdateChecker] Download error:', err);
+      setUpdateStatus({ status: 'error', message: err?.message || 'Erro inesperado' });
+    }
   };
 
   const handleInstall = () => {
@@ -50,11 +67,14 @@ const UpdateChecker: React.FC = () => {
   };
 
   return (
-    <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-slate-300">🔄 Atualizações</h3>
+    <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-white/20 shadow-md p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <span className="text-base">🔄</span>
+          <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Atualizações</h3>
+        </div>
         {appVersion && (
-          <span className="text-[10px] bg-slate-700 text-slate-400 px-2 py-0.5 rounded-full">
+          <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full">
             v{appVersion}
           </span>
         )}
@@ -63,14 +83,15 @@ const UpdateChecker: React.FC = () => {
       {updateStatus.status === 'idle' && (
         <button
           onClick={handleCheck}
-          className="w-full text-sm bg-violet-600 hover:bg-violet-500 text-white py-2 px-4 rounded-lg transition-colors"
+          className="w-full text-xs font-semibold bg-violet-600 hover:bg-violet-700 text-white py-2.5 px-4 rounded-xl transition-all hover:shadow-md flex items-center justify-center gap-2"
         >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
           Verificar Atualizações
         </button>
       )}
 
       {updateStatus.status === 'checking' && (
-        <div className="flex items-center gap-2 text-sm text-slate-400">
+        <div className="flex items-center gap-2 text-sm text-slate-500 py-2">
           <span className="animate-spin">⏳</span>
           Verificando...
         </div>
@@ -78,10 +99,12 @@ const UpdateChecker: React.FC = () => {
 
       {updateStatus.status === 'up-to-date' && (
         <div className="space-y-2">
-          <p className="text-sm text-green-400">✅ Você já está na versão mais recente!</p>
+          <div className="bg-emerald-50 rounded-xl p-3 border border-emerald-100">
+            <p className="text-xs font-semibold text-emerald-700">✅ Você já está na versão mais recente!</p>
+          </div>
           <button
             onClick={handleCheck}
-            className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+            className="text-[11px] text-slate-400 hover:text-violet-600 transition-colors font-medium"
           >
             Verificar novamente
           </button>
@@ -90,13 +113,16 @@ const UpdateChecker: React.FC = () => {
 
       {updateStatus.status === 'available' && (
         <div className="space-y-3">
-          <p className="text-sm text-amber-400">
-            🆕 Nova versão disponível: <strong>v{updateStatus.version}</strong>
-          </p>
+          <div className="bg-amber-50 rounded-xl p-3 border border-amber-100">
+            <p className="text-xs font-semibold text-amber-700">
+              🆕 Nova versão disponível: <strong>v{updateStatus.version}</strong>
+            </p>
+          </div>
           <button
             onClick={handleDownload}
-            className="w-full text-sm bg-amber-600 hover:bg-amber-500 text-white py-2 px-4 rounded-lg transition-colors"
+            className="w-full text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white py-2.5 px-4 rounded-xl transition-all hover:shadow-md flex items-center justify-center gap-2"
           >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Baixar Atualização
           </button>
         </div>
@@ -104,36 +130,42 @@ const UpdateChecker: React.FC = () => {
 
       {updateStatus.status === 'downloading' && (
         <div className="space-y-2">
-          <p className="text-sm text-blue-400">⬇️ Baixando atualização...</p>
-          <div className="w-full bg-slate-700 rounded-full h-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-blue-600">⬇️ Baixando...</p>
+            <span className="text-xs font-bold text-blue-600">{updateStatus.percent || 0}%</span>
+          </div>
+          <div className="w-full bg-slate-200/60 rounded-full h-2">
             <div
               className="bg-blue-500 h-2 rounded-full transition-all duration-300"
               style={{ width: `${updateStatus.percent || 0}%` }}
             />
           </div>
-          <p className="text-xs text-slate-500 text-right">{updateStatus.percent || 0}%</p>
         </div>
       )}
 
       {updateStatus.status === 'downloaded' && (
         <div className="space-y-3">
-          <p className="text-sm text-green-400">✅ Atualização pronta para instalar!</p>
+          <div className="bg-emerald-50 rounded-xl p-3 border border-emerald-100">
+            <p className="text-xs font-semibold text-emerald-700">✅ Atualização pronta para instalar!</p>
+          </div>
           <button
             onClick={handleInstall}
-            className="w-full text-sm bg-green-600 hover:bg-green-500 text-white py-2 px-4 rounded-lg transition-colors"
+            className="w-full text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 px-4 rounded-xl transition-all hover:shadow-md flex items-center justify-center gap-2"
           >
-            Reiniciar e Instalar
+            🔄 Reiniciar e Instalar
           </button>
         </div>
       )}
 
       {updateStatus.status === 'error' && (
         <div className="space-y-2">
-          <p className="text-sm text-red-400">❌ Erro ao verificar atualizações</p>
-          <p className="text-xs text-slate-500">{updateStatus.message}</p>
+          <div className="bg-red-50 rounded-xl p-3 border border-red-100">
+            <p className="text-xs font-semibold text-red-700">❌ Erro ao verificar</p>
+            <p className="text-[11px] text-red-500 mt-0.5">{updateStatus.message}</p>
+          </div>
           <button
             onClick={handleCheck}
-            className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+            className="text-[11px] text-slate-400 hover:text-violet-600 transition-colors font-medium"
           >
             Tentar novamente
           </button>
