@@ -43,15 +43,12 @@ export const visitsService = {
 
   async getActiveVisits(unitId?: string): Promise<Visit[]> {
     const db = getDb();
-    let q = query(
-      collection(db, COLLECTION),
-      where('checkOut', '==', null),
-      orderBy('checkIn', 'desc')
-    );
-
+    const constraints: any[] = [where('checkOut', '==', null)];
     if (unitId) {
-      q = query(q, where('unitId', '==', unitId));
+      constraints.push(where('unitId', '==', unitId));
     }
+    constraints.push(orderBy('checkIn', 'desc'));
+    const q = query(collection(db, COLLECTION), ...constraints);
 
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({

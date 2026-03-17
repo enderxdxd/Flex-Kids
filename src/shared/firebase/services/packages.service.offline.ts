@@ -192,11 +192,10 @@ export const packagesServiceOffline = {
 
   async getActivePackages(customerId?: string, unitId?: string): Promise<Package[]> {
     try {
-      // 1. Busca do cache - inclui pacotes da unidade E pacotes compartilhados
-      const allLocalPackages = await syncService.getAllFromLocal(COLLECTION) as Package[];
+      // 1. Busca do cache filtrado por unidade
       const localPackages = unitId
-        ? allLocalPackages.filter((pkg: Package) => pkg.unitId === unitId || pkg.sharedAcrossUnits)
-        : allLocalPackages;
+        ? await syncService.getAllFromLocalByUnit(COLLECTION, unitId) as Package[]
+        : await syncService.getAllFromLocal(COLLECTION) as Package[];
       const cachedPackages = localPackages
         .filter((pkg: Package) => {
           const matchesCustomer = !customerId || pkg.customerId === customerId;

@@ -15,7 +15,7 @@ class UpdateChecker {
 
   constructor() {
     // Versão é injetada pelo Vite durante o build
-    this.currentVersion = import.meta.env.VITE_APP_VERSION || '2.2.0';
+    this.currentVersion = import.meta.env.VITE_APP_VERSION || '0.0.0';
   }
 
   async checkForUpdates(): Promise<UpdateInfo> {

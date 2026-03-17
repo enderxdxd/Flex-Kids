@@ -187,7 +187,9 @@ class LocalDatabase {
     const tx = db.transaction(store as any, 'readwrite');
     for (const item of items) {
       const id = item.id || this.generateId();
-      tx.store.put({ ...item, id, synced: false } as any);
+      // Preserve caller-supplied synced value (e.g. true for cache-only saves)
+      const synced = item.synced !== undefined ? item.synced : false;
+      tx.store.put({ ...item, id, synced } as any);
     }
     await tx.done;
   }
@@ -315,7 +317,7 @@ class LocalDatabase {
 
   async exportBackup(): Promise<Record<string, any[]>> {
     const db = this.ensureDb();
-    const stores: Array<keyof FlexKidsDB> = ['visits', 'customers', 'children', 'payments', 'packages'];
+    const stores: Array<keyof FlexKidsDB> = ['visits', 'customers', 'children', 'payments', 'packages', 'kidsPlans', 'settings'];
     const backup: Record<string, any[]> = {};
     for (const store of stores) {
       backup[store] = await db.getAll(store as any);

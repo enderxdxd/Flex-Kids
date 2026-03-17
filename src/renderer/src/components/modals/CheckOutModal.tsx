@@ -350,8 +350,8 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
     } catch (error) {
       console.error('Error during checkout:', error);
       toast.error('Erro ao realizar check-out');
-      processingRef.current = false;
     } finally {
+      processingRef.current = false;
       setLoading(false);
     }
   };

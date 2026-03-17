@@ -534,6 +534,7 @@ class SyncService {
     }
   }
 
+  /** Clears only the pending sync queue (does NOT clear cached data stores). */
   async clearLocalData(): Promise<void> {
     await localDb.clearSyncQueue();
   }

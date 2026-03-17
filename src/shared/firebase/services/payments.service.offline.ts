@@ -171,7 +171,7 @@ export const paymentsServiceOffline = {
         const q = query(
           collection(db, COLLECTION),
           where('customerId', '==', customerId),
-          orderBy('date', 'desc')
+          orderBy('createdAt', 'desc')
         );
 
         const snapshot = await getDocs(q);
