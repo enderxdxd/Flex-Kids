@@ -410,7 +410,6 @@ const Packages: React.FC = () => {
                           <p className="text-xs text-slate-500 truncate mt-0.5">
                             {getCustomerName(pkg.customerId)}
                             {pkg.childId ? ` · ${getChildName(pkg.childId)}` : ''}
-                            {expirationDate ? ` · Exp: ${format(expirationDate, 'dd/MM/yy')}` : ''}
                           </p>
                         </div>
                       </div>
@@ -425,6 +424,22 @@ const Packages: React.FC = () => {
                           <div className="w-full bg-slate-200/60 rounded-full h-2">
                             <div className={`h-2 rounded-full transition-all duration-500 ${progressColor}`} style={{ width: `${progress}%` }} />
                           </div>
+                        </div>
+
+                        {/* Expiry Date */}
+                        <div className="w-24 hidden md:block text-center">
+                          {expirationDate ? (() => {
+                            const daysLeft = Math.ceil((expirationDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                            const expColor = isExpired ? 'text-red-600' : daysLeft <= 7 ? 'text-amber-600' : 'text-slate-500';
+                            return (
+                              <div>
+                                <p className={`text-[10px] font-bold ${expColor}`}>{format(expirationDate, 'dd/MM/yyyy')}</p>
+                                <p className={`text-[9px] ${expColor}`}>{isExpired ? 'Expirado' : `${daysLeft}d restantes`}</p>
+                              </div>
+                            );
+                          })() : (
+                            <p className="text-[10px] text-slate-300">—</p>
+                          )}
                         </div>
 
                         <span className={`text-sm font-bold w-24 text-right ${pkg.price > 0 ? 'text-slate-800' : 'text-slate-300'}`}>R$ {pkg.price.toFixed(2)}</span>

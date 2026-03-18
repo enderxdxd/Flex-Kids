@@ -6,6 +6,7 @@ import { getDb } from '../../../shared/firebase/config';
 import { customersServiceOffline } from '../../../shared/firebase/services/customers.service.offline';
 import { packagesServiceOffline } from '../../../shared/firebase/services/packages.service.offline';
 import { kidsPlansServiceOffline } from '../../../shared/firebase/services/kidsPlans.service.offline';
+import { settingsServiceOffline } from '../../../shared/firebase/services/settings.service.offline';
 import { syncService } from '../../../shared/database/syncService';
 import { useUnit } from '../contexts/UnitContext';
 
@@ -440,6 +441,18 @@ const ImportData: React.FC = () => {
       addLog({ type: 'warning', message: 'Não foi possível carregar pacotes existentes.' });
     }
 
+    // Load configured plans to get expiryDays per package type
+    let planExpiryMap = new Map<number, number>(); // hours → expiryDays
+    try {
+      const plans = await settingsServiceOffline.getPackagePlans(currentUnit);
+      for (const plan of plans) {
+        planExpiryMap.set(plan.hours, plan.expiryDays);
+      }
+      addLog({ type: 'info', message: `${plans.length} planos carregados para cálculo de validade` });
+    } catch (e) {
+      addLog({ type: 'warning', message: 'Não foi possível carregar planos. Usando validade padrão de 90 dias.' });
+    }
+
     // ─── 2. Import Responsáveis → customers ──────────────────────────
     const codToFirebaseId = new Map<string, string>();
     const nameToFirebaseId = new Map<string, string>();
@@ -704,9 +717,14 @@ const ImportData: React.FC = () => {
         const hoursTotal = Math.max(pac.minutosVendidos, pac.minutosDisponiveis) / 60;
         const hoursUsed = Math.max(0, hoursTotal - (pac.minutosDisponiveis / 60));
 
-        // P8: Expiration based on Venceu?, not +1 year
+        // P8: Expiration based on dtVenda + expiryDays from configured plans
         const dtVenda = parseExcelDate(pac.dtVenda);
         const isActive = !pac.venceu && pac.minutosDisponiveis > 0;
+
+        // Determine expiryDays: match by hours from configured plans, default 90
+        const expiryDays = planExpiryMap.get(hoursTotal) || 90;
+        const expiresAt = new Date(dtVenda);
+        expiresAt.setDate(expiresAt.getDate() + expiryDays);
 
         if (dryRun) {
           localStats.packagesCreated++;
@@ -727,15 +745,11 @@ const ImportData: React.FC = () => {
             sharedAcrossUnits: false,
             unitId: currentUnit,
             legacyCodPacote: pac.codPacote,
+            expiryDays,
+            expiresAt: Timestamp.fromDate(expiresAt),
             createdAt: Timestamp.fromDate(dtVenda),
             updatedAt: Timestamp.now(),
           };
-          // P8: Only set expiresAt for active packages (null for vencidos)
-          if (isActive) {
-            pkgFirestore.expiresAt = null;
-          } else {
-            pkgFirestore.expiresAt = Timestamp.fromDate(dtVenda);
-          }
 
           batch!.set(ref, pkgFirestore);
           batchCache.push({
@@ -749,7 +763,8 @@ const ImportData: React.FC = () => {
             sharedAcrossUnits: false,
             unitId: currentUnit,
             legacyCodPacote: pac.codPacote,
-            expiresAt: isActive ? undefined : dtVenda,
+            expiryDays,
+            expiresAt,
             createdAt: dtVenda,
             updatedAt: new Date(),
           });
