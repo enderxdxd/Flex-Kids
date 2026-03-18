@@ -240,12 +240,6 @@ export const customersServiceOffline = {
       if (unitId) {
         const q = query(collection(db, CUSTOMERS_COLLECTION), where('unitId', '==', unitId));
         snapshot = await getDocs(q);
-
-        // Fallback: se retornou 0, busca TODOS e migra unitId
-        if (snapshot.docs.length === 0) {
-          console.log('📥 Filtered query returned 0, fetching ALL to migrate unitId...');
-          snapshot = await getDocs(collection(db, CUSTOMERS_COLLECTION));
-        }
       } else {
         snapshot = await getDocs(collection(db, CUSTOMERS_COLLECTION));
       }
@@ -255,17 +249,6 @@ export const customersServiceOffline = {
       const customers: any[] = [];
       for (const docSnap of snapshot.docs) {
         const data = docSnap.data();
-        const needsMigration = unitId && !data.unitId;
-
-        // Migra unitId no Firebase para registros antigos
-        if (needsMigration) {
-          try {
-            await updateDoc(doc(db, CUSTOMERS_COLLECTION, docSnap.id), { unitId });
-            console.log(`🔄 Migrated unitId for customer ${docSnap.id}`);
-          } catch (err) {
-            console.error(`Failed to migrate unitId for ${docSnap.id}:`, err);
-          }
-        }
 
         const customer: any = {
           id: docSnap.id,
@@ -538,11 +521,6 @@ export const customersServiceOffline = {
       if (unitId) {
         const q = query(collection(db, CHILDREN_COLLECTION), where('unitId', '==', unitId));
         snapshot = await getDocs(q);
-
-        if (snapshot.docs.length === 0) {
-          console.log('📥 Children filtered query returned 0, fetching ALL to migrate unitId...');
-          snapshot = await getDocs(collection(db, CHILDREN_COLLECTION));
-        }
       } else {
         snapshot = await getDocs(collection(db, CHILDREN_COLLECTION));
       }
@@ -550,16 +528,6 @@ export const customersServiceOffline = {
       const children: any[] = [];
       for (const docSnap of snapshot.docs) {
         const data = docSnap.data();
-        const needsMigration = unitId && !data.unitId;
-
-        if (needsMigration) {
-          try {
-            await updateDoc(doc(db, CHILDREN_COLLECTION, docSnap.id), { unitId });
-            console.log(`🔄 Migrated unitId for child ${docSnap.id}`);
-          } catch (err) {
-            console.error(`Failed to migrate unitId for child ${docSnap.id}:`, err);
-          }
-        }
 
         const child: any = {
           id: docSnap.id,

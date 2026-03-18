@@ -208,29 +208,12 @@ export const visitsServiceOffline = {
       constraints.push(orderBy('checkIn', 'desc'));
       const q = query(collection(db, COLLECTION), ...constraints);
 
-      let snapshot = await getDocs(q);
-
-      // Fallback: se filtrou por unitId e retornou 0, busca sem unitId e migra
-      if (unitId && snapshot.docs.length === 0) {
-        console.log('📥 Visits filtered query returned 0, fetching ALL active to migrate unitId...');
-        const fallbackQ = query(collection(db, COLLECTION), where('checkOut', '==', null), orderBy('checkIn', 'desc'));
-        snapshot = await getDocs(fallbackQ);
-      }
+      const snapshot = await getDocs(q);
 
       const visits: Visit[] = [];
 
       for (const docSnap of snapshot.docs) {
         const data = docSnap.data();
-        const needsMigration = unitId && !data.unitId;
-
-        if (needsMigration) {
-          try {
-            await updateDoc(doc(db, COLLECTION, docSnap.id), { unitId });
-            console.log(`🔄 Migrated unitId for visit ${docSnap.id}`);
-          } catch (err) {
-            console.error(`Failed to migrate unitId for visit ${docSnap.id}:`, err);
-          }
-        }
 
         const visit: Visit = {
           id: docSnap.id,

@@ -245,29 +245,12 @@ export const packagesServiceOffline = {
       constraints.push(orderBy('createdAt', 'desc'));
       let q = query(collection(db, COLLECTION), ...constraints);
 
-      let snapshot = await getDocs(q);
-
-      // Fallback: se filtrou por unitId e retornou 0, busca sem filtro de unitId e migra
-      if (unitId && snapshot.docs.length === 0) {
-        console.log('📥 Packages filtered query returned 0, fetching ALL active to migrate unitId...');
-        const fallbackQ = query(collection(db, COLLECTION), where('active', '==', true), orderBy('createdAt', 'desc'));
-        snapshot = await getDocs(fallbackQ);
-      }
+      const snapshot = await getDocs(q);
 
       const packages: Package[] = [];
 
       for (const docSnap of snapshot.docs) {
         const data = docSnap.data();
-        const needsMigration = unitId && !data.unitId;
-
-        if (needsMigration) {
-          try {
-            await updateDoc(doc(db, COLLECTION, docSnap.id), { unitId });
-            console.log(`🔄 Migrated unitId for package ${docSnap.id}`);
-          } catch (err) {
-            console.error(`Failed to migrate unitId for package ${docSnap.id}:`, err);
-          }
-        }
 
         const pkg: Package = {
           id: docSnap.id,

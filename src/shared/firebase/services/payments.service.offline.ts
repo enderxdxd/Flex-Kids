@@ -1,4 +1,4 @@
-import { collection, addDoc, updateDoc, doc, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
 import { Payment } from '../../types';
 import { syncService } from '../../database/syncService';
@@ -324,28 +324,11 @@ export const paymentsServiceOffline = {
         }
         constraints.push(orderBy('createdAt', 'desc'));
         const q = query(collection(db, COLLECTION), ...constraints);
-        let snapshot = await getDocs(q);
-
-        // Fallback: se filtrou por unitId e retornou 0, busca ALL e migra
-        if (unitId && snapshot.docs.length === 0) {
-          console.log('📥 Payments filtered query returned 0, fetching ALL to migrate unitId...');
-          const fallbackQ = query(collection(db, COLLECTION), orderBy('createdAt', 'desc'));
-          snapshot = await getDocs(fallbackQ);
-        }
+        const snapshot = await getDocs(q);
         
         const payments: Payment[] = [];
         for (const docSnap of snapshot.docs) {
           const data = docSnap.data();
-          const needsMigration = unitId && !data.unitId;
-
-          if (needsMigration) {
-            try {
-              await updateDoc(doc(db, COLLECTION, docSnap.id), { unitId });
-              console.log(`🔄 Migrated unitId for payment ${docSnap.id}`);
-            } catch (err) {
-              console.error(`Failed to migrate unitId for payment ${docSnap.id}:`, err);
-            }
-          }
 
           payments.push({
             id: docSnap.id,
