@@ -219,13 +219,16 @@ const Packages: React.FC = () => {
   const getRemainingHours = (pkg: Package) => Math.max(pkg.hours - pkg.usedHours, 0);
   const getExpirationDate = (pkg: Package): Date | null => {
     if (pkg.expiresAt) return pkg.expiresAt instanceof Date ? pkg.expiresAt : new Date(pkg.expiresAt);
-    if (pkg.expiryDays) {
-      const d = pkg.createdAt instanceof Date ? pkg.createdAt : new Date(pkg.createdAt);
-      const exp = new Date(d);
-      exp.setDate(exp.getDate() + pkg.expiryDays);
-      return exp;
+    const d = pkg.createdAt instanceof Date ? pkg.createdAt : new Date(pkg.createdAt);
+    let days = pkg.expiryDays;
+    if (!days) {
+      // Fallback: match by hours from configured plans
+      const matchedPlan = plans.find(p => p.hours === pkg.hours);
+      days = matchedPlan?.expiryDays || 90; // default 90 days
     }
-    return null;
+    const exp = new Date(d);
+    exp.setDate(exp.getDate() + days);
+    return exp;
   };
   const getChildName = (childId: string) => children.find(c => c.id === childId)?.name || '-';
   const getCustomerName = (customerId: string) => customers.find(c => c.id === customerId)?.name || '-';
