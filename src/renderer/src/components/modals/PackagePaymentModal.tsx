@@ -36,7 +36,13 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit' | 'debit'>('pix');
   const [loading, setLoading] = useState(false);
   const [printReceipt, setPrintReceipt] = useState(true);
+  const [employeeDiscount, setEmployeeDiscount] = useState(false);
   const processingRef = useRef(false);
+
+  const finalPrice = employeeDiscount ? packageData.price * 0.5 : packageData.price;
+  const purchaseDate = new Date();
+  const expirationDate = new Date();
+  expirationDate.setDate(expirationDate.getDate() + (packageData.expiryDays || 90));
 
   const printFiscalReceipt = async () => {
     try {
@@ -62,11 +68,14 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
         '--------------------------------',
         `Pacote: ${packageData.type}`,
         `Horas:  ${packageData.hours}h`,
-        `Validade: ${packageData.expiryDays || 30} dias`,
+        `Validade: ${packageData.expiryDays || 90} dias`,
+        `Expira em: ${format(expirationDate, 'dd/MM/yyyy')}`,
+        employeeDiscount ? `Desconto Colaborador: 50%` : '',
+        employeeDiscount ? `Preco Original: R$ ${packageData.price.toFixed(2)}` : '',
         '--------------------------------',
         '',
         `Pagamento: ${methodLabel}`,
-        `TOTAL: R$ ${packageData.price.toFixed(2)}`,
+        `TOTAL: R$ ${finalPrice.toFixed(2)}`,
         '',
         '================================',
         '    Obrigado pela preferencia!   ',
@@ -85,25 +94,29 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
     setLoading(true);
 
     try {
+      const discountDesc = employeeDiscount ? ' (desconto colaborador 50%)' : '';
       const payment = await paymentsServiceOffline.createPayment({
         customerId: customer.id,
         childId: child?.id,
         childName: child?.name,
-        amount: packageData.price,
+        amount: finalPrice,
         method: paymentMethod,
         status: 'paid',
         type: 'package',
         unitId: currentUnit,
-        description: `${packageData.type} - ${customer.name}`,
+        description: `${packageData.type} - ${customer.name}${discountDesc}`,
       });
 
       await packagesServiceOffline.createPackage({
         ...packageData,
+        price: finalPrice,
         usedHours: 0,
         active: true,
         sharedAcrossUnits: false,
         unitId: currentUnit,
         paymentId: payment.id,
+        employeeDiscount: employeeDiscount || undefined,
+        originalPrice: employeeDiscount ? packageData.price : undefined,
       });
 
       if (printReceipt) {
@@ -154,18 +167,48 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
                 <span className="text-slate-500">Horas</span>
                 <span className="font-semibold text-slate-800">{packageData.hours}h</span>
               </div>
-              {packageData.expiryDays && (
+              <div className="flex justify-between">
+                <span className="text-slate-500">Data de Aquisição</span>
+                <span className="font-semibold text-slate-800">{format(purchaseDate, 'dd/MM/yyyy')}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Validade</span>
+                <span className="font-semibold text-slate-800">{packageData.expiryDays || 90} dias</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Expira em</span>
+                <span className="font-semibold text-amber-600">{format(expirationDate, 'dd/MM/yyyy')}</span>
+              </div>
+              {employeeDiscount && (
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Validade</span>
-                  <span className="font-semibold text-slate-800">{packageData.expiryDays} dias</span>
+                  <span className="text-slate-500">Desconto Colaborador</span>
+                  <span className="font-semibold text-violet-600">50%</span>
                 </div>
               )}
               <div className="flex justify-between border-t border-violet-200 pt-2 mt-1">
                 <span className="font-bold text-slate-800">Total</span>
-                <span className="text-xl font-bold text-emerald-600">R$ {packageData.price.toFixed(2)}</span>
+                <div className="text-right">
+                  {employeeDiscount && (
+                    <span className="text-sm text-slate-400 line-through mr-2">R$ {packageData.price.toFixed(2)}</span>
+                  )}
+                  <span className="text-xl font-bold text-emerald-600">R$ {finalPrice.toFixed(2)}</span>
+                </div>
               </div>
             </div>
           </div>
+
+          {/* Employee Discount */}
+          <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg border border-slate-200 hover:bg-slate-50 transition-all">
+            <div className="relative">
+              <input type="checkbox" checked={employeeDiscount} onChange={(e) => setEmployeeDiscount(e.target.checked)} className="sr-only peer" />
+              <div className="w-9 h-5 bg-slate-300 rounded-full peer-checked:bg-violet-500 transition-colors"></div>
+              <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-4"></div>
+            </div>
+            <div>
+              <span className="text-sm font-semibold text-slate-700">Desconto Colaborador</span>
+              <span className="text-xs text-slate-400 ml-1.5">(50%)</span>
+            </div>
+          </label>
 
           {/* Payment Method */}
           <div>
@@ -204,7 +247,7 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
             Cancelar
           </button>
           <button type="button" onClick={handleConfirmPayment} disabled={loading} className="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors disabled:opacity-50">
-            {loading ? '⏳ Processando...' : `Confirmar R$ ${packageData.price.toFixed(2)}`}
+            {loading ? '⏳ Processando...' : `Confirmar R$ ${finalPrice.toFixed(2)}`}
           </button>
         </div>
       </div>

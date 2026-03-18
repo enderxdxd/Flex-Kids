@@ -403,16 +403,18 @@ const Packages: React.FC = () => {
                           <span className="text-base">{isExpired ? '⏰' : '📦'}</span>
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-bold text-slate-800 text-sm">{pkg.type}</p>
                             <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${pkg.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
                               {pkg.active ? 'Ativo' : 'Inativo'}
                             </span>
                             {isExpired && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">Expirado</span>}
+                            {(pkg as any).employeeDiscount && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">Desc. Colab.</span>}
                           </div>
                           <p className="text-xs text-slate-500 truncate mt-0.5">
                             {getCustomerName(pkg.customerId)}
                             {pkg.childId ? ` · ${getChildName(pkg.childId)}` : ''}
+                            {` · Compra: ${format(pkg.createdAt instanceof Date ? pkg.createdAt : new Date(pkg.createdAt), 'dd/MM/yyyy')}`}
                           </p>
                         </div>
                       </div>
@@ -445,7 +447,12 @@ const Packages: React.FC = () => {
                           )}
                         </div>
 
-                        <span className={`text-sm font-bold w-24 text-right ${pkg.price > 0 ? 'text-slate-800' : 'text-slate-300'}`}>R$ {pkg.price.toFixed(2)}</span>
+                        <div className="w-24 text-right">
+                          {(pkg as any).employeeDiscount && (pkg as any).originalPrice && (
+                            <span className="text-[10px] text-slate-400 line-through block">R$ {(pkg as any).originalPrice.toFixed(2)}</span>
+                          )}
+                          <span className={`text-sm font-bold ${pkg.price > 0 ? 'text-slate-800' : 'text-slate-300'}`}>R$ {pkg.price.toFixed(2)}</span>
+                        </div>
 
                         <div className="flex gap-1">
                           <button onClick={() => openModal(pkg)} className="p-2 rounded-lg hover:bg-blue-50 text-blue-500 transition-all" title="Editar">

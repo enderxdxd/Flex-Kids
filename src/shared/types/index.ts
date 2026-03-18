@@ -85,6 +85,8 @@ export interface Package {
   sharedAcrossUnits: boolean; // Permite uso em todas as unidades
   unitId: string; // Unidade onde o pacote foi criado
   paymentId?: string; // ID do pagamento que ativou o pacote
+  employeeDiscount?: boolean; // Vendido com desconto de colaborador (50%)
+  originalPrice?: number; // Preço original antes do desconto
   createdAt: Date;
   updatedAt: Date;
   customer?: Customer;
