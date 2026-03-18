@@ -230,6 +230,12 @@ const Packages: React.FC = () => {
     exp.setDate(exp.getDate() + days);
     return exp;
   };
+  const getDisplayPrice = (pkg: Package): number => {
+    if (pkg.price > 0) return pkg.price;
+    // Match by hours from configured plans
+    const matchedPlan = plans.find(p => p.hours === pkg.hours);
+    return matchedPlan?.price || 0;
+  };
   const getChildName = (childId: string) => children.find(c => c.id === childId)?.name || '-';
   const getCustomerName = (customerId: string) => customers.find(c => c.id === customerId)?.name || '-';
   const getCustomerChildren = (customerId: string) => children.filter(c => c.customerId === customerId);
@@ -447,11 +453,22 @@ const Packages: React.FC = () => {
                           )}
                         </div>
 
-                        <div className="w-24 text-right">
+                        <div className="w-28 text-right">
                           {(pkg as any).employeeDiscount && (pkg as any).originalPrice && (
                             <span className="text-[10px] text-slate-400 line-through block">R$ {(pkg as any).originalPrice.toFixed(2)}</span>
                           )}
-                          <span className={`text-sm font-bold ${pkg.price > 0 ? 'text-slate-800' : 'text-slate-300'}`}>R$ {pkg.price.toFixed(2)}</span>
+                          {(() => {
+                            const displayPrice = getDisplayPrice(pkg);
+                            const isEstimated = pkg.price === 0 && displayPrice > 0;
+                            return (
+                              <div>
+                                <span className={`text-sm font-bold ${displayPrice > 0 ? 'text-slate-800' : 'text-slate-300'}`}>
+                                  {isEstimated ? '~' : ''}R$ {displayPrice.toFixed(2)}
+                                </span>
+                                {isEstimated && <p className="text-[9px] text-slate-400">via plano</p>}
+                              </div>
+                            );
+                          })()}
                         </div>
 
                         <div className="flex gap-1">
