@@ -41,6 +41,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const processingRef = useRef(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [employeeDiscount, setEmployeeDiscount] = useState(false);
 
   useEffect(() => {
     if (isOpen && visit) {
@@ -53,7 +54,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
 
   useEffect(() => {
     calculateValue();
-  }, [duration, usePackages, selectedAdminPackage, hourlyRate, minimumTime, packages, allPackages]);
+  }, [duration, usePackages, selectedAdminPackage, hourlyRate, minimumTime, packages, allPackages, employeeDiscount]);
 
   const loadData = async () => {
     try {
@@ -224,7 +225,8 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
       // Cobrança por hora — primeiros N min (tempo mínimo) cobram cheio, depois por minuto
       const billableMinutes = Math.max(duration, minimumTime);
       const hours = billableMinutes / 60;
-      const value = hours * hourlyRate;
+      let value = hours * hourlyRate;
+      if (employeeDiscount) value *= 0.5;
       setTotalValue(Math.round(value * 100) / 100);
     }
   };
@@ -300,7 +302,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
           const pkgDesc = coverage.breakdown.map(b => `${b.coveredMin}min de ${b.pkg.type}`).join(', ');
           const description = coverage.isPartial
             ? `Pagamento excedente visita - ${child.name} - ${coverage.excessMin}min excedente (${pkgDesc})`
-            : `Pagamento visita - ${child.name} - ${duration} min`;
+            : `Pagamento visita - ${child.name} - ${duration} min${employeeDiscount ? ' (desconto colaborador 50%)' : ''}`;
 
           console.log('[CHECKOUT] Criando pagamento:', {
             customerId: customer.id,
@@ -422,6 +424,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
     setIsAdminAuthenticated(false);
     setAdminPassword('');
     setShowConfirmation(false);
+    setEmployeeDiscount(false);
     onClose();
   };
 
@@ -553,6 +556,21 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
             </div>
           )}
 
+          {/* Employee Discount */}
+          {!isKidsPlan && !usePackages && !selectedAdminPackage && (
+            <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg border border-slate-200 hover:bg-slate-50 transition-all">
+              <div className="relative">
+                <input type="checkbox" checked={employeeDiscount} onChange={(e) => setEmployeeDiscount(e.target.checked)} className="sr-only peer" />
+                <div className="w-9 h-5 bg-slate-300 rounded-full peer-checked:bg-violet-500 transition-colors"></div>
+                <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-4"></div>
+              </div>
+              <div>
+                <span className="text-sm font-semibold text-slate-700">Desconto Colaborador</span>
+                <span className="text-xs text-slate-400 ml-1.5">(50%)</span>
+              </div>
+            </label>
+          )}
+
           {/* Total */}
           {(() => {
             if (isKidsPlan) {
@@ -630,9 +648,17 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
                     )}
                   </div>
                 ) : (
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-semibold text-slate-700">Total</span>
-                    <span className="text-2xl font-bold text-emerald-600">R$ {totalValue.toFixed(2)}</span>
+                  <div>
+                    {employeeDiscount && (
+                      <div className="flex justify-between items-center text-sm mb-1">
+                        <span className="text-slate-500">Desconto colaborador (50%)</span>
+                        <span className="text-slate-400 line-through">R$ {(totalValue * 2).toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-semibold text-slate-700">Total</span>
+                      <span className="text-2xl font-bold text-emerald-600">R$ {totalValue.toFixed(2)}</span>
+                    </div>
                   </div>
                 )}
               </div>
