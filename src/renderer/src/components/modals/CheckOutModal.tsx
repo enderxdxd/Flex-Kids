@@ -205,7 +205,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
         setPaymentMethod('package');
       } else {
         const excessHours = billableExcessMin / 60;
-        const value = Math.max(excessHours * hourlyRate, hourlyRate);
+        const value = excessHours * hourlyRate;
         setTotalValue(Math.round(value * 100) / 100);
         if (paymentMethod === 'package') setPaymentMethod('pix');
       }
@@ -216,15 +216,15 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
         setPaymentMethod('package');
       } else if (billableExcessMin > 0) {
         const excessHours = billableExcessMin / 60;
-        const value = Math.max(excessHours * hourlyRate, hourlyRate);
+        const value = excessHours * hourlyRate;
         setTotalValue(Math.round(value * 100) / 100);
         if (paymentMethod === 'package') setPaymentMethod('pix');
       }
     } else {
-      // Cobrança por hora — aplica tempo mínimo
+      // Cobrança por hora — primeiros N min (tempo mínimo) cobram cheio, depois por minuto
       const billableMinutes = Math.max(duration, minimumTime);
       const hours = billableMinutes / 60;
-      const value = Math.max(hours * hourlyRate, hourlyRate);
+      const value = hours * hourlyRate;
       setTotalValue(Math.round(value * 100) / 100);
     }
   };
