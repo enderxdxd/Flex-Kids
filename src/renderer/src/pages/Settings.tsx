@@ -5,11 +5,13 @@ import { bematechService } from '../../../shared/services/bematech.service';
 import { syncService } from '../../../shared/database/syncService';
 import { localDb } from '../../../shared/database/localDb';
 import { useUnit } from '../contexts/UnitContext';
+import { useAuth } from '../contexts/AuthContext';
 import { Customer, Payment, Visit, Package, Child } from '../../../shared/types';
 import UpdateChecker from '../components/UpdateChecker';
 
 const Settings: React.FC = () => {
   const { currentUnit } = useUnit();
+  const { isAdmin } = useAuth();
   const [hourlyRate, setHourlyRate] = useState('30.00');
   const [minimumTime, setMinimumTime] = useState('30');
   const [pixKey, setPixKey] = useState('');
@@ -223,13 +225,13 @@ const Settings: React.FC = () => {
               <div className="grid grid-cols-2 gap-5">
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-2">Valor por Hora (R$)</label>
-                  <input type="number" step="0.01" min="0" value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-400 transition-all hover:border-slate-300" placeholder="30.00" />
-                  <p className="text-[11px] text-slate-400 mt-1.5">Valor por hora no playground</p>
+                  <input type="number" step="0.01" min="0" value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)} disabled={!isAdmin} className={`w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-400 transition-all hover:border-slate-300 ${!isAdmin ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-50/50'}`} placeholder="30.00" />
+                  <p className="text-[11px] text-slate-400 mt-1.5">{isAdmin ? 'Valor por hora no playground' : '🔒 Apenas administradores podem alterar'}</p>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-2">Tempo Mínimo (min)</label>
-                  <input type="number" min="0" value={minimumTime} onChange={(e) => setMinimumTime(e.target.value)} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-400 transition-all hover:border-slate-300" placeholder="30" />
-                  <p className="text-[11px] text-slate-400 mt-1.5">Cobrança mínima</p>
+                  <input type="number" min="0" value={minimumTime} onChange={(e) => setMinimumTime(e.target.value)} disabled={!isAdmin} className={`w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-400 transition-all hover:border-slate-300 ${!isAdmin ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-50/50'}`} placeholder="30" />
+                  <p className="text-[11px] text-slate-400 mt-1.5">{isAdmin ? 'Cobrança mínima' : '🔒 Apenas administradores podem alterar'}</p>
                 </div>
               </div>
             </div>
