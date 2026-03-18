@@ -69,7 +69,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
 
   const filteredChildrenByName = searchTerm.trim().length > 0
     ? children.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()))
-    : [];
+    : children;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -251,9 +251,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">Resultados</label>
               <div className="space-y-2 max-h-52 overflow-y-auto border border-slate-200/50 rounded-2xl p-2 bg-slate-50/30">
-                {searchTerm.trim().length === 0 ? (
-                  <p className="text-center text-slate-400 py-4 text-sm">Digite o nome da criança acima</p>
-                ) : filteredChildrenByName.length === 0 ? (
+                {filteredChildrenByName.length === 0 ? (
                   <p className="text-center text-slate-400 py-4 text-sm">Nenhuma criança encontrada</p>
                 ) : filteredChildrenByName.map(child => {
                   const parent = customers.find(c => c.id === child.customerId);
