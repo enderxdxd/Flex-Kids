@@ -348,7 +348,11 @@ export const customersServiceOffline = {
       if (syncService.isOnline()) {
         console.log(`🌐 [getChildById] Buscando do Firebase...`);
         const db = getDb();
-        const docSnap = await getDoc(doc(db, CHILDREN_COLLECTION, childId));
+        const firebasePromise = getDoc(doc(db, CHILDREN_COLLECTION, childId));
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Firebase getDoc timeout')), 5000)
+        );
+        const docSnap = await Promise.race([firebasePromise, timeoutPromise]);
         
         if (docSnap.exists()) {
           const data = docSnap.data();
@@ -394,7 +398,11 @@ export const customersServiceOffline = {
       if (syncService.isOnline()) {
         console.log(`🌐 [getCustomerById] Buscando do Firebase...`);
         const db = getDb();
-        const docSnap = await getDoc(doc(db, CUSTOMERS_COLLECTION, customerId));
+        const firebasePromise = getDoc(doc(db, CUSTOMERS_COLLECTION, customerId));
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Firebase getDoc timeout')), 5000)
+        );
+        const docSnap = await Promise.race([firebasePromise, timeoutPromise]);
         
         if (docSnap.exists()) {
           const data = docSnap.data();

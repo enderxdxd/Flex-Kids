@@ -26,18 +26,20 @@ export const settingsServiceOffline = {
       const localSettings = await syncService.getAllFromLocal(COLLECTION);
       const cached = localSettings.find((s: Settings) => s.key === key);
       
-      // 2. Se offline, retorna cache (ou null)
-      if (!syncService.isOnline()) {
-        return cached ? cached.value : null;
+      // 2. Se tem cache, retorna imediatamente (e atualiza em background se online)
+      if (cached) {
+        if (syncService.isOnline()) {
+          this.fetchSettingFromFirebase(key).catch(() => {});
+        }
+        return cached.value;
       }
 
-      // 3. Se não tem cache e está online, aguarda Firebase (cache limpo)
-      if (syncService.isOnline() && !cached) {
-        const firebaseValue = await this.fetchSettingFromFirebase(key);
-        return firebaseValue;
+      // 3. Sem cache: se online, tenta Firebase com timeout
+      if (syncService.isOnline()) {
+        return await this.fetchSettingFromFirebase(key);
       }
       
-      return cached ? cached.value : null;
+      return null;
     } catch (error) {
       console.error('Error getting setting:', error);
       return null;
@@ -48,7 +50,13 @@ export const settingsServiceOffline = {
     try {
       const db = getDb();
       const settingRef = doc(db, COLLECTION, key);
-      const snapshot = await getDoc(settingRef);
+      
+      const firebasePromise = getDoc(settingRef);
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Firebase getDoc timeout')), 5000)
+      );
+      
+      const snapshot = await Promise.race([firebasePromise, timeoutPromise]);
       
       if (!snapshot.exists()) return null;
       
@@ -65,7 +73,10 @@ export const settingsServiceOffline = {
       
       return value;
     } catch (error) {
-      console.error('Error fetching setting from Firebase:', error);
+      // Silencia erros de offline/timeout - é esperado
+      if (!(error instanceof Error) || !error.message.includes('offline')) {
+        console.warn('[Settings] Firebase fetch failed for', key, ':', (error as Error).message);
+      }
       return null;
     }
   },
