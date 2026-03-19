@@ -1,6 +1,6 @@
 import { collection, addDoc, updateDoc, doc, query, where, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
-import { getDocsSafe, getDocSafe } from '../firebaseHelpers';
+import { getDocsSafe, getDocSafe, isFirebaseConnectivityError } from '../firebaseHelpers';
 import { Customer, Child } from '../../types';
 import { syncService } from '../../database/syncService';
 
@@ -222,11 +222,11 @@ export const customersServiceOffline = {
 
       // 4. Se já tem cache, busca Firebase em background para atualizar
       this.fetchCustomersFromFirebase(unitId)
-        .catch(err => console.error('Background fetch failed:', err));
+        .catch(err => { if (!isFirebaseConnectivityError(err)) console.error('Background fetch customers failed:', err); });
       
       return localCustomers;
     } catch (error) {
-      console.error('Error getting customers:', error);
+      if (!isFirebaseConnectivityError(error)) console.error('Error getting customers:', error);
       return [];
     }
   },
@@ -272,7 +272,7 @@ export const customersServiceOffline = {
       // Return only non-deleted
       return customers.filter(c => !c.deletedAt) as Customer[];
     } catch (error) {
-      console.error('Error getting customers:', error);
+      if (!isFirebaseConnectivityError(error)) console.error('Error fetching customers from Firebase:', error);
       return [];
     }
   },
@@ -373,7 +373,7 @@ export const customersServiceOffline = {
 
       return null;
     } catch (error) {
-      console.error('Error getting child by id:', error);
+      if (!isFirebaseConnectivityError(error)) console.error('Error getting child by id:', error);
       return null;
     }
   },
@@ -418,7 +418,7 @@ export const customersServiceOffline = {
 
       return null;
     } catch (error) {
-      console.error('Error getting customer by id:', error);
+      if (!isFirebaseConnectivityError(error)) console.error('Error getting customer by id:', error);
       return null;
     }
   },
@@ -441,11 +441,11 @@ export const customersServiceOffline = {
 
       // 4. Se já tem cache, busca Firebase em background
       this.fetchChildrenByCustomerFromFirebase(customerId)
-        .catch(err => console.error('Background fetch failed:', err));
+        .catch(err => { if (!isFirebaseConnectivityError(err)) console.error('Background fetch children failed:', err); });
       
       return customerChildren;
     } catch (error) {
-      console.error('Error getting children by customer:', error);
+      if (!isFirebaseConnectivityError(error)) console.error('Error getting children by customer:', error);
       return [];
     }
   },
@@ -481,7 +481,7 @@ export const customersServiceOffline = {
 
       return children.filter(c => !c.deletedAt) as Child[];
     } catch (error) {
-      console.error('Error fetching children by customer:', error);
+      if (!isFirebaseConnectivityError(error)) console.error('Error fetching children by customer:', error);
       return [];
     }
   },
@@ -505,11 +505,11 @@ export const customersServiceOffline = {
 
       // 4. Se já tem cache, busca Firebase em background
       this.fetchChildrenFromFirebase(unitId)
-        .catch(err => console.error('Background fetch failed:', err));
+        .catch(err => { if (!isFirebaseConnectivityError(err)) console.error('Background fetch children failed:', err); });
       
       return localChildren;
     } catch (error) {
-      console.error('Error getting children:', error);
+      if (!isFirebaseConnectivityError(error)) console.error('Error getting children:', error);
       return [];
     }
   },
@@ -549,7 +549,7 @@ export const customersServiceOffline = {
 
       return children.filter(c => !c.deletedAt) as Child[];
     } catch (error) {
-      console.error('Error getting children:', error);
+      if (!isFirebaseConnectivityError(error)) console.error('Error fetching children from Firebase:', error);
       return [];
     }
   },

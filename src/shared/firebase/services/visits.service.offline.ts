@@ -1,6 +1,6 @@
 import { collection, addDoc, updateDoc, doc, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
-import { getDocsSafe } from '../firebaseHelpers';
+import { getDocsSafe, isFirebaseConnectivityError } from '../firebaseHelpers';
 import { Visit, CheckInData, CheckOutData } from '../../types';
 import { syncService } from '../../database/syncService';
 
@@ -190,11 +190,21 @@ export const visitsServiceOffline = {
             }));
           }
         })
-        .catch(err => console.error('Background fetch failed:', err));
+        .catch(err => {
+          if (isFirebaseConnectivityError(err)) {
+            console.warn('[Visits] Background fetch skipped (offline/timeout)');
+          } else {
+            console.error('Background fetch failed:', err);
+          }
+        });
       
       return cachedActiveVisits;
     } catch (error) {
-      console.error('Error in getActiveVisits:', error);
+      if (isFirebaseConnectivityError(error)) {
+        console.warn('[Visits] getActiveVisits skipped (offline/timeout)');
+      } else {
+        console.error('Error in getActiveVisits:', error);
+      }
       return [];
     }
   },
@@ -249,7 +259,11 @@ export const visitsServiceOffline = {
 
       return visits;
     } catch (error) {
-      console.error('Error in getActiveVisits:', error);
+      if (isFirebaseConnectivityError(error)) {
+        console.warn('[Visits] fetchActiveVisits skipped (offline/timeout)');
+      } else {
+        console.error('Error in getActiveVisits:', error);
+      }
       return [];
     }
   },
@@ -278,7 +292,7 @@ export const visitsServiceOffline = {
 
         return visits;
       } catch (error) {
-        console.error('Failed to fetch from Firebase, using local data:', error);
+        if (!isFirebaseConnectivityError(error)) console.error('Failed to fetch visits by customer:', error);
       }
     }
 
@@ -311,7 +325,7 @@ export const visitsServiceOffline = {
 
         return visits;
       } catch (error) {
-        console.error('Failed to fetch from Firebase, using local data:', error);
+        if (!isFirebaseConnectivityError(error)) console.error('Failed to fetch all visits:', error);
       }
     }
 

@@ -1,6 +1,18 @@
 import { getDocs, getDoc, Query, DocumentReference, QuerySnapshot, DocumentSnapshot } from 'firebase/firestore';
 
-const FIREBASE_TIMEOUT_MS = 8000;
+const FIREBASE_TIMEOUT_MS = 15000;
+
+/**
+ * Returns true if the error is a known Firebase connectivity issue (timeout or offline).
+ * Useful for deciding whether to log as warn vs error.
+ */
+export function isFirebaseConnectivityError(error: unknown): boolean {
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase();
+    return msg.includes('timeout') || msg.includes('offline') || msg.includes('unavailable') || msg.includes('failed to get document');
+  }
+  return false;
+}
 
 /**
  * getDocs with timeout protection — prevents hanging when Firebase is offline or slow to connect.

@@ -1,6 +1,6 @@
 import { collection, addDoc, updateDoc, doc, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
-import { getDocsSafe } from '../firebaseHelpers';
+import { getDocsSafe, isFirebaseConnectivityError } from '../firebaseHelpers';
 import { Package } from '../../types';
 import { syncService } from '../../database/syncService';
 
@@ -151,7 +151,7 @@ export const packagesServiceOffline = {
 
         return packages.filter(p => !p.deletedAt) as Package[];
       } catch (error) {
-        console.error('Failed to fetch from Firebase, using local data:', error);
+        if (!isFirebaseConnectivityError(error)) console.error('Failed to fetch packages by customer:', error);
       }
     }
 
@@ -227,11 +227,13 @@ export const packagesServiceOffline = {
             }));
           }
         })
-        .catch(err => console.error('Background fetch failed:', err));
+        .catch(err => {
+          if (!isFirebaseConnectivityError(err)) console.error('Background fetch failed:', err);
+        });
       
       return cachedPackages;
     } catch (error) {
-      console.error('Error in getActivePackages:', error);
+      if (!isFirebaseConnectivityError(error)) console.error('Error in getActivePackages:', error);
       return [];
     }
   },
@@ -294,7 +296,7 @@ export const packagesServiceOffline = {
 
       return packages.filter(pkg => !customerId || pkg.customerId === customerId);
     } catch (error) {
-      console.error('Error in getActivePackages:', error);
+      if (!isFirebaseConnectivityError(error)) console.error('Error in getActivePackages:', error);
       return [];
     }
   },

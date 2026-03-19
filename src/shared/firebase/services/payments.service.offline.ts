@@ -1,6 +1,6 @@
 import { collection, addDoc, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
-import { getDocsSafe } from '../firebaseHelpers';
+import { getDocsSafe, isFirebaseConnectivityError } from '../firebaseHelpers';
 import { Payment } from '../../types';
 import { syncService } from '../../database/syncService';
 
@@ -160,7 +160,7 @@ export const paymentsServiceOffline = {
 
       return payments;
     } catch (error) {
-      console.error('Error fetching payments from Firebase:', error);
+      if (!isFirebaseConnectivityError(error)) console.error('Error fetching payments from Firebase:', error);
       return [];
     }
   },
@@ -199,7 +199,7 @@ export const paymentsServiceOffline = {
 
         return payments;
       } catch (error) {
-        console.error('Failed to fetch from Firebase, using local data:', error);
+        if (!isFirebaseConnectivityError(error)) console.error('Failed to fetch payments by customer:', error);
       }
     }
 
@@ -352,7 +352,7 @@ export const paymentsServiceOffline = {
 
         return payments;
       } catch (error) {
-        console.error('Failed to fetch from Firebase, using local data:', error);
+        if (!isFirebaseConnectivityError(error)) console.error('Failed to fetch all payments:', error);
       }
     }
 

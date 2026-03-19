@@ -1,6 +1,6 @@
 import { collection, addDoc, updateDoc, doc, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
-import { getDocsSafe } from '../firebaseHelpers';
+import { getDocsSafe, isFirebaseConnectivityError } from '../firebaseHelpers';
 import { KidsPlan } from '../../types';
 import { syncService } from '../../database/syncService';
 
@@ -149,12 +149,12 @@ export const kidsPlansServiceOffline = {
       // 4. Se já tem cache, busca Firebase em background para sincronizar
       if (unitId) {
         this.fetchFromFirebase(unitId)
-          .catch(err => console.error('Background fetch kidsPlans failed:', err));
+          .catch(err => { if (!isFirebaseConnectivityError(err)) console.error('Background fetch kidsPlans failed:', err); });
       }
 
       return localPlans.filter((p: any) => !p.deletedAt);
     } catch (error) {
-      console.error('Error getting all kids plans:', error);
+      if (!isFirebaseConnectivityError(error)) console.error('Error getting all kids plans:', error);
       return [];
     }
   },
@@ -201,7 +201,7 @@ export const kidsPlansServiceOffline = {
 
       return plans.filter(p => !p.deletedAt) as KidsPlan[];
     } catch (error) {
-      console.error('Failed to fetch kids plans from Firebase:', error);
+      if (!isFirebaseConnectivityError(error)) console.error('Failed to fetch kids plans from Firebase:', error);
       return [];
     }
   },
