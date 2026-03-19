@@ -243,7 +243,7 @@ const Customers: React.FC = () => {
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
           placeholder="Buscar por responsável, criança, telefone ou email..."
           className="flex-1 px-5 py-3.5 border border-slate-200 rounded-2xl text-sm bg-white/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent focus:bg-white shadow-sm hover:shadow-md transition-all duration-200"
         />
@@ -327,9 +327,27 @@ const Customers: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Expanded: Package details */}
+                  {/* Expanded: Observations + Package details */}
                   {expandedCustomer === customer.id && (
-                    <div className="px-4 pb-4 pt-0">
+                    <div className="px-4 pb-4 pt-0 space-y-3">
+                      {/* Observations */}
+                      {(customer.observations || custChildren.some(ch => ch.observations)) && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
+                          <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">Observações</p>
+                          {customer.observations && (
+                            <div>
+                              <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wider mb-0.5">Responsável</p>
+                              <p className="text-xs text-amber-900 leading-snug">{customer.observations}</p>
+                            </div>
+                          )}
+                          {custChildren.filter(ch => ch.observations).map(ch => (
+                            <div key={ch.id}>
+                              <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wider mb-0.5">{ch.name}</p>
+                              <p className="text-xs text-amber-900 leading-snug">{ch.observations}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       <div className="bg-slate-50 rounded-lg p-3 space-y-2">
                         <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Pacotes Ativos</p>
                         {getCustomerPackages(customer.id).length === 0 ? (

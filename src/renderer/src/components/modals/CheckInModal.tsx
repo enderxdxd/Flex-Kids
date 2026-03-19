@@ -277,6 +277,37 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
             </div>
           )}
 
+          {selectedChild && (() => {
+            const childData = children.find(c => c.id === selectedChild);
+            const customerData = childData ? customers.find(c => c.id === childData.customerId) : undefined;
+            const childObs = childData?.observations;
+            const customerObs = customerData?.observations;
+            return (childObs || customerObs) ? (
+              <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 bg-amber-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <svg className="w-4 h-4 text-amber-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-bold text-amber-800">Atenção — Observações</p>
+                </div>
+                {childObs && (
+                  <div>
+                    <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-0.5">Criança</p>
+                    <p className="text-sm text-amber-900">{childObs}</p>
+                  </div>
+                )}
+                {customerObs && (
+                  <div>
+                    <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-0.5">Responsável</p>
+                    <p className="text-sm text-amber-900">{customerObs}</p>
+                  </div>
+                )}
+              </div>
+            ) : null;
+          })()}
+
           {selectedChild && getChildPlan(selectedChild) && (
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200/50 rounded-2xl p-4 flex items-center gap-3 shadow-sm">
               <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30">

@@ -1,415 +1,378 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import { format, isToday, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Visit, Child, Package } from '../../../shared/types';
+import { Visit } from '../../../shared/types';
 import { visitsServiceOffline } from '../../../shared/firebase/services/visits.service.offline';
 import { customersServiceOffline } from '../../../shared/firebase/services/customers.service.offline';
-import { packagesServiceOffline } from '../../../shared/firebase/services/packages.service.offline';
 import { useUnit } from '../contexts/UnitContext';
-import { getChildAge } from '../../../shared/utils/age';
 
 const VisitHistory: React.FC = () => {
   const { currentUnit } = useUnit();
-  const [children, setChildren] = useState<Child[]>([]);
-  const [filteredChildren, setFilteredChildren] = useState<Child[]>([]);
-  const [searchTerm, setSearchTerm] = useState<string>('');
-  const [selectedChildId, setSelectedChildId] = useState<string>('');
-  const [visits, setVisits] = useState<Visit[]>([]);
-  const [packages, setPackages] = useState<Package[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [allVisits, setAllVisits] = useState<Visit[]>([]);
+  const [children, setChildren] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
-  const [viewMode, setViewMode] = useState<'child' | 'today' | 'date' | 'customer'>('child');
-  const [customerVisits, setCustomerVisits] = useState<Visit[]>([]);
-  const [searchedCustomerName, setSearchedCustomerName] = useState('');
-  const [todayVisits, setTodayVisits] = useState<Visit[]>([]);
-  const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
-  const [dateVisits, setDateVisits] = useState<Visit[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'date'>('all');
+  const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
   useEffect(() => {
-    loadChildren();
+    loadAll();
   }, [currentUnit]);
 
-  useEffect(() => {
-    if (searchTerm.trim() === '') {
-      setFilteredChildren(children);
-    } else {
-      const term = searchTerm.toLowerCase();
-      const filtered = children.filter(child => {
-        const customer = customers.find(c => c.id === child.customerId);
-        const childName = child.name.toLowerCase();
-        const customerName = customer?.name.toLowerCase() || '';
-        return childName.includes(term) || customerName.includes(term);
-      });
-      setFilteredChildren(filtered);
-    }
-  }, [searchTerm, children, customers]);
-
-  useEffect(() => {
-    if (selectedChildId) {
-      setViewMode('child');
-      loadChildData();
-    }
-  }, [selectedChildId]);
-
-  const loadCustomerVisits = async () => {
-    if (!searchTerm.trim()) return;
+  const loadAll = async () => {
     try {
       setLoading(true);
-      setViewMode('customer');
-      setSelectedChildId('');
-      const term = searchTerm.toLowerCase();
-      // Find matching customers by name
-      const matchedCustomers = customers.filter(c => c.name.toLowerCase().includes(term));
-      if (matchedCustomers.length === 0) {
-        setCustomerVisits([]);
-        setSearchedCustomerName(searchTerm);
-        setLoading(false);
-        return;
-      }
-      // Get all children of matched customers
-      const matchedCustomerIds = new Set(matchedCustomers.map(c => c.id));
-      const matchedChildren = children.filter(c => matchedCustomerIds.has(c.customerId));
-      const matchedChildIds = new Set(matchedChildren.map(c => c.id));
-      // Get all visits for those children
-      const allVisits = await visitsServiceOffline.getAllVisits(currentUnit);
-      const filtered = allVisits
-        .filter(v => matchedChildIds.has(v.childId))
-        .sort((a, b) => {
-          const aTime = a.checkIn instanceof Date ? a.checkIn.getTime() : new Date(a.checkIn).getTime();
-          const bTime = b.checkIn instanceof Date ? b.checkIn.getTime() : new Date(b.checkIn).getTime();
-          return bTime - aTime;
-        });
-      setCustomerVisits(filtered);
-      setSearchedCustomerName(matchedCustomers.map(c => c.name).join(', '));
-    } catch (error) {
-      console.error('Error loading customer visits:', error);
-      toast.error('Erro ao carregar visitas do responsável');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadChildren = async () => {
-    try {
-      const [allChildren, allCustomers] = await Promise.all([
+      const [visits, allChildren, allCustomers] = await Promise.all([
+        visitsServiceOffline.getAllVisits(currentUnit),
         customersServiceOffline.getAllChildren(currentUnit),
         customersServiceOffline.getAllCustomers(currentUnit),
       ]);
+      const sorted = [...visits].sort((a, b) => {
+        const aTime = a.checkIn instanceof Date ? a.checkIn.getTime() : new Date(a.checkIn).getTime();
+        const bTime = b.checkIn instanceof Date ? b.checkIn.getTime() : new Date(b.checkIn).getTime();
+        return bTime - aTime;
+      });
+      setAllVisits(sorted);
       setChildren(allChildren);
-      setFilteredChildren(allChildren);
       setCustomers(allCustomers);
     } catch (error) {
-      console.error('Error loading children:', error);
-      toast.error('Erro ao carregar crianças');
-    }
-  };
-
-  const loadChildData = async () => {
-    if (!selectedChildId) return;
-    
-    try {
-      setLoading(true);
-      
-      // Buscar visitas da criança
-      const allVisits = await visitsServiceOffline.getAllVisits(currentUnit);
-      const childVisits = allVisits
-        .filter(v => v.childId === selectedChildId)
-        .sort((a, b) => {
-          const aTime = a.checkIn instanceof Date ? a.checkIn.getTime() : new Date(a.checkIn).getTime();
-          const bTime = b.checkIn instanceof Date ? b.checkIn.getTime() : new Date(b.checkIn).getTime();
-          return bTime - aTime;
-        });
-      setVisits(childVisits);
-
-      // Buscar pacotes da criança (filtrado pela unidade)
-      const allPackages = await packagesServiceOffline.getActivePackages(undefined, currentUnit);
-      const childPackages = allPackages.filter(p => p.childId === selectedChildId);
-      setPackages(childPackages);
-    } catch (error) {
-      console.error('Error loading child data:', error);
-      toast.error('Erro ao carregar dados');
+      console.error('Error loading visits:', error);
+      toast.error('Erro ao carregar visitas');
     } finally {
       setLoading(false);
     }
   };
+
+  const getChild = (childId: string) => children.find(c => c.id === childId);
+  const getCustomer = (childId: string) => {
+    const child = getChild(childId);
+    return child ? customers.find(c => c.id === child.customerId) : undefined;
+  };
+
+  const filteredVisits = useMemo(() => {
+    let result = allVisits;
+
+    // Date filter
+    if (dateFilter === 'today') {
+      result = result.filter(v => {
+        const d = v.checkIn instanceof Date ? v.checkIn : new Date(v.checkIn);
+        return isToday(d);
+      });
+    } else if (dateFilter === 'date') {
+      const target = new Date(selectedDate + 'T00:00:00');
+      result = result.filter(v => {
+        const d = v.checkIn instanceof Date ? v.checkIn : new Date(v.checkIn);
+        return isSameDay(d, target);
+      });
+    }
+
+    // Search filter — matches child name OR customer name
+    const term = searchTerm.trim().toLowerCase();
+    if (term) {
+      result = result.filter(v => {
+        const child = getChild(v.childId);
+        const customer = child ? customers.find(c => c.id === child.customerId) : undefined;
+        return (
+          child?.name?.toLowerCase().includes(term) ||
+          customer?.name?.toLowerCase().includes(term)
+        );
+      });
+    }
+
+    return result;
+  }, [allVisits, searchTerm, dateFilter, selectedDate, children, customers]);
 
   const formatDuration = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
-    if (hours > 0) {
-      return `${hours}h ${mins}min`;
-    }
+    if (hours > 0) return `${hours}h ${mins}min`;
     return `${mins}min`;
   };
 
   const calculateDuration = (checkIn: Date, checkOut?: Date) => {
     const start = checkIn instanceof Date ? checkIn : new Date(checkIn);
     const end = checkOut ? (checkOut instanceof Date ? checkOut : new Date(checkOut)) : new Date();
-    const diffMs = end.getTime() - start.getTime();
-    return Math.ceil(diffMs / (1000 * 60));
+    return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60));
   };
 
-  const loadTodayVisits = async () => {
-    try {
-      setLoading(true);
-      setViewMode('today');
-      setSelectedChildId('');
-      const allVisits = await visitsServiceOffline.getAllVisits(currentUnit);
-      const today = allVisits
-        .filter(v => {
-          const checkIn = v.checkIn instanceof Date ? v.checkIn : new Date(v.checkIn);
-          return isToday(checkIn);
-        })
-        .sort((a, b) => {
-          const aTime = a.checkIn instanceof Date ? a.checkIn.getTime() : new Date(a.checkIn).getTime();
-          const bTime = b.checkIn instanceof Date ? b.checkIn.getTime() : new Date(b.checkIn).getTime();
-          return bTime - aTime;
-        });
-      setTodayVisits(today);
-    } catch (error) {
-      console.error('Error loading today visits:', error);
-      toast.error('Erro ao carregar visitas do dia');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadDateVisits = async (dateStr: string) => {
-    try {
-      setLoading(true);
-      setViewMode('date');
-      setSelectedChildId('');
-      const targetDate = new Date(dateStr + 'T00:00:00');
-      const allVisits = await visitsServiceOffline.getAllVisits(currentUnit);
-      const filtered = allVisits
-        .filter(v => {
-          const checkIn = v.checkIn instanceof Date ? v.checkIn : new Date(v.checkIn);
-          return isSameDay(checkIn, targetDate);
-        })
-        .sort((a, b) => {
-          const aTime = a.checkIn instanceof Date ? a.checkIn.getTime() : new Date(a.checkIn).getTime();
-          const bTime = b.checkIn instanceof Date ? b.checkIn.getTime() : new Date(b.checkIn).getTime();
-          return bTime - aTime;
-        });
-      setDateVisits(filtered);
-    } catch (error) {
-      console.error('Error loading date visits:', error);
-      toast.error('Erro ao carregar visitas da data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getChildName = (childId: string) => {
-    const child = children.find(c => c.id === childId);
-    return child?.name || 'Desconhecido';
-  };
-
-  const getCustomerNameByChildId = (childId: string) => {
-    const child = children.find(c => c.id === childId);
-    if (!child) return '';
-    const customer = customers.find(c => c.id === child.customerId);
-    return customer?.name || '';
-  };
-
-  const activeVisits = viewMode === 'today' ? todayVisits : viewMode === 'date' ? dateVisits : viewMode === 'customer' ? customerVisits : visits;
-
-  const totalVisits = activeVisits.filter(v => v.checkOut).length;
-  const totalMinutes = activeVisits
-    .filter(v => v.checkOut)
-    .reduce((sum, v) => sum + calculateDuration(v.checkIn, v.checkOut), 0);
+  const completedVisits = filteredVisits.filter(v => v.checkOut);
+  const totalMinutes = completedVisits.reduce((sum, v) => sum + calculateDuration(v.checkIn, v.checkOut), 0);
+  const activeCount = filteredVisits.filter(v => !v.checkOut).length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">Histórico de Visitas</h1>
-        <p className="text-sm text-slate-500">Visualize visitas e saldo de pacotes</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Histórico de Visitas</h1>
+          <p className="text-sm text-slate-500 mt-0.5">Todas as visitas · busca por criança ou responsável</p>
+        </div>
+        <button
+          onClick={loadAll}
+          disabled={loading}
+          className="flex items-center gap-1.5 text-xs text-violet-600 hover:text-violet-700 font-semibold bg-violet-50 hover:bg-violet-100 px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
+        >
+          <svg className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Atualizar
+        </button>
       </div>
 
-      {/* Search + Select */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      {/* Filters */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col gap-3">
+        {/* Search */}
+        <div className="relative">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
           <input
             type="text"
-            placeholder="Buscar criança ou responsável..."
+            placeholder="Buscar por criança ou responsável..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && loadCustomerVisits()}
-            className="px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+            className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent placeholder:text-slate-400"
           />
-          <button
-            onClick={loadCustomerVisits}
-            disabled={!searchTerm.trim()}
-            className={`px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap ${viewMode === 'customer' ? 'bg-violet-600 text-white' : 'border border-violet-300 text-violet-600 hover:bg-violet-50'} disabled:opacity-40 disabled:cursor-not-allowed`}
-          >
-            Buscar por responsável
-          </button>
-          <select
-            value={selectedChildId}
-            onChange={(e) => setSelectedChildId(e.target.value)}
-            className="px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-          >
-            <option value="">Selecione uma criança...</option>
-            {filteredChildren.map((child) => {
-              const customer = customers.find((c: any) => c.id === child.customerId);
-              return (
-                <option key={child.id} value={child.id}>
-                  {child.name} ({getChildAge(child)}a) - {customer?.name || '-'}
-                </option>
-              );
-            })}
-          </select>
-          <button
-            onClick={loadTodayVisits}
-            className={`px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${viewMode === 'today' ? 'bg-violet-600 text-white' : 'border border-violet-300 text-violet-600 hover:bg-violet-50'}`}
-          >
-            Visitas de hoje
-          </button>
-        </div>
-        <div className="flex items-center gap-3 mt-3">
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-          />
-          <button
-            onClick={() => loadDateVisits(selectedDate)}
-            className={`px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors ${viewMode === 'date' ? 'bg-violet-600 text-white' : 'border border-violet-300 text-violet-600 hover:bg-violet-50'}`}
-          >
-            Buscar por data
-          </button>
-        </div>
-        {searchTerm && filteredChildren.length === 0 && (
-          <p className="text-xs text-slate-400 mt-2">Nenhuma criança encontrada</p>
-        )}
-      </div>
-
-      {(selectedChildId || viewMode === 'today' || viewMode === 'date' || viewMode === 'customer') && (
-        <>
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
-              <p className="text-xs text-slate-500 font-medium">Total Visitas</p>
-              <p className="text-2xl font-bold text-slate-800 mt-1">{totalVisits}</p>
-            </div>
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
-              <p className="text-xs text-slate-500 font-medium">Tempo Total</p>
-              <p className="text-2xl font-bold text-slate-800 mt-1">{formatDuration(totalMinutes)}</p>
-            </div>
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
-              <p className="text-xs text-slate-500 font-medium">Pacotes Ativos</p>
-              <p className="text-2xl font-bold text-slate-800 mt-1">{packages.length}</p>
-            </div>
-          </div>
-
-          {/* Packages */}
-          {packages.length > 0 && (
-            <div className="bg-white rounded-xl border border-slate-200 p-5">
-              <h2 className="text-sm font-bold text-slate-600 uppercase tracking-wider mb-3">Saldo dos Pacotes</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {packages.map((pkg) => {
-                  const remaining = Math.max(pkg.hours - pkg.usedHours, 0);
-                  const progress = (pkg.usedHours / pkg.hours) * 100;
-                  const isExpired = pkg.expiresAt && new Date(pkg.expiresAt) < new Date();
-                  return (
-                    <div key={pkg.id} className={`border rounded-lg p-4 ${pkg.active && !isExpired ? 'border-violet-200' : 'border-slate-200 opacity-60'}`}>
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <p className="font-semibold text-sm text-slate-800">{pkg.type}</p>
-                          <p className="text-xs text-slate-500">{format(new Date(pkg.createdAt), 'dd/MM/yyyy', { locale: ptBR })}</p>
-                        </div>
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${pkg.active && !isExpired ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                          {isExpired ? 'Expirado' : pkg.active ? 'Ativo' : 'Inativo'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-[11px] text-slate-500 mb-1">
-                        <span>{pkg.usedHours.toFixed(1)}h / {pkg.hours}h</span>
-                        <span className="font-semibold">{remaining.toFixed(1)}h restam</span>
-                      </div>
-                      <div className="w-full bg-slate-200 rounded-full h-1.5">
-                        <div className={`h-1.5 rounded-full ${progress >= 90 ? 'bg-red-500' : progress >= 70 ? 'bg-amber-500' : 'bg-violet-500'}`} style={{ width: `${Math.min(progress, 100)}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           )}
+        </div>
 
-          {/* Visits List */}
-          <div className="bg-white rounded-xl border border-slate-200">
-            <div className="flex justify-between items-center p-4 border-b border-slate-100">
-              <h2 className="text-sm font-bold text-slate-600 uppercase tracking-wider">
-                {viewMode === 'today' ? `Visitas de Hoje (${activeVisits.length})` : viewMode === 'date' ? `Visitas de ${format(new Date(selectedDate + 'T00:00:00'), 'dd/MM/yyyy')} (${activeVisits.length})` : viewMode === 'customer' ? `Visitas de ${searchedCustomerName} (${activeVisits.length})` : 'Visitas'}
-              </h2>
-              <button onClick={viewMode === 'today' ? loadTodayVisits : viewMode === 'date' ? () => loadDateVisits(selectedDate) : viewMode === 'customer' ? loadCustomerVisits : loadChildData} disabled={loading} className="text-sm text-violet-600 hover:text-violet-700 font-medium disabled:opacity-50">
-                {loading ? '⏳' : '🔄'} Atualizar
-              </button>
-            </div>
-
-            {loading ? (
-              <div className="p-5 space-y-3">
-                {[1, 2, 3].map(i => <div key={i} className="animate-pulse h-12 bg-slate-100 rounded-lg" />)}
-              </div>
-            ) : activeVisits.length === 0 ? (
-              <div className="text-center py-12 text-slate-400">
-                <p className="text-4xl mb-2">📋</p>
-                <p className="font-medium">Nenhuma visita encontrada</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-100">
-                {activeVisits.map((visit) => {
-                  const checkInDate = visit.checkIn instanceof Date ? visit.checkIn : new Date(visit.checkIn);
-                  const checkOutDate = visit.checkOut ? (visit.checkOut instanceof Date ? visit.checkOut : new Date(visit.checkOut)) : null;
-                  const duration = checkOutDate ? calculateDuration(checkInDate, checkOutDate) : null;
-                  const isActive = !visit.checkOut;
-                  const isCancelled = (visit as any).paymentMethod === 'cancelled';
-                  const usedPackage = !!visit.packageId;
-                  const paymentMethodLabel = isCancelled ? 'Cancelado' : usedPackage ? 'Pacote' : (visit as any).paymentMethod === 'pix' ? 'PIX' : (visit as any).paymentMethod === 'credit' ? 'Crédito' : (visit as any).paymentMethod === 'debit' ? 'Débito' : visit.value && visit.value > 0 ? 'Pagamento' : '';
-                  return (
-                    <div key={visit.id} className={`flex items-center justify-between p-4 ${isActive ? 'bg-emerald-50' : isCancelled ? 'bg-red-50/50' : 'hover:bg-slate-50'} transition-colors`}>
-                      <div className="flex items-center gap-3">
-                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isActive ? 'bg-emerald-500' : isCancelled ? 'bg-red-400' : 'bg-slate-300'}`} />
-                        <div>
-                          <div className="flex items-center gap-2">
-                            {(viewMode === 'today' || viewMode === 'date' || viewMode === 'customer') && (
-                              <p className="font-semibold text-sm text-violet-700">{getChildName(visit.childId)}</p>
-                            )}
-                            <p className="font-medium text-sm text-slate-800">
-                              {viewMode === 'customer' ? format(checkInDate, "EEEE, dd/MM", { locale: ptBR }) : (viewMode === 'today' || viewMode === 'date') ? '' : format(checkInDate, "EEEE, dd/MM", { locale: ptBR })}
-                            </p>
-                            {isCancelled && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600">Cancelado</span>}
-                            {usedPackage && !isCancelled && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-600">Pacote</span>}
-                          </div>
-                          <p className="text-xs text-slate-500">
-                            {(viewMode === 'today' || viewMode === 'date' || viewMode === 'customer') && <span>{getCustomerNameByChildId(visit.childId)} · </span>}
-                            {format(checkInDate, 'HH:mm')}{checkOutDate ? ` → ${format(checkOutDate, 'HH:mm')}` : ''}
-                            {!isActive && !isCancelled && paymentMethodLabel ? ` · ${paymentMethodLabel}` : ''}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        {isActive ? (
-                          <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">Em andamento</span>
-                        ) : (
-                          <div>
-                            <p className={`font-bold text-sm ${isCancelled ? 'text-red-500 line-through' : 'text-slate-800'}`}>{duration !== null ? formatDuration(duration) : '-'}</p>
-                            {!isCancelled && visit.value && visit.value > 0 && <p className="text-xs text-emerald-600 font-medium">R$ {visit.value.toFixed(2)}</p>}
-                            {usedPackage && !isCancelled && <p className="text-[10px] text-violet-500 font-medium">via pacote</p>}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+        {/* Date filter pills + date picker */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setDateFilter('all')}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${dateFilter === 'all' ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+          >
+            Todas as datas
+          </button>
+          <button
+            onClick={() => setDateFilter('today')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${dateFilter === 'today' ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            Hoje
+          </button>
+          <div className="flex items-center gap-1.5">
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => { setSelectedDate(e.target.value); setDateFilter('date'); }}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500 ${dateFilter === 'date' ? 'border-violet-500 text-violet-700 bg-violet-50' : 'border-slate-200 text-slate-600 bg-slate-100'}`}
+            />
+            {dateFilter === 'date' && (
+              <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-violet-100 text-violet-600">
+                {format(new Date(selectedDate + 'T00:00:00'), "dd/MM", { locale: ptBR })}
+              </span>
             )}
           </div>
-        </>
-      )}
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-violet-100 flex items-center justify-center flex-shrink-0">
+            <svg className="w-5 h-5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-xs text-slate-500 font-medium">Total Visitas</p>
+            <p className="text-2xl font-bold text-slate-800">{completedVisits.length}</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
+            <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-xs text-slate-500 font-medium">Tempo Total</p>
+            <p className="text-2xl font-bold text-slate-800">{formatDuration(totalMinutes)}</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+            <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-xs text-slate-500 font-medium">Em Andamento</p>
+            <p className="text-2xl font-bold text-slate-800">{activeCount}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Visits List */}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            {filteredVisits.length} visita{filteredVisits.length !== 1 ? 's' : ''}
+            {searchTerm && <span className="ml-1 font-normal normal-case text-slate-400">para "{searchTerm}"</span>}
+            {dateFilter === 'today' && <span className="ml-1 font-normal normal-case text-slate-400">· hoje</span>}
+            {dateFilter === 'date' && <span className="ml-1 font-normal normal-case text-slate-400">· {format(new Date(selectedDate + 'T00:00:00'), "dd/MM/yyyy")}</span>}
+          </p>
+        </div>
+
+        {loading ? (
+          <div className="p-5 space-y-4">
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} className="animate-pulse flex items-center gap-3">
+                <div className="w-2 h-2 bg-slate-200 rounded-full flex-shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3 bg-slate-100 rounded w-2/5" />
+                  <div className="h-2 bg-slate-100 rounded w-1/4" />
+                </div>
+                <div className="h-4 bg-slate-100 rounded w-14" />
+              </div>
+            ))}
+          </div>
+        ) : filteredVisits.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+            <svg className="w-10 h-10 mb-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            <p className="font-medium text-sm">Nenhuma visita encontrada</p>
+            <p className="text-xs mt-1">Tente ajustar os filtros</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {filteredVisits.map((visit) => {
+              const checkInDate = visit.checkIn instanceof Date ? visit.checkIn : new Date(visit.checkIn);
+              const checkOutDate = visit.checkOut
+                ? (visit.checkOut instanceof Date ? visit.checkOut : new Date(visit.checkOut))
+                : null;
+              const duration = checkOutDate ? calculateDuration(checkInDate, checkOutDate) : null;
+              const isActive = !visit.checkOut;
+              const isCancelled = (visit as any).paymentMethod === 'cancelled';
+              const usedPackage = !!visit.packageId;
+              const paymentLabel = isCancelled || usedPackage ? '' :
+                (visit as any).paymentMethod === 'pix' ? 'PIX' :
+                (visit as any).paymentMethod === 'credit' ? 'Crédito' :
+                (visit as any).paymentMethod === 'debit' ? 'Débito' : '';
+
+              const child = getChild(visit.childId);
+              const customer = getCustomer(visit.childId);
+
+              return (
+                <div
+                  key={visit.id}
+                  className={`flex items-center justify-between px-5 py-3.5 transition-colors ${
+                    isActive ? 'bg-emerald-50/60' : isCancelled ? 'bg-red-50/40' : 'hover:bg-slate-50/60'
+                  }`}
+                >
+                  {/* Left */}
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${
+                      isActive ? 'bg-emerald-500 ring-2 ring-emerald-200' : isCancelled ? 'bg-red-400' : 'bg-slate-300'
+                    }`} />
+
+                    <div className="min-w-0">
+                      {/* Child + customer */}
+                      <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                        <p className="font-semibold text-sm text-violet-700 truncate">
+                          {child?.name || 'Desconhecido'}
+                        </p>
+                        {(child?.observations || customer?.observations) && (
+                          <div className="relative group flex-shrink-0">
+                            <svg className="w-3.5 h-3.5 text-amber-500 cursor-default" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                            </svg>
+                            <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-20 w-60 bg-slate-800 text-white text-xs rounded-xl p-3 shadow-2xl pointer-events-none">
+                              {child?.observations && (
+                                <div className="mb-1.5 last:mb-0">
+                                  <p className="text-slate-400 font-semibold uppercase tracking-wider text-[10px] mb-0.5">Criança</p>
+                                  <p className="leading-snug">{child.observations}</p>
+                                </div>
+                              )}
+                              {customer?.observations && (
+                                <div className="mb-1.5 last:mb-0">
+                                  <p className="text-slate-400 font-semibold uppercase tracking-wider text-[10px] mb-0.5">Responsável</p>
+                                  <p className="leading-snug">{customer.observations}</p>
+                                </div>
+                              )}
+                              <div className="absolute left-2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800" />
+                            </div>
+                          </div>
+                        )}
+                        {customer?.name && (
+                          <>
+                            <span className="text-slate-300 flex-shrink-0">·</span>
+                            <p className="text-xs text-slate-400 truncate">{customer.name}</p>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Date + time */}
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs text-slate-600 font-medium capitalize">
+                          {format(checkInDate, "EEE, dd/MM", { locale: ptBR })}
+                        </p>
+                        <span className="text-slate-300">·</span>
+                        <p className="text-xs text-slate-500">
+                          {format(checkInDate, 'HH:mm')}
+                          {checkOutDate ? ` → ${format(checkOutDate, 'HH:mm')}` : ' → em andamento'}
+                        </p>
+                      </div>
+
+                      {/* Badges */}
+                      {(isCancelled || usedPackage || paymentLabel) && (
+                        <div className="flex items-center gap-1.5 mt-1">
+                          {isCancelled && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600">Cancelado</span>
+                          )}
+                          {usedPackage && !isCancelled && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-600">Pacote</span>
+                          )}
+                          {paymentLabel && (
+                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{paymentLabel}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Right */}
+                  <div className="text-right flex-shrink-0 ml-4">
+                    {isActive ? (
+                      <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700">
+                        Em andamento
+                      </span>
+                    ) : (
+                      <div>
+                        <p className={`font-bold text-sm ${isCancelled ? 'text-red-400 line-through' : 'text-slate-800'}`}>
+                          {duration !== null ? formatDuration(duration) : '—'}
+                        </p>
+                        {!isCancelled && visit.value && visit.value > 0 && (
+                          <p className="text-xs text-emerald-600 font-semibold mt-0.5">
+                            R$ {visit.value.toFixed(2)}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
