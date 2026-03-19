@@ -46,8 +46,16 @@ const Packages: React.FC = () => {
   const [adminAuth, setAdminAuth] = useState(false);
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
   const [pendingEditPkg, setPendingEditPkg] = useState<Package | null>(null);
-  const [pendingAction, setPendingAction] = useState<'plans' | 'editPkg' | null>(null);
+  const [pendingAction, setPendingAction] = useState<'plans' | 'editPkg' | 'adjustHours' | null>(null);
   const ADMIN_PASSWORD = 'pactoflex123';
+
+  // Estado para modal de ajuste de horas (admin only)
+  const [showAdjustModal, setShowAdjustModal] = useState(false);
+  const [adjustPkg, setAdjustPkg] = useState<Package | null>(null);
+  const [adjustHours, setAdjustHours] = useState(0);
+  const [adjustUsedHours, setAdjustUsedHours] = useState(0);
+  const [adjustReason, setAdjustReason] = useState('');
+  const [adjustSaving, setAdjustSaving] = useState(false);
 
   // Estado para modal de pagamento
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -202,6 +210,55 @@ const Packages: React.FC = () => {
     setSelectedCustomer(null);
     setShowModal(false);
     loadData();
+  };
+
+  // === Ajustar Horas (Admin) ===
+  const openAdjustHoursModal = (pkg: Package) => {
+    if (!adminAuth) {
+      setPendingEditPkg(pkg);
+      setPendingAction('adjustHours');
+      return;
+    }
+    setAdjustPkg(pkg);
+    setAdjustHours(pkg.hours);
+    setAdjustUsedHours(pkg.usedHours);
+    setAdjustReason('');
+    setShowAdjustModal(true);
+  };
+
+  const handleAdjustHours = async () => {
+    if (!adjustPkg) return;
+    if (adjustHours <= 0) {
+      toast.error('Horas totais devem ser maior que 0');
+      return;
+    }
+    if (adjustUsedHours < 0) {
+      toast.error('Horas usadas n\u00e3o podem ser negativas');
+      return;
+    }
+    if (adjustUsedHours > adjustHours) {
+      toast.error('Horas usadas n\u00e3o podem ser maiores que as horas totais');
+      return;
+    }
+    setAdjustSaving(true);
+    try {
+      const isActive = adjustUsedHours < adjustHours;
+      await packagesServiceOffline.updatePackage(adjustPkg.id, {
+        hours: adjustHours,
+        usedHours: adjustUsedHours,
+        active: isActive,
+      });
+      console.log(`[Admin] Ajuste de horas: ${adjustPkg.id} | ${adjustPkg.hours}h→${adjustHours}h | usado ${adjustPkg.usedHours}h→${adjustUsedHours}h | motivo: ${adjustReason}`);
+      toast.success(`Horas ajustadas com sucesso! ${adjustHours}h total, ${adjustUsedHours}h usadas`);
+      setShowAdjustModal(false);
+      setAdjustPkg(null);
+      loadData();
+    } catch (error) {
+      console.error('Error adjusting hours:', error);
+      toast.error('Erro ao ajustar horas');
+    } finally {
+      setAdjustSaving(false);
+    }
   };
 
   const handleToggleActive = async (id: string, currentStatus: boolean) => {
@@ -472,6 +529,9 @@ const Packages: React.FC = () => {
                         </div>
 
                         <div className="flex gap-1">
+                          <button onClick={() => openAdjustHoursModal(pkg)} className="p-2 rounded-lg hover:bg-amber-50 text-amber-500 transition-all" title="Ajustar Horas (Admin)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                          </button>
                           <button onClick={() => openModal(pkg)} className="p-2 rounded-lg hover:bg-blue-50 text-blue-500 transition-all" title="Editar">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                           </button>
@@ -577,12 +637,91 @@ const Packages: React.FC = () => {
             </div>
             <div className="p-5 space-y-3">
               <p className="text-sm text-slate-600">
-                {pendingAction === 'plans' ? 'Configurar planos requer senha de administrador.' : 'Editar pacotes vendidos requer senha de administrador.'}
+                {pendingAction === 'plans' ? 'Configurar planos requer senha de administrador.' : pendingAction === 'adjustHours' ? 'Ajustar horas de pacote requer senha de administrador.' : 'Editar pacotes vendidos requer senha de administrador.'}
               </p>
-              <input type="password" value={adminPasswordInput} onChange={e => setAdminPasswordInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { if (adminPasswordInput === ADMIN_PASSWORD) { setAdminAuth(true); setAdminPasswordInput(''); if (pendingAction === 'plans') { setPendingAction(null); setActiveTab('plans'); } else if (pendingEditPkg) { const pkg = pendingEditPkg; setPendingEditPkg(null); setPendingAction(null); openModal(pkg); } } else { toast.error('Senha incorreta'); setAdminPasswordInput(''); } } }} placeholder="Senha admin" className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" autoFocus />
+              <input type="password" value={adminPasswordInput} onChange={e => setAdminPasswordInput(e.target.value)} onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  if (adminPasswordInput === ADMIN_PASSWORD) {
+                    setAdminAuth(true); setAdminPasswordInput('');
+                    const action = pendingAction; const pkg = pendingEditPkg;
+                    setPendingEditPkg(null); setPendingAction(null);
+                    if (action === 'plans') { setActiveTab('plans'); }
+                    else if (action === 'adjustHours' && pkg) { openAdjustHoursModal(pkg); }
+                    else if (pkg) { openModal(pkg); }
+                  } else { toast.error('Senha incorreta'); setAdminPasswordInput(''); }
+                }
+              }} placeholder="Senha admin" className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" autoFocus />
               <div className="flex gap-3">
                 <button onClick={() => { setPendingEditPkg(null); setPendingAction(null); setAdminPasswordInput(''); }} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50">Cancelar</button>
-                <button onClick={() => { if (adminPasswordInput === ADMIN_PASSWORD) { setAdminAuth(true); setAdminPasswordInput(''); if (pendingAction === 'plans') { setPendingAction(null); setActiveTab('plans'); } else if (pendingEditPkg) { const pkg = pendingEditPkg; setPendingEditPkg(null); setPendingAction(null); openModal(pkg); } } else { toast.error('Senha incorreta'); setAdminPasswordInput(''); } }} className="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold">Entrar</button>
+                <button onClick={() => {
+                  if (adminPasswordInput === ADMIN_PASSWORD) {
+                    setAdminAuth(true); setAdminPasswordInput('');
+                    const action = pendingAction; const pkg = pendingEditPkg;
+                    setPendingEditPkg(null); setPendingAction(null);
+                    if (action === 'plans') { setActiveTab('plans'); }
+                    else if (action === 'adjustHours' && pkg) { openAdjustHoursModal(pkg); }
+                    else if (pkg) { openModal(pkg); }
+                  } else { toast.error('Senha incorreta'); setAdminPasswordInput(''); }
+                }} className="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold">Entrar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Ajustar Horas (Admin) */}
+      {showAdjustModal && adjustPkg && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+            <div className="flex items-center justify-between p-5 border-b border-slate-200">
+              <div>
+                <h2 className="text-lg font-bold text-slate-800">Ajustar Horas do Pacote</h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {adjustPkg.type} &middot; {getCustomerName(adjustPkg.customerId)}
+                  {adjustPkg.childId ? ` · ${getChildName(adjustPkg.childId)}` : ''}
+                </p>
+              </div>
+              <button onClick={() => { setShowAdjustModal(false); setAdjustPkg(null); }} className="p-1 rounded-md hover:bg-slate-100 text-slate-400">✕</button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="text-xs font-semibold text-amber-700">Valores atuais</p>
+                <p className="text-sm text-amber-800 mt-1">
+                  {adjustPkg.hours}h total &middot; {adjustPkg.usedHours.toFixed(1)}h usadas &middot; {getRemainingHours(adjustPkg).toFixed(1)}h restantes
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Horas Totais</label>
+                  <input type="number" value={adjustHours} onChange={(e) => setAdjustHours(parseFloat(e.target.value) || 0)} min="0.5" step="0.5" className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Horas Usadas</label>
+                  <input type="number" value={adjustUsedHours} onChange={(e) => setAdjustUsedHours(parseFloat(e.target.value) || 0)} min="0" step="0.5" className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                </div>
+              </div>
+
+              {adjustHours > 0 && (
+                <div className="bg-slate-50 rounded-lg p-3">
+                  <p className="text-xs text-slate-500">Resultado após ajuste:</p>
+                  <p className="text-sm font-bold text-slate-800 mt-0.5">
+                    {adjustHours}h total &middot; {adjustUsedHours.toFixed(1)}h usadas &middot; {Math.max(0, adjustHours - adjustUsedHours).toFixed(1)}h restantes
+                  </p>
+                  {adjustUsedHours >= adjustHours && (
+                    <p className="text-[11px] text-red-600 font-semibold mt-1">O pacote será marcado como inativo (horas esgotadas)</p>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Motivo do ajuste</label>
+                <textarea value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} placeholder="Ex: Erro no lançamento, compensação ao cliente..." rows={2} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none" />
+              </div>
+
+              <div className="flex gap-3 pt-1">
+                <button onClick={() => { setShowAdjustModal(false); setAdjustPkg(null); }} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
+                <button onClick={handleAdjustHours} disabled={adjustSaving} className="flex-1 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">{adjustSaving ? 'Salvando...' : 'Confirmar Ajuste'}</button>
               </div>
             </div>
           </div>
