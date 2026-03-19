@@ -19,6 +19,7 @@ interface FormData {
   email: string;
   cpf: string;
   address: string;
+  observations: string;
 }
 
 interface ChildFormData {
@@ -34,6 +35,7 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSucces
     email: customer?.email || '',
     cpf: customer?.cpf || '',
     address: customer?.address || '',
+    observations: customer?.observations || '',
   });
   const [children, setChildren] = useState<ChildFormData[]>([]);
   const [newChild, setNewChild] = useState<ChildFormData>({ name: '', birthDate: '' });
@@ -124,7 +126,7 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSucces
   };
 
   const handleClose = () => {
-    setFormData({ name: '', phone: '', email: '', cpf: '', address: '' });
+    setFormData({ name: '', phone: '', email: '', cpf: '', address: '', observations: '' });
     setChildren([]);
     setNewChild({ name: '', birthDate: '' });
     onClose();
@@ -164,6 +166,11 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSucces
               <label className="block text-xs font-semibold text-slate-600 mb-1.5">Endereço</label>
               <input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} placeholder="Endereço" className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Observações</label>
+            <textarea value={formData.observations} onChange={(e) => setFormData({ ...formData, observations: e.target.value })} placeholder="Observações sobre o responsável..." rows={2} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none" />
           </div>
 
           {/* Children */}

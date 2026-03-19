@@ -12,12 +12,14 @@ interface CustomerFormData {
   email: string;
   cpf: string;
   address: string;
+  observations: string;
 }
 
 interface ChildFormData {
   name: string;
   birthDate: string;
   enrollmentCode: string;
+  observations: string;
   customerId: string;
 }
 
@@ -41,12 +43,14 @@ const Customers: React.FC = () => {
     email: '',
     cpf: '',
     address: '',
+    observations: '',
   });
 
   const [childFormData, setChildFormData] = useState<ChildFormData>({
     name: '',
     birthDate: '',
     enrollmentCode: '',
+    observations: '',
     customerId: '',
   });
 
@@ -95,10 +99,11 @@ const Customers: React.FC = () => {
         email: customer.email || '',
         cpf: customer.cpf || '',
         address: customer.address || '',
+        observations: customer.observations || '',
       });
     } else {
       setEditingCustomer(null);
-      setFormData({ name: '', phone: '', email: '', cpf: '', address: '' });
+      setFormData({ name: '', phone: '', email: '', cpf: '', address: '', observations: '' });
     }
     setShowModal(true);
   };
@@ -138,10 +143,10 @@ const Customers: React.FC = () => {
       const bd = child.birthDate
         ? (typeof child.birthDate === 'string' ? child.birthDate : new Date(child.birthDate).toISOString().split('T')[0])
         : '';
-      setChildFormData({ name: child.name, birthDate: bd, enrollmentCode: child.enrollmentCode || '', customerId });
+      setChildFormData({ name: child.name, birthDate: bd, enrollmentCode: child.enrollmentCode || '', observations: child.observations || '', customerId });
     } else {
       setEditingChild(null);
-      setChildFormData({ name: '', birthDate: '', enrollmentCode: '', customerId });
+      setChildFormData({ name: '', birthDate: '', enrollmentCode: '', observations: '', customerId });
     }
     setShowChildModal(true);
   };
@@ -166,6 +171,7 @@ const Customers: React.FC = () => {
           age,
           birthDate: birthDateObj,
           enrollmentCode: childFormData.enrollmentCode || undefined,
+          observations: childFormData.observations || undefined,
         });
         toast.success('✅ Criança atualizada com sucesso!');
       } else {
@@ -174,12 +180,13 @@ const Customers: React.FC = () => {
           age,
           birthDate: birthDateObj,
           enrollmentCode: childFormData.enrollmentCode || undefined,
+          observations: childFormData.observations || undefined,
           unitId: currentUnit,
         });
         toast.success('✅ Criança cadastrada com sucesso!');
       }
       setEditingChild(null);
-      setChildFormData({ name: '', birthDate: '', enrollmentCode: '', customerId: '' });
+      setChildFormData({ name: '', birthDate: '', enrollmentCode: '', observations: '', customerId: '' });
       setShowChildModal(false);
       loadData();
     } catch (error) {
@@ -279,6 +286,9 @@ const Customers: React.FC = () => {
                             {customer.email && <><span className="text-slate-300">|</span><span className="truncate">{customer.email}</span></>}
                             {customer.cpf && <><span className="text-slate-300">|</span><span>{customer.cpf}</span></>}
                           </div>
+                          {customer.observations && (
+                            <p className="text-[11px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded mt-1 truncate max-w-md" title={customer.observations}>📝 {customer.observations}</p>
+                          )}
                         </div>
                       </div>
 
@@ -391,6 +401,10 @@ const Customers: React.FC = () => {
                   <input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent focus:bg-white transition-all duration-200" />
                 </div>
               </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Observações</label>
+                <textarea value={formData.observations} onChange={(e) => setFormData({ ...formData, observations: e.target.value })} placeholder="Observações sobre o responsável..." rows={2} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent focus:bg-white transition-all duration-200 resize-none" />
+              </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-400 transition-all duration-200">Cancelar</button>
                 <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-sm font-bold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed">{saving ? 'Salvando...' : (editingCustomer ? 'Salvar' : 'Cadastrar')}</button>
@@ -423,6 +437,10 @@ const Customers: React.FC = () => {
                 {childFormData.birthDate && (
                   <p className="text-xs text-slate-500 mt-1">Idade: {getChildAge({ age: 0, birthDate: new Date(childFormData.birthDate + 'T00:00:00') })} anos</p>
                 )}
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Observações</label>
+                <textarea value={childFormData.observations} onChange={(e) => setChildFormData({ ...childFormData, observations: e.target.value })} placeholder="Observações sobre a criança (alergias, necessidades especiais, etc.)" rows={2} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent focus:bg-white transition-all duration-200 resize-none" />
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => { setShowChildModal(false); setEditingChild(null); }} className="flex-1 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-400 transition-all duration-200">Cancelar</button>

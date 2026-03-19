@@ -5,6 +5,7 @@ export interface Customer {
   email?: string;
   cpf?: string;
   address?: string;
+  observations?: string;
   unitId?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -19,6 +20,7 @@ export interface Child {
   age: number;
   birthDate?: Date;
   enrollmentCode?: string;
+  observations?: string;
   customerId: string;
   unitId?: string;
   createdAt: Date;

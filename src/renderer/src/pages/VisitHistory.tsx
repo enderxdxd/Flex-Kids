@@ -19,7 +19,9 @@ const VisitHistory: React.FC = () => {
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState<any[]>([]);
-  const [viewMode, setViewMode] = useState<'child' | 'today' | 'date'>('child');
+  const [viewMode, setViewMode] = useState<'child' | 'today' | 'date' | 'customer'>('child');
+  const [customerVisits, setCustomerVisits] = useState<Visit[]>([]);
+  const [searchedCustomerName, setSearchedCustomerName] = useState('');
   const [todayVisits, setTodayVisits] = useState<Visit[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [dateVisits, setDateVisits] = useState<Visit[]>([]);
@@ -49,6 +51,44 @@ const VisitHistory: React.FC = () => {
       loadChildData();
     }
   }, [selectedChildId]);
+
+  const loadCustomerVisits = async () => {
+    if (!searchTerm.trim()) return;
+    try {
+      setLoading(true);
+      setViewMode('customer');
+      setSelectedChildId('');
+      const term = searchTerm.toLowerCase();
+      // Find matching customers by name
+      const matchedCustomers = customers.filter(c => c.name.toLowerCase().includes(term));
+      if (matchedCustomers.length === 0) {
+        setCustomerVisits([]);
+        setSearchedCustomerName(searchTerm);
+        setLoading(false);
+        return;
+      }
+      // Get all children of matched customers
+      const matchedCustomerIds = new Set(matchedCustomers.map(c => c.id));
+      const matchedChildren = children.filter(c => matchedCustomerIds.has(c.customerId));
+      const matchedChildIds = new Set(matchedChildren.map(c => c.id));
+      // Get all visits for those children
+      const allVisits = await visitsServiceOffline.getAllVisits(currentUnit);
+      const filtered = allVisits
+        .filter(v => matchedChildIds.has(v.childId))
+        .sort((a, b) => {
+          const aTime = a.checkIn instanceof Date ? a.checkIn.getTime() : new Date(a.checkIn).getTime();
+          const bTime = b.checkIn instanceof Date ? b.checkIn.getTime() : new Date(b.checkIn).getTime();
+          return bTime - aTime;
+        });
+      setCustomerVisits(filtered);
+      setSearchedCustomerName(matchedCustomers.map(c => c.name).join(', '));
+    } catch (error) {
+      console.error('Error loading customer visits:', error);
+      toast.error('Erro ao carregar visitas do responsável');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadChildren = async () => {
     try {
@@ -173,7 +213,7 @@ const VisitHistory: React.FC = () => {
     return customer?.name || '';
   };
 
-  const activeVisits = viewMode === 'today' ? todayVisits : viewMode === 'date' ? dateVisits : visits;
+  const activeVisits = viewMode === 'today' ? todayVisits : viewMode === 'date' ? dateVisits : viewMode === 'customer' ? customerVisits : visits;
 
   const totalVisits = activeVisits.filter(v => v.checkOut).length;
   const totalMinutes = activeVisits
@@ -196,8 +236,16 @@ const VisitHistory: React.FC = () => {
             placeholder="Buscar criança ou responsável..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && loadCustomerVisits()}
             className="px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
           />
+          <button
+            onClick={loadCustomerVisits}
+            disabled={!searchTerm.trim()}
+            className={`px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap ${viewMode === 'customer' ? 'bg-violet-600 text-white' : 'border border-violet-300 text-violet-600 hover:bg-violet-50'} disabled:opacity-40 disabled:cursor-not-allowed`}
+          >
+            Buscar por responsável
+          </button>
           <select
             value={selectedChildId}
             onChange={(e) => setSelectedChildId(e.target.value)}
@@ -239,7 +287,7 @@ const VisitHistory: React.FC = () => {
         )}
       </div>
 
-      {(selectedChildId || viewMode === 'today' || viewMode === 'date') && (
+      {(selectedChildId || viewMode === 'today' || viewMode === 'date' || viewMode === 'customer') && (
         <>
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4">
@@ -295,9 +343,9 @@ const VisitHistory: React.FC = () => {
           <div className="bg-white rounded-xl border border-slate-200">
             <div className="flex justify-between items-center p-4 border-b border-slate-100">
               <h2 className="text-sm font-bold text-slate-600 uppercase tracking-wider">
-                {viewMode === 'today' ? `Visitas de Hoje (${activeVisits.length})` : viewMode === 'date' ? `Visitas de ${format(new Date(selectedDate + 'T00:00:00'), 'dd/MM/yyyy')} (${activeVisits.length})` : 'Visitas'}
+                {viewMode === 'today' ? `Visitas de Hoje (${activeVisits.length})` : viewMode === 'date' ? `Visitas de ${format(new Date(selectedDate + 'T00:00:00'), 'dd/MM/yyyy')} (${activeVisits.length})` : viewMode === 'customer' ? `Visitas de ${searchedCustomerName} (${activeVisits.length})` : 'Visitas'}
               </h2>
-              <button onClick={viewMode === 'today' ? loadTodayVisits : viewMode === 'date' ? () => loadDateVisits(selectedDate) : loadChildData} disabled={loading} className="text-sm text-violet-600 hover:text-violet-700 font-medium disabled:opacity-50">
+              <button onClick={viewMode === 'today' ? loadTodayVisits : viewMode === 'date' ? () => loadDateVisits(selectedDate) : viewMode === 'customer' ? loadCustomerVisits : loadChildData} disabled={loading} className="text-sm text-violet-600 hover:text-violet-700 font-medium disabled:opacity-50">
                 {loading ? '⏳' : '🔄'} Atualizar
               </button>
             </div>
@@ -327,17 +375,17 @@ const VisitHistory: React.FC = () => {
                         <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isActive ? 'bg-emerald-500' : isCancelled ? 'bg-red-400' : 'bg-slate-300'}`} />
                         <div>
                           <div className="flex items-center gap-2">
-                            {(viewMode === 'today' || viewMode === 'date') && (
+                            {(viewMode === 'today' || viewMode === 'date' || viewMode === 'customer') && (
                               <p className="font-semibold text-sm text-violet-700">{getChildName(visit.childId)}</p>
                             )}
                             <p className="font-medium text-sm text-slate-800">
-                              {(viewMode === 'today' || viewMode === 'date') ? '' : format(checkInDate, "EEEE, dd/MM", { locale: ptBR })}
+                              {viewMode === 'customer' ? format(checkInDate, "EEEE, dd/MM", { locale: ptBR }) : (viewMode === 'today' || viewMode === 'date') ? '' : format(checkInDate, "EEEE, dd/MM", { locale: ptBR })}
                             </p>
                             {isCancelled && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600">Cancelado</span>}
                             {usedPackage && !isCancelled && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-600">Pacote</span>}
                           </div>
                           <p className="text-xs text-slate-500">
-                            {(viewMode === 'today' || viewMode === 'date') && <span>{getCustomerNameByChildId(visit.childId)} · </span>}
+                            {(viewMode === 'today' || viewMode === 'date' || viewMode === 'customer') && <span>{getCustomerNameByChildId(visit.childId)} · </span>}
                             {format(checkInDate, 'HH:mm')}{checkOutDate ? ` → ${format(checkOutDate, 'HH:mm')}` : ''}
                             {!isActive && !isCancelled && paymentMethodLabel ? ` · ${paymentMethodLabel}` : ''}
                           </p>
