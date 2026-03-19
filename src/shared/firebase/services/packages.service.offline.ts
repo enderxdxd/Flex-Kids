@@ -1,5 +1,6 @@
-import { collection, addDoc, updateDoc, doc, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
+import { getDocsSafe } from '../firebaseHelpers';
 import { Package } from '../../types';
 import { syncService } from '../../database/syncService';
 
@@ -133,7 +134,7 @@ export const packagesServiceOffline = {
           orderBy('createdAt', 'desc')
         );
 
-        const snapshot = await getDocs(q);
+        const snapshot = await getDocsSafe(q);
         const packages: any[] = snapshot.docs.map(d => {
           const data = d.data();
           return {
@@ -245,7 +246,7 @@ export const packagesServiceOffline = {
       constraints.push(orderBy('createdAt', 'desc'));
       let q = query(collection(db, COLLECTION), ...constraints);
 
-      const snapshot = await getDocs(q);
+      const snapshot = await getDocsSafe(q);
 
       const packages: Package[] = [];
 

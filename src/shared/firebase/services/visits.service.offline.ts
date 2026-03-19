@@ -1,5 +1,6 @@
-import { collection, addDoc, updateDoc, doc, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
+import { getDocsSafe } from '../firebaseHelpers';
 import { Visit, CheckInData, CheckOutData } from '../../types';
 import { syncService } from '../../database/syncService';
 
@@ -208,7 +209,7 @@ export const visitsServiceOffline = {
       constraints.push(orderBy('checkIn', 'desc'));
       const q = query(collection(db, COLLECTION), ...constraints);
 
-      const snapshot = await getDocs(q);
+      const snapshot = await getDocsSafe(q);
 
       const visits: Visit[] = [];
 
@@ -263,7 +264,7 @@ export const visitsServiceOffline = {
           orderBy('checkIn', 'desc')
         );
 
-        const snapshot = await getDocs(q);
+        const snapshot = await getDocsSafe(q);
         const visits = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
@@ -295,7 +296,7 @@ export const visitsServiceOffline = {
         }
         constraints.push(orderBy('checkIn', 'desc'));
         const q = query(collection(db, COLLECTION), ...constraints);
-        const snapshot = await getDocs(q);
+        const snapshot = await getDocsSafe(q);
         
         const visits = snapshot.docs.map(doc => ({
           id: doc.id,

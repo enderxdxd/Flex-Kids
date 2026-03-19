@@ -1,5 +1,6 @@
-import { collection, doc, getDoc, setDoc, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, doc, setDoc, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
+import { getDocsSafe, getDocSafe } from '../firebaseHelpers';
 import { Settings, FiscalConfig } from '../../types';
 import { syncService } from '../../database/syncService';
 
@@ -50,13 +51,7 @@ export const settingsServiceOffline = {
     try {
       const db = getDb();
       const settingRef = doc(db, COLLECTION, key);
-      
-      const firebasePromise = getDoc(settingRef);
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Firebase getDoc timeout')), 5000)
-      );
-      
-      const snapshot = await Promise.race([firebasePromise, timeoutPromise]);
+      const snapshot = await getDocSafe(settingRef);
       
       if (!snapshot.exists()) return null;
       
@@ -146,7 +141,7 @@ export const settingsServiceOffline = {
   async refreshSettingsInBackground(): Promise<void> {
     try {
       const db = getDb();
-      const snapshot = await getDocs(collection(db, COLLECTION));
+      const snapshot = await getDocsSafe(collection(db, COLLECTION));
       
       const settings = snapshot.docs.map(doc => ({
         id: doc.id,

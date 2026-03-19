@@ -1,5 +1,6 @@
-import { collection, addDoc, updateDoc, doc, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
+import { getDocsSafe } from '../firebaseHelpers';
 import { KidsPlan } from '../../types';
 import { syncService } from '../../database/syncService';
 
@@ -182,7 +183,7 @@ export const kidsPlansServiceOffline = {
         orderBy('createdAt', 'desc')
       );
 
-      const snapshot = await getDocs(q);
+      const snapshot = await getDocsSafe(q);
       const plans: any[] = snapshot.docs.map(d => {
         const data = d.data();
         return {

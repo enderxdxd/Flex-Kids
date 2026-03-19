@@ -1,5 +1,6 @@
-import { collection, addDoc, updateDoc, doc, getDocs, getDoc, query, where, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, query, where, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
+import { getDocsSafe, getDocSafe } from '../firebaseHelpers';
 import { Customer, Child } from '../../types';
 import { syncService } from '../../database/syncService';
 
@@ -239,9 +240,9 @@ export const customersServiceOffline = {
       // Tenta buscar filtrado por unitId
       if (unitId) {
         const q = query(collection(db, CUSTOMERS_COLLECTION), where('unitId', '==', unitId));
-        snapshot = await getDocs(q);
+        snapshot = await getDocsSafe(q);
       } else {
-        snapshot = await getDocs(collection(db, CUSTOMERS_COLLECTION));
+        snapshot = await getDocsSafe(collection(db, CUSTOMERS_COLLECTION));
       }
 
       console.log(`📥 Received ${snapshot.docs.length} customers from Firebase`);
@@ -348,11 +349,7 @@ export const customersServiceOffline = {
       if (syncService.isOnline()) {
         console.log(`🌐 [getChildById] Buscando do Firebase...`);
         const db = getDb();
-        const firebasePromise = getDoc(doc(db, CHILDREN_COLLECTION, childId));
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Firebase getDoc timeout')), 5000)
-        );
-        const docSnap = await Promise.race([firebasePromise, timeoutPromise]);
+        const docSnap = await getDocSafe(doc(db, CHILDREN_COLLECTION, childId));
         
         if (docSnap.exists()) {
           const data = docSnap.data();
@@ -398,11 +395,7 @@ export const customersServiceOffline = {
       if (syncService.isOnline()) {
         console.log(`🌐 [getCustomerById] Buscando do Firebase...`);
         const db = getDb();
-        const firebasePromise = getDoc(doc(db, CUSTOMERS_COLLECTION, customerId));
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Firebase getDoc timeout')), 5000)
-        );
-        const docSnap = await Promise.race([firebasePromise, timeoutPromise]);
+        const docSnap = await getDocSafe(doc(db, CUSTOMERS_COLLECTION, customerId));
         
         if (docSnap.exists()) {
           const data = docSnap.data();
@@ -464,7 +457,7 @@ export const customersServiceOffline = {
         collection(db, CHILDREN_COLLECTION),
         where('customerId', '==', customerId)
       );
-      const snapshot = await getDocs(q);
+      const snapshot = await getDocsSafe(q);
       
       const children: any[] = [];
       for (const docSnap of snapshot.docs) {
@@ -528,9 +521,9 @@ export const customersServiceOffline = {
 
       if (unitId) {
         const q = query(collection(db, CHILDREN_COLLECTION), where('unitId', '==', unitId));
-        snapshot = await getDocs(q);
+        snapshot = await getDocsSafe(q);
       } else {
-        snapshot = await getDocs(collection(db, CHILDREN_COLLECTION));
+        snapshot = await getDocsSafe(collection(db, CHILDREN_COLLECTION));
       }
       
       const children: any[] = [];

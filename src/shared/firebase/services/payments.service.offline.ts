@@ -1,5 +1,6 @@
-import { collection, addDoc, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
+import { getDocsSafe } from '../firebaseHelpers';
 import { Payment } from '../../types';
 import { syncService } from '../../database/syncService';
 
@@ -130,7 +131,7 @@ export const paymentsServiceOffline = {
         ...constraints
       );
 
-      const snapshot = await getDocs(q);
+      const snapshot = await getDocsSafe(q);
       const payments: Payment[] = [];
 
       for (const docSnap of snapshot.docs) {
@@ -174,7 +175,7 @@ export const paymentsServiceOffline = {
           orderBy('createdAt', 'desc')
         );
 
-        const snapshot = await getDocs(q);
+        const snapshot = await getDocsSafe(q);
         const payments = snapshot.docs.map(doc => {
           const data = doc.data();
           return {
@@ -281,7 +282,7 @@ export const paymentsServiceOffline = {
         ...constraints
       );
 
-      const snapshot = await getDocs(q);
+      const snapshot = await getDocsSafe(q);
       const payments: Payment[] = [];
 
       for (const docSnap of snapshot.docs) {
@@ -324,7 +325,7 @@ export const paymentsServiceOffline = {
         }
         constraints.push(orderBy('createdAt', 'desc'));
         const q = query(collection(db, COLLECTION), ...constraints);
-        const snapshot = await getDocs(q);
+        const snapshot = await getDocsSafe(q);
         
         const payments: Payment[] = [];
         for (const docSnap of snapshot.docs) {
