@@ -175,10 +175,14 @@ export const visitsServiceOffline = {
         return cachedActiveVisits;
       }
 
-      // 3. Se cache vazio, aguarda Firebase (primeira carga / cache limpo)
+      // 3. Se cache vazio, tenta Firebase (primeira carga / cache limpo)
       if (cachedActiveVisits.length === 0) {
-        const firebaseVisits = await this.fetchActiveVisitsFromFirebase(unitId, limit);
-        return await this.enrichVisitsWithChildData(firebaseVisits);
+        try {
+          const firebaseVisits = await this.fetchActiveVisitsFromFirebase(unitId, limit);
+          return await this.enrichVisitsWithChildData(firebaseVisits);
+        } catch {
+          return [];
+        }
       }
 
       // 4. Se já tem cache, busca Firebase em background para atualizar

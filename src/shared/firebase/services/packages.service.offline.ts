@@ -213,9 +213,13 @@ export const packagesServiceOffline = {
         return cachedPackages;
       }
 
-      // 3. Se cache vazio, aguarda Firebase (primeira carga / cache limpo)
+      // 3. Se cache vazio, tenta Firebase (primeira carga / cache limpo)
       if (cachedPackages.length === 0) {
-        return await this.fetchActivePackagesFromFirebase(customerId, unitId);
+        try {
+          return await this.fetchActivePackagesFromFirebase(customerId, unitId);
+        } catch {
+          return [];
+        }
       }
 
       // 4. Se já tem cache, busca Firebase em background para atualizar

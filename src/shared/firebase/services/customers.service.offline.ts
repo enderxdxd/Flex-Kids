@@ -214,10 +214,13 @@ export const customersServiceOffline = {
         return localCustomers;
       }
 
-      // 3. Se cache vazio, aguarda Firebase (primeira carga / cache limpo)
+      // 3. Se cache vazio, tenta Firebase (primeira carga / cache limpo)
       if (localCustomers.length === 0) {
-        const firebaseCustomers = await this.fetchCustomersFromFirebase(unitId);
-        return firebaseCustomers;
+        try {
+          return await this.fetchCustomersFromFirebase(unitId);
+        } catch {
+          return [];
+        }
       }
 
       // 4. Se já tem cache, busca Firebase em background para atualizar
@@ -434,9 +437,13 @@ export const customersServiceOffline = {
         return customerChildren;
       }
 
-      // 3. Se cache vazio, aguarda Firebase
+      // 3. Se cache vazio, tenta Firebase
       if (customerChildren.length === 0) {
-        return await this.fetchChildrenByCustomerFromFirebase(customerId);
+        try {
+          return await this.fetchChildrenByCustomerFromFirebase(customerId);
+        } catch {
+          return [];
+        }
       }
 
       // 4. Se já tem cache, busca Firebase em background
@@ -498,9 +505,13 @@ export const customersServiceOffline = {
         return localChildren;
       }
 
-      // 3. Se cache vazio, aguarda Firebase
+      // 3. Se cache vazio, tenta Firebase
       if (localChildren.length === 0) {
-        return await this.fetchChildrenFromFirebase(unitId);
+        try {
+          return await this.fetchChildrenFromFirebase(unitId);
+        } catch {
+          return [];
+        }
       }
 
       // 4. Se já tem cache, busca Firebase em background

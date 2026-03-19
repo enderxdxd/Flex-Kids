@@ -1,6 +1,7 @@
 import { localDb } from './localDb';
 import { getDb } from '../firebase/config';
-import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, getDocs, setDoc } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, setDoc } from 'firebase/firestore';
+import { getDocsSafe, isFirebaseConnectivityError, registerSyncService } from '../firebase/firebaseHelpers';
 
 const MAX_RETRY_COUNT = 3;
 
@@ -12,6 +13,11 @@ class SyncService {
   private initialized = false;
   private bulkMode = false;
 
+  // Real Firebase connectivity tracking
+  private _firebaseReachable = true;
+  private _lastFirebaseFailure = 0;
+  private static FIREBASE_COOLDOWN_MS = 30000; // 30s cooldown after failure before retrying
+
   constructor() {
     this.setupOnlineListener();
   }
@@ -19,14 +25,30 @@ class SyncService {
   private setupOnlineListener(): void {
     window.addEventListener('online', () => {
       console.log('Connection restored - starting sync');
+      this._firebaseReachable = true; // Optimistically assume Firebase is back
       this.notifyListeners(true);
       this.syncAll();
     });
 
     window.addEventListener('offline', () => {
       console.log('Connection lost - switching to offline mode');
+      this._firebaseReachable = false;
       this.notifyListeners(false);
     });
+  }
+
+  /** Call when a Firebase operation succeeds — marks Firebase as reachable */
+  markFirebaseSuccess(): void {
+    if (!this._firebaseReachable) {
+      console.log('🟢 Firebase connection restored');
+    }
+    this._firebaseReachable = true;
+  }
+
+  /** Call when a Firebase operation fails with connectivity error — triggers cooldown */
+  markFirebaseFailure(): void {
+    this._firebaseReachable = false;
+    this._lastFirebaseFailure = Date.now();
   }
 
   onConnectionChange(callback: (online: boolean) => void): () => void {
@@ -57,13 +79,26 @@ class SyncService {
   }
 
   isOnline(): boolean {
-    return navigator.onLine;
+    // Must have network AND Firebase must not be in cooldown
+    if (!navigator.onLine) return false;
+    if (!this._firebaseReachable) {
+      // Check if cooldown expired — allow retrying
+      if (Date.now() - this._lastFirebaseFailure > SyncService.FIREBASE_COOLDOWN_MS) {
+        this._firebaseReachable = true;
+        return true;
+      }
+      return false;
+    }
+    return true;
   }
 
   async init(): Promise<void> {
     if (this.initialized) return;
     
     try {
+      // Register self with firebaseHelpers for connectivity tracking
+      registerSyncService(this);
+      
       await localDb.init();
       this.initialized = true;
       console.log('SyncService initialized successfully');
@@ -209,6 +244,13 @@ class SyncService {
           // Revert: mark back as pending for retry
           const retryCount = await localDb.incrementRetryCount(item.id);
           failedCount++;
+          
+          if (isFirebaseConnectivityError(error)) {
+            // Firebase offline/timeout — stop trying, will retry next cycle
+            console.warn(`[Sync] Firebase unreachable, aborting sync cycle. ${dedupedItems.length - i - 1} items deferred.`);
+            break;
+          }
+          
           console.error(`❌ Failed to sync item ${item.id} (attempt ${retryCount}/${MAX_RETRY_COUNT}):`, error);
           
           if (retryCount >= MAX_RETRY_COUNT) {
@@ -228,7 +270,7 @@ class SyncService {
       // Notify UI of pending count
       await this.notifyPendingCount();
     } catch (error) {
-      console.error('Sync failed:', error);
+      if (!isFirebaseConnectivityError(error)) console.error('Sync failed:', error);
     } finally {
       this.isSyncing = false;
     }
@@ -256,7 +298,7 @@ class SyncService {
             if (dataToCreate.name && dataToCreate.createdAt) {
               const createdAtValue = dataToCreate.createdAt;
               const q = query(collectionRef, where('name', '==', dataToCreate.name));
-              const snapshot = await getDocs(q);
+              const snapshot = await getDocsSafe(q);
               for (const docSnap of snapshot.docs) {
                 const docData = docSnap.data();
                 const docCreatedAt = docData.createdAt?.toDate?.() || docData.createdAt;
@@ -361,7 +403,7 @@ class SyncService {
       for (const { collectionName, field } of refCollections) {
         try {
           const q = query(collection(db, collectionName), where(field, '==', oldLocalId));
-          const snapshot = await getDocs(q);
+          const snapshot = await getDocsSafe(q);
           for (const docSnap of snapshot.docs) {
             await updateDoc(doc(db, collectionName, docSnap.id), { [field]: newFirebaseId });
             console.log(`🔗 Fixed Firebase ref: ${collectionName}/${docSnap.id}.${field} → ${newFirebaseId}`);

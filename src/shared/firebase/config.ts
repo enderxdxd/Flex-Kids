@@ -1,5 +1,5 @@
 import { initializeApp, FirebaseApp } from 'firebase/app';
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, Firestore } from 'firebase/firestore';
+import { initializeFirestore, getFirestore, persistentLocalCache, persistentMultipleTabManager, Firestore } from 'firebase/firestore';
 import { getAuth, Auth } from 'firebase/auth';
 import { getAnalytics, Analytics } from 'firebase/analytics';
 import { FIREBASE_CONFIG } from './firebase.env';
@@ -87,13 +87,19 @@ export const getFirebaseApp = (): FirebaseApp => {
 
 export const getDb = (): Firestore => {
   if (!db) {
-    console.log('📊 Initializing Firestore with persistent cache...');
-    db = initializeFirestore(getFirebaseApp(), {
-      localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager()
-      })
-    });
-    console.log('✅ Firestore initialized with offline persistence');
+    try {
+      console.log('📊 Initializing Firestore with persistent cache...');
+      db = initializeFirestore(getFirebaseApp(), {
+        localCache: persistentLocalCache({
+          tabManager: persistentMultipleTabManager()
+        })
+      });
+      console.log('✅ Firestore initialized with offline persistence');
+    } catch (e) {
+      // initializeFirestore throws if Firestore was already started (e.g. by another import)
+      console.warn('⚠️ initializeFirestore failed, falling back to getFirestore:', (e as Error).message);
+      db = getFirestore(getFirebaseApp());
+    }
   }
   return db;
 };

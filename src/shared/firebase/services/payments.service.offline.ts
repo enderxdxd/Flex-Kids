@@ -88,9 +88,13 @@ export const paymentsServiceOffline = {
         return cachedTodayPayments;
       }
 
-      // 3. Se cache vazio, aguarda Firebase (primeira carga / cache limpo)
+      // 3. Se cache vazio, tenta Firebase (primeira carga / cache limpo)
       if (cachedTodayPayments.length === 0) {
-        return await this.fetchTodayPaymentsFromFirebase(unitId);
+        try {
+          return await this.fetchTodayPaymentsFromFirebase(unitId);
+        } catch {
+          return [];
+        }
       }
 
       // 4. Se já tem cache, busca Firebase em background para atualizar
@@ -236,9 +240,13 @@ export const paymentsServiceOffline = {
         return cachedMonthPayments;
       }
 
-      // Se cache vazio, aguarda Firebase
+      // Se cache vazio, tenta Firebase
       if (cachedMonthPayments.length === 0) {
-        return await this.fetchMonthPaymentsFromFirebase(date, unitId);
+        try {
+          return await this.fetchMonthPaymentsFromFirebase(date, unitId);
+        } catch {
+          return [];
+        }
       }
 
       // Se já tem cache, busca Firebase em background
