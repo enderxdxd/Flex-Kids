@@ -1,7 +1,7 @@
 import { localDb } from './localDb';
 import { getDb } from '../firebase/config';
-import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, setDoc } from 'firebase/firestore';
-import { getDocsSafe, isFirebaseConnectivityError, registerSyncService } from '../firebase/firebaseHelpers';
+import { collection, doc, query, where } from 'firebase/firestore';
+import { getDocsSafe, addDocSafe, updateDocSafe, setDocSafe, deleteDocSafe, isFirebaseConnectivityError, registerSyncService } from '../firebase/firebaseHelpers';
 
 const MAX_RETRY_COUNT = 3;
 
@@ -16,7 +16,7 @@ class SyncService {
   // Real Firebase connectivity tracking
   private _firebaseReachable = true;
   private _lastFirebaseFailure = 0;
-  private static FIREBASE_COOLDOWN_MS = 30000; // 30s cooldown after failure before retrying
+  private _firebaseCooldownMs = 5000; // Starts at 5s, doubles on each failure (exponential backoff)
 
   constructor() {
     this.setupOnlineListener();
@@ -26,6 +26,7 @@ class SyncService {
     window.addEventListener('online', () => {
       console.log('Connection restored - starting sync');
       this._firebaseReachable = true; // Optimistically assume Firebase is back
+      this._firebaseCooldownMs = 5000; // Reset backoff when network reconnects
       this.notifyListeners(true);
       this.syncAll();
     });
@@ -37,18 +38,21 @@ class SyncService {
     });
   }
 
-  /** Call when a Firebase operation succeeds — marks Firebase as reachable */
+  /** Call when a Firebase operation succeeds — marks Firebase as reachable and resets backoff */
   markFirebaseSuccess(): void {
     if (!this._firebaseReachable) {
       console.log('🟢 Firebase connection restored');
     }
     this._firebaseReachable = true;
+    this._firebaseCooldownMs = 5000; // Reset backoff on success
   }
 
-  /** Call when a Firebase operation fails with connectivity error — triggers cooldown */
+  /** Call when a Firebase operation fails with connectivity error — triggers exponential backoff cooldown */
   markFirebaseFailure(): void {
     this._firebaseReachable = false;
     this._lastFirebaseFailure = Date.now();
+    this._firebaseCooldownMs = Math.min(this._firebaseCooldownMs * 2, 60000);
+    console.warn(`[Firebase] Cooldown set to ${this._firebaseCooldownMs / 1000}s after failure`);
   }
 
   onConnectionChange(callback: (online: boolean) => void): () => void {
@@ -83,7 +87,7 @@ class SyncService {
     if (!navigator.onLine) return false;
     if (!this._firebaseReachable) {
       // Check if cooldown expired — allow retrying
-      if (Date.now() - this._lastFirebaseFailure > SyncService.FIREBASE_COOLDOWN_MS) {
+      if (Date.now() - this._lastFirebaseFailure > this._firebaseCooldownMs) {
         this._firebaseReachable = true;
         return true;
       }
@@ -325,7 +329,7 @@ class SyncService {
             newFirebaseId = existingFirebaseId;
           } else {
             // Create new document in Firebase
-            const docRef = await addDoc(collectionRef, dataToCreate);
+            const docRef = await addDocSafe(collectionRef, dataToCreate);
             newFirebaseId = docRef.id;
           }
           
@@ -344,7 +348,7 @@ class SyncService {
         } else {
           // Already has Firebase ID — use setDoc (merge) to avoid error if already exists
           try {
-            await setDoc(doc(db, item.collection, item.data.id), dataToCreate, { merge: true });
+            await setDocSafe(doc(db, item.collection, item.data.id), dataToCreate, { merge: true });
           } catch {
             // If it fails, just mark as synced locally
           }
@@ -361,7 +365,7 @@ class SyncService {
           // Firestore rejects undefined values — remove them
           Object.keys(dataToUpdate).forEach(k => dataToUpdate[k] === undefined && delete dataToUpdate[k]);
           try {
-            await setDoc(doc(db, item.collection, item.data.id), dataToUpdate, { merge: true });
+            await setDocSafe(doc(db, item.collection, item.data.id), dataToUpdate, { merge: true });
           } catch {
             // If setDoc fails, just mark as synced to avoid infinite loop
           }
@@ -374,7 +378,7 @@ class SyncService {
         if (item.data.id && !item.data.id.startsWith('local_')) {
           try {
             const docToDelete = doc(db, item.collection, item.data.id);
-            await deleteDoc(docToDelete);
+            await deleteDocSafe(docToDelete);
           } catch {
             // Doc may already be deleted — not an error
           }
@@ -405,7 +409,7 @@ class SyncService {
           const q = query(collection(db, collectionName), where(field, '==', oldLocalId));
           const snapshot = await getDocsSafe(q);
           for (const docSnap of snapshot.docs) {
-            await updateDoc(doc(db, collectionName, docSnap.id), { [field]: newFirebaseId });
+            await updateDocSafe(doc(db, collectionName, docSnap.id), { [field]: newFirebaseId });
             console.log(`🔗 Fixed Firebase ref: ${collectionName}/${docSnap.id}.${field} → ${newFirebaseId}`);
           }
         } catch {

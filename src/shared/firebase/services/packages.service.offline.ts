@@ -1,6 +1,6 @@
-import { collection, addDoc, updateDoc, doc, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, doc, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
-import { getDocsSafe, isFirebaseConnectivityError } from '../firebaseHelpers';
+import { getDocsSafe, addDocSafe, updateDocSafe, isFirebaseConnectivityError } from '../firebaseHelpers';
 import { Package } from '../../types';
 import { syncService } from '../../database/syncService';
 
@@ -43,7 +43,7 @@ export const packagesServiceOffline = {
         // Firestore rejects undefined values — remove them
         Object.keys(firestoreData).forEach(k => firestoreData[k] === undefined && delete firestoreData[k]);
 
-        const docRef = await addDoc(collection(db, COLLECTION), firestoreData);
+        const docRef = await addDocSafe(collection(db, COLLECTION), firestoreData);
         const pkg = {
           id: docRef.id,
           ...packageData,
@@ -85,7 +85,7 @@ export const packagesServiceOffline = {
         // Firestore rejects undefined values — remove them
         Object.keys(firestoreData).forEach(k => firestoreData[k] === undefined && delete firestoreData[k]);
 
-        await updateDoc(packageRef, firestoreData);
+        await updateDocSafe(packageRef, firestoreData);
         
         const localPkg = await syncService.getFromLocal(COLLECTION, id);
         await syncService.saveToCacheOnly(COLLECTION, { ...localPkg, ...updateData });
@@ -105,7 +105,7 @@ export const packagesServiceOffline = {
     if (syncService.isOnline()) {
       try {
         const db = getDb();
-        await updateDoc(doc(db, COLLECTION, id), {
+        await updateDocSafe(doc(db, COLLECTION, id), {
           deletedAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
         });

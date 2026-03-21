@@ -1,6 +1,6 @@
-import { collection, addDoc, updateDoc, doc, query, where, Timestamp } from 'firebase/firestore';
+import { collection, doc, query, where, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
-import { getDocsSafe, getDocSafe, isFirebaseConnectivityError } from '../firebaseHelpers';
+import { getDocsSafe, getDocSafe, addDocSafe, updateDocSafe, isFirebaseConnectivityError } from '../firebaseHelpers';
 import { Customer, Child } from '../../types';
 import { syncService } from '../../database/syncService';
 
@@ -51,12 +51,7 @@ export const customersServiceOffline = {
         console.log('📦 Data:', firestoreData);
         
         // Timeout de 10 segundos para operação Firebase
-        const savePromise = addDoc(collection(db, CUSTOMERS_COLLECTION), firestoreData);
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Firebase timeout after 10s - Check Firestore connection')), 10000)
-        );
-        
-        const docRef = await Promise.race([savePromise, timeoutPromise]) as any;
+        const docRef = await addDocSafe(collection(db, CUSTOMERS_COLLECTION), firestoreData);
         console.log('✅ Firebase save successful, ID:', docRef.id);
         
         const customer = {
@@ -101,7 +96,7 @@ export const customersServiceOffline = {
         const db = getDb();
         const customerRef = doc(db, CUSTOMERS_COLLECTION, id);
         
-        await updateDoc(customerRef, {
+        await updateDocSafe(customerRef, {
           ...data,
           updatedAt: Timestamp.now(),
         });
@@ -130,7 +125,7 @@ export const customersServiceOffline = {
     if (syncService.isOnline()) {
       try {
         const db = getDb();
-        await updateDoc(doc(db, CUSTOMERS_COLLECTION, id), {
+        await updateDocSafe(doc(db, CUSTOMERS_COLLECTION, id), {
           deletedAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
         });
@@ -156,7 +151,7 @@ export const customersServiceOffline = {
     if (syncService.isOnline()) {
       try {
         const db = getDb();
-        await updateDoc(doc(db, CHILDREN_COLLECTION, id), {
+        await updateDocSafe(doc(db, CHILDREN_COLLECTION, id), {
           deletedAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
         });
@@ -186,7 +181,7 @@ export const customersServiceOffline = {
           firestoreData.birthDate = Timestamp.fromDate(new Date(data.birthDate));
         }
         Object.keys(firestoreData).forEach(k => firestoreData[k] === undefined && delete firestoreData[k]);
-        await updateDoc(doc(db, CHILDREN_COLLECTION, id), firestoreData);
+        await updateDocSafe(doc(db, CHILDREN_COLLECTION, id), firestoreData);
       } catch (error) {
         console.error('Failed to update child in Firebase:', error);
       }
@@ -316,7 +311,7 @@ export const customersServiceOffline = {
         // Firestore rejects undefined values — remove them
         Object.keys(firestoreData).forEach(k => firestoreData[k] === undefined && delete firestoreData[k]);
 
-        const docRef = await addDoc(collection(db, CHILDREN_COLLECTION), firestoreData);
+        const docRef = await addDocSafe(collection(db, CHILDREN_COLLECTION), firestoreData);
         const child = {
           id: docRef.id,
           ...childData,

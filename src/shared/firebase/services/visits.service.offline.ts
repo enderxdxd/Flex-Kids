@@ -1,6 +1,6 @@
-import { collection, addDoc, updateDoc, doc, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, doc, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
-import { getDocsSafe, isFirebaseConnectivityError } from '../firebaseHelpers';
+import { getDocsSafe, addDocSafe, updateDocSafe, isFirebaseConnectivityError } from '../firebaseHelpers';
 import { Visit, CheckInData, CheckOutData } from '../../types';
 import { syncService } from '../../database/syncService';
 
@@ -59,7 +59,7 @@ export const visitsServiceOffline = {
         };
         if (data.kidsPlanId) firestoreData.kidsPlanId = data.kidsPlanId;
 
-        const docRef = await addDoc(collection(db, COLLECTION), firestoreData);
+        const docRef = await addDocSafe(collection(db, COLLECTION), firestoreData);
         const visit = {
           id: docRef.id,
           ...visitData,
@@ -103,7 +103,7 @@ export const visitsServiceOffline = {
         if (data.paymentMethod) firestoreData.paymentMethod = data.paymentMethod;
         if (data.packageId) firestoreData.packageId = data.packageId;
 
-        await updateDoc(visitRef, firestoreData);
+        await updateDocSafe(visitRef, firestoreData);
         
         const localVisit = await syncService.getFromLocal(COLLECTION, data.visitId);
         const updatedVisit = { ...localVisit, ...updateData };

@@ -1,6 +1,6 @@
-import { collection, addDoc, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
-import { getDocsSafe, isFirebaseConnectivityError } from '../firebaseHelpers';
+import { getDocsSafe, addDocSafe, isFirebaseConnectivityError } from '../firebaseHelpers';
 import { Payment } from '../../types';
 import { syncService } from '../../database/syncService';
 
@@ -40,7 +40,7 @@ export const paymentsServiceOffline = {
         // Firestore rejects undefined values — remove them
         Object.keys(firestoreData).forEach(k => firestoreData[k] === undefined && delete firestoreData[k]);
 
-        const docRef = await addDoc(collection(db, COLLECTION), firestoreData);
+        const docRef = await addDocSafe(collection(db, COLLECTION), firestoreData);
         const payment = {
           id: docRef.id,
           ...paymentData,
