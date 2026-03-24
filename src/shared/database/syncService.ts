@@ -17,6 +17,7 @@ class SyncService {
   private _firebaseReachable = true;
   private _lastFirebaseFailure = 0;
   private _firebaseCooldownMs = 5000; // Starts at 5s, doubles on each failure (exponential backoff)
+  private _lastFailureEscalation = 0; // Debounce: don't escalate more than once per 2s
 
   constructor() {
     this.setupOnlineListener();
@@ -51,7 +52,12 @@ class SyncService {
   markFirebaseFailure(): void {
     this._firebaseReachable = false;
     this._lastFirebaseFailure = Date.now();
-    this._firebaseCooldownMs = Math.min(this._firebaseCooldownMs * 2, 60000);
+    // Debounce: only escalate backoff if last escalation was >2s ago (prevents parallel failures from cascading)
+    const now = Date.now();
+    if (now - this._lastFailureEscalation > 2000) {
+      this._firebaseCooldownMs = Math.min(this._firebaseCooldownMs * 2, 30000);
+      this._lastFailureEscalation = now;
+    }
     console.warn(`[Firebase] Cooldown set to ${this._firebaseCooldownMs / 1000}s after failure`);
   }
 

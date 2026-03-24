@@ -3,9 +3,19 @@ import {
   Query, DocumentReference, CollectionReference, QuerySnapshot, DocumentSnapshot, SetOptions,
 } from 'firebase/firestore';
 
-const FIREBASE_TIMEOUT_MS = 15000;
+const FIREBASE_TIMEOUT_MS = 20000;
+const FIREBASE_COLD_START_TIMEOUT_MS = 30000;
 const FIREBASE_WRITE_TIMEOUT_MS = 10000;
-const FIREBASE_RETRY_DELAY_MS = 3000;
+const FIREBASE_RETRY_DELAYS_MS = [3000, 5000];
+
+let _isWarmedUp = false;
+function getReadTimeout(): number {
+  if (!_isWarmedUp) {
+    _isWarmedUp = true;
+    return FIREBASE_COLD_START_TIMEOUT_MS;
+  }
+  return FIREBASE_TIMEOUT_MS;
+}
 
 // Registered by syncService.init() to avoid circular dependency
 let _syncService: { markFirebaseSuccess: () => void; markFirebaseFailure: () => void } | null = null;
@@ -57,28 +67,31 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): P
  * Only marks Firebase as failed after both attempts fail with a connectivity error.
  */
 export async function getDocsSafe<T>(query: Query<T>): Promise<QuerySnapshot<T>> {
-  try {
-    const result = await withTimeout(getDocs(query), FIREBASE_TIMEOUT_MS, 'getDocs');
-    _syncService?.markFirebaseSuccess();
-    return result;
-  } catch (firstError) {
-    if (!isFirebaseConnectivityError(firstError)) throw firstError;
+  let lastError: unknown;
+  const timeout = getReadTimeout();
 
-    // One retry after a short pause
-    console.warn('[Firebase] getDocs failed, retrying in', FIREBASE_RETRY_DELAY_MS, 'ms...', (firstError as Error).message);
-    await new Promise(resolve => setTimeout(resolve, FIREBASE_RETRY_DELAY_MS));
-
+  // Initial attempt + retries
+  for (let attempt = 0; attempt <= FIREBASE_RETRY_DELAYS_MS.length; attempt++) {
     try {
-      const result = await withTimeout(getDocs(query), FIREBASE_TIMEOUT_MS, 'getDocs retry');
+      const result = await withTimeout(getDocs(query), timeout, `getDocs${attempt > 0 ? ` retry ${attempt}` : ''}`);
       _syncService?.markFirebaseSuccess();
       return result;
-    } catch (retryError) {
-      if (isFirebaseConnectivityError(retryError)) {
-        _syncService?.markFirebaseFailure();
+    } catch (err) {
+      lastError = err;
+      if (!isFirebaseConnectivityError(err)) throw err;
+
+      if (attempt < FIREBASE_RETRY_DELAYS_MS.length) {
+        const delay = FIREBASE_RETRY_DELAYS_MS[attempt];
+        console.warn(`[Firebase] getDocs failed, retrying in ${delay}ms...`, (err as Error).message);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
-      throw retryError;
     }
   }
+
+  if (isFirebaseConnectivityError(lastError)) {
+    _syncService?.markFirebaseFailure();
+  }
+  throw lastError;
 }
 
 /**
@@ -86,27 +99,30 @@ export async function getDocsSafe<T>(query: Query<T>): Promise<QuerySnapshot<T>>
  * Only marks Firebase as failed after both attempts fail with a connectivity error.
  */
 export async function getDocSafe<T>(ref: DocumentReference<T>): Promise<DocumentSnapshot<T>> {
-  try {
-    const result = await withTimeout(getDoc(ref), FIREBASE_TIMEOUT_MS, 'getDoc');
-    _syncService?.markFirebaseSuccess();
-    return result;
-  } catch (firstError) {
-    if (!isFirebaseConnectivityError(firstError)) throw firstError;
+  let lastError: unknown;
+  const timeout = getReadTimeout();
 
-    console.warn('[Firebase] getDoc failed, retrying in', FIREBASE_RETRY_DELAY_MS, 'ms...', (firstError as Error).message);
-    await new Promise(resolve => setTimeout(resolve, FIREBASE_RETRY_DELAY_MS));
-
+  for (let attempt = 0; attempt <= FIREBASE_RETRY_DELAYS_MS.length; attempt++) {
     try {
-      const result = await withTimeout(getDoc(ref), FIREBASE_TIMEOUT_MS, 'getDoc retry');
+      const result = await withTimeout(getDoc(ref), timeout, `getDoc${attempt > 0 ? ` retry ${attempt}` : ''}`);
       _syncService?.markFirebaseSuccess();
       return result;
-    } catch (retryError) {
-      if (isFirebaseConnectivityError(retryError)) {
-        _syncService?.markFirebaseFailure();
+    } catch (err) {
+      lastError = err;
+      if (!isFirebaseConnectivityError(err)) throw err;
+
+      if (attempt < FIREBASE_RETRY_DELAYS_MS.length) {
+        const delay = FIREBASE_RETRY_DELAYS_MS[attempt];
+        console.warn(`[Firebase] getDoc failed, retrying in ${delay}ms...`, (err as Error).message);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
-      throw retryError;
     }
   }
+
+  if (isFirebaseConnectivityError(lastError)) {
+    _syncService?.markFirebaseFailure();
+  }
+  throw lastError;
 }
 
 // ─── WRITE helpers (no retry — writes must not duplicate) ─────────────────────
