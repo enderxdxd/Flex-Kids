@@ -82,6 +82,9 @@ export const packagesServiceOffline = {
         if (data.expiresAt) {
           firestoreData.expiresAt = Timestamp.fromDate(data.expiresAt);
         }
+        if (data.createdAt) {
+          firestoreData.createdAt = Timestamp.fromDate(data.createdAt instanceof Date ? data.createdAt : new Date(data.createdAt));
+        }
         // Firestore rejects undefined values — remove them
         Object.keys(firestoreData).forEach(k => firestoreData[k] === undefined && delete firestoreData[k]);
 

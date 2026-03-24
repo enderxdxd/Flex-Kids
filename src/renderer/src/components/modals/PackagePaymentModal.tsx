@@ -22,6 +22,8 @@ interface PackagePaymentModalProps {
   };
   child?: Child;
   customer: Customer;
+  renewalPackageId?: string;
+  remainingHours?: number;
 }
 
 const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
@@ -31,7 +33,11 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
   packageData,
   child,
   customer,
+  renewalPackageId,
+  remainingHours = 0,
 }) => {
+  const isRenewal = !!renewalPackageId;
+  const totalHoursAfterRenewal = packageData.hours + remainingHours;
   const { currentUnit } = useUnit();
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit' | 'debit'>('pix');
   const [loading, setLoading] = useState(false);
@@ -57,7 +63,7 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
       const now = new Date();
       const lines: string[] = [
         '================================',
-        '     COMPROVANTE DE PACOTE      ',
+        isRenewal ? '    RENOVACAO DE PACOTE         ' : '     COMPROVANTE DE PACOTE      ',
         '================================',
         '',
         `Data: ${format(now, 'dd/MM/yyyy HH:mm')}`,
@@ -67,7 +73,9 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
         '',
         '--------------------------------',
         `Pacote: ${packageData.type}`,
-        `Horas:  ${packageData.hours}h`,
+        isRenewal ? `Horas Anteriores: ${remainingHours.toFixed(1)}h` : '',
+        isRenewal ? `Horas Adicionais: ${packageData.hours}h` : '',
+        isRenewal ? `TOTAL HORAS: ${totalHoursAfterRenewal}h` : `Horas:  ${packageData.hours}h`,
         `Validade: ${packageData.expiryDays || 90} dias`,
         `Expira em: ${format(expirationDate, 'dd/MM/yyyy')}`,
         employeeDiscount ? `Desconto Colaborador: 50%` : '',
@@ -82,7 +90,7 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
         '================================',
       ].filter(Boolean);
 
-      await bematechService.printNonFiscalReport('VENDA DE PACOTE', lines);
+      await bematechService.printNonFiscalReport(isRenewal ? 'RENOVACAO DE PACOTE' : 'VENDA DE PACOTE', lines);
     } catch (error) {
       console.error('Error printing fiscal receipt:', error);
     }
@@ -95,6 +103,7 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
 
     try {
       const discountDesc = employeeDiscount ? ' (desconto colaborador 50%)' : '';
+      const renewalDesc = isRenewal ? ' (renovação)' : '';
       const payment = await paymentsServiceOffline.createPayment({
         customerId: customer.id,
         childId: child?.id,
@@ -104,26 +113,40 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
         status: 'paid',
         type: 'package',
         unitId: currentUnit,
-        description: `${packageData.type} - ${customer.name}${discountDesc}`,
+        description: `${packageData.type} - ${customer.name}${discountDesc}${renewalDesc}`,
       });
 
-      await packagesServiceOffline.createPackage({
-        ...packageData,
-        price: finalPrice,
-        usedHours: 0,
-        active: true,
-        sharedAcrossUnits: false,
-        unitId: currentUnit,
-        paymentId: payment.id,
-        employeeDiscount: employeeDiscount || undefined,
-        originalPrice: employeeDiscount ? packageData.price : undefined,
-      });
+      if (isRenewal && renewalPackageId) {
+        await packagesServiceOffline.updatePackage(renewalPackageId, {
+          hours: totalHoursAfterRenewal,
+          usedHours: 0,
+          price: finalPrice,
+          active: true,
+          expiryDays: packageData.expiryDays || 30,
+          createdAt: new Date(),
+          paymentId: payment.id,
+          employeeDiscount: employeeDiscount || undefined,
+          originalPrice: employeeDiscount ? packageData.price : undefined,
+        });
+      } else {
+        await packagesServiceOffline.createPackage({
+          ...packageData,
+          price: finalPrice,
+          usedHours: 0,
+          active: true,
+          sharedAcrossUnits: false,
+          unitId: currentUnit,
+          paymentId: payment.id,
+          employeeDiscount: employeeDiscount || undefined,
+          originalPrice: employeeDiscount ? packageData.price : undefined,
+        });
+      }
 
       if (printReceipt) {
         await printFiscalReceipt();
       }
 
-      toast.success('Pagamento confirmado e pacote ativado!');
+      toast.success(isRenewal ? `Pacote renovado! ${totalHoursAfterRenewal}h totais` : 'Pagamento confirmado e pacote ativado!');
       onClose();
       onSuccess();
     } catch (error) {
@@ -140,7 +163,7 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
       <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-slate-200">
-          <h2 className="text-lg font-bold text-slate-800">Pagamento do Pacote</h2>
+          <h2 className="text-lg font-bold text-slate-800">{isRenewal ? 'Renovação do Pacote' : 'Pagamento do Pacote'}</h2>
           <button onClick={onClose} disabled={loading} className="p-1 rounded-md hover:bg-slate-100 text-slate-400">✕</button>
         </div>
 
@@ -163,10 +186,22 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
                 <span className="text-slate-500">Pacote</span>
                 <span className="font-semibold text-slate-800">{packageData.type}</span>
               </div>
+              {isRenewal && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Horas Restantes</span>
+                  <span className="font-semibold text-amber-600">{remainingHours.toFixed(1)}h</span>
+                </div>
+              )}
               <div className="flex justify-between">
-                <span className="text-slate-500">Horas</span>
+                <span className="text-slate-500">{isRenewal ? 'Horas Adicionais' : 'Horas'}</span>
                 <span className="font-semibold text-slate-800">{packageData.hours}h</span>
               </div>
+              {isRenewal && (
+                <div className="flex justify-between bg-emerald-50 -mx-4 px-4 py-1 rounded">
+                  <span className="font-bold text-emerald-700">Total de Horas</span>
+                  <span className="font-bold text-emerald-700">{totalHoursAfterRenewal}h</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-slate-500">Data de Aquisição</span>
                 <span className="font-semibold text-slate-800">{format(purchaseDate, 'dd/MM/yyyy')}</span>

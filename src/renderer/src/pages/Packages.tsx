@@ -64,11 +64,21 @@ const Packages: React.FC = () => {
   const [adjustReason, setAdjustReason] = useState('');
   const [adjustSaving, setAdjustSaving] = useState(false);
 
+  // Estado para modal de renovação
+  const [showRenewModal, setShowRenewModal] = useState(false);
+  const [renewPkg, setRenewPkg] = useState<Package | null>(null);
+  const [renewHours, setRenewHours] = useState(10);
+  const [renewPrice, setRenewPrice] = useState(300);
+  const [renewExpiryDays, setRenewExpiryDays] = useState(30);
+  const [renewPlanName, setRenewPlanName] = useState('');
+
   // Estado para modal de pagamento
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [pendingPackageData, setPendingPackageData] = useState<PackageFormData | null>(null);
   const [selectedChild, setSelectedChild] = useState<Child | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [renewalPackageId, setRenewalPackageId] = useState<string | null>(null);
+  const [renewalRemainingHours, setRenewalRemainingHours] = useState(0);
 
   const [formData, setFormData] = useState<PackageFormData>({
     customerId: '',
@@ -215,6 +225,8 @@ const Packages: React.FC = () => {
     setPendingPackageData(null);
     setSelectedChild(null);
     setSelectedCustomer(null);
+    setRenewalPackageId(null);
+    setRenewalRemainingHours(0);
     setShowModal(false);
     loadData();
   };
@@ -266,6 +278,50 @@ const Packages: React.FC = () => {
     } finally {
       setAdjustSaving(false);
     }
+  };
+
+  // === Renovação de Pacote ===
+  const openRenewModal = (pkg: Package) => {
+    setRenewPkg(pkg);
+    const defaultPlan = plans.find(p => p.name === pkg.type) || plans[0];
+    if (defaultPlan) {
+      setRenewHours(defaultPlan.hours);
+      setRenewPrice(defaultPlan.price);
+      setRenewExpiryDays(defaultPlan.expiryDays);
+      setRenewPlanName(defaultPlan.name);
+    } else {
+      setRenewHours(pkg.hours);
+      setRenewPrice(pkg.price);
+      setRenewExpiryDays(pkg.expiryDays || 30);
+      setRenewPlanName(pkg.type);
+    }
+    setShowRenewModal(true);
+  };
+
+  const handleConfirmRenewal = () => {
+    if (!renewPkg) return;
+    const customer = customers.find(c => c.id === renewPkg.customerId);
+    const child = renewPkg.childId ? children.find(c => c.id === renewPkg.childId) : undefined;
+    if (!customer) {
+      toast.error('Responsável não encontrado');
+      return;
+    }
+    const remaining = getRemainingHours(renewPkg);
+    setRenewalPackageId(renewPkg.id);
+    setRenewalRemainingHours(remaining);
+    setPendingPackageData({
+      customerId: renewPkg.customerId,
+      childId: renewPkg.childId,
+      type: renewPlanName || renewPkg.type,
+      hours: renewHours,
+      price: renewPrice,
+      expiryDays: renewExpiryDays,
+      unitId: currentUnit,
+    });
+    setSelectedCustomer(customer);
+    setSelectedChild(child || null);
+    setShowRenewModal(false);
+    setShowPaymentModal(true);
   };
 
   // === Impressão de Resumo do Pacote ===
@@ -681,6 +737,11 @@ const Packages: React.FC = () => {
                         </div>
 
                         <div className="flex gap-1">
+                          {pkg.active && (
+                            <button onClick={() => openRenewModal(pkg)} className="p-2 rounded-lg hover:bg-emerald-50 text-emerald-500 transition-all" title="Renovar Pacote">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2 11.5a10 10 0 0 1 18.8-4.3L21.5 8"/><path d="M22 12.5a10 10 0 0 1-18.8 4.2L2.5 16"/></svg>
+                            </button>
+                          )}
                           <button onClick={() => openPrintModal(pkg)} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-all" title="Imprimir Resumo">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
                           </button>
@@ -958,15 +1019,135 @@ const Packages: React.FC = () => {
         );
       })()}
 
+      {/* Modal Renovar Pacote */}
+      {showRenewModal && renewPkg && (() => {
+        const remaining = getRemainingHours(renewPkg);
+        const expDate = getExpirationDate(renewPkg);
+        const isExpired = expDate && expDate < new Date();
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-5 border-b border-slate-200">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-800">Renovar Pacote</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {getCustomerName(renewPkg.customerId)}
+                    {renewPkg.childId ? ` · ${getChildName(renewPkg.childId)}` : ''}
+                  </p>
+                </div>
+                <button onClick={() => { setShowRenewModal(false); setRenewPkg(null); }} className="p-1 rounded-md hover:bg-slate-100 text-slate-400">✕</button>
+              </div>
+              <div className="p-5 space-y-4">
+                {/* Current package info */}
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  <p className="text-xs font-semibold text-amber-700">Pacote Atual — {renewPkg.type}</p>
+                  <div className="mt-1.5 space-y-1 text-sm text-amber-800">
+                    <div className="flex justify-between">
+                      <span>Horas restantes</span>
+                      <span className="font-bold">{remaining.toFixed(1)}h</span>
+                    </div>
+                    {expDate && (
+                      <div className="flex justify-between">
+                        <span>Vencimento</span>
+                        <span className={`font-bold ${isExpired ? 'text-red-600' : ''}`}>
+                          {format(expDate, 'dd/MM/yyyy')}{isExpired ? ' (expirado)' : ''}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Plan selection */}
+                {plans.length > 0 && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Escolha o plano para renovação</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {plans.map(p => (
+                        <button key={p.name} type="button" onClick={() => {
+                          setRenewHours(p.hours);
+                          setRenewPrice(p.price);
+                          setRenewExpiryDays(p.expiryDays);
+                          setRenewPlanName(p.name);
+                        }}
+                          className={`p-3 rounded-lg border text-left text-sm transition-all ${
+                            renewPlanName === p.name ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 hover:border-emerald-300'
+                          }`}>
+                          <p className="font-semibold text-slate-800">{p.name}</p>
+                          <p className="text-xs text-slate-500">{p.hours}h · R$ {p.price.toFixed(2)} · {p.expiryDays}d</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Custom values */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Horas Adicionais</label>
+                    <input type="number" value={renewHours} onChange={(e) => setRenewHours(parseFloat(e.target.value) || 0)} min="1" step="0.5" className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Preço (R$)</label>
+                    <input type="number" value={renewPrice} onChange={(e) => setRenewPrice(parseFloat(e.target.value) || 0)} min="0" step="0.01" className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Validade</label>
+                    <select value={renewExpiryDays} onChange={(e) => setRenewExpiryDays(parseInt(e.target.value))} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                      <option value="15">15 dias</option>
+                      <option value="30">30 dias</option>
+                      <option value="60">60 dias</option>
+                      <option value="90">90 dias</option>
+                      <option value="120">120 dias</option>
+                      <option value="180">180 dias</option>
+                      <option value="365">1 ano</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Preview result */}
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                  <p className="text-xs font-semibold text-emerald-700">Resultado após renovação</p>
+                  <div className="mt-1.5 space-y-1 text-sm text-emerald-800">
+                    <div className="flex justify-between">
+                      <span>Horas restantes atuais</span>
+                      <span className="font-semibold">{remaining.toFixed(1)}h</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>+ Horas adicionais</span>
+                      <span className="font-semibold">+{renewHours}h</span>
+                    </div>
+                    <div className="flex justify-between border-t border-emerald-300 pt-1 mt-1">
+                      <span className="font-bold">Total de Horas</span>
+                      <span className="font-bold text-lg">{(remaining + renewHours).toFixed(1)}h</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Nova validade</span>
+                      <span className="font-semibold">{renewExpiryDays} dias a partir de hoje</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button onClick={() => { setShowRenewModal(false); setRenewPkg(null); }} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
+                  <button onClick={handleConfirmRenewal} disabled={renewHours <= 0 || renewPrice <= 0} className="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Ir para Pagamento</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Modal de Pagamento */}
       {showPaymentModal && pendingPackageData && selectedCustomer && (
         <PackagePaymentModal
           isOpen={showPaymentModal}
-          onClose={() => { setShowPaymentModal(false); setPendingPackageData(null); setSelectedChild(null); setSelectedCustomer(null); }}
+          onClose={() => { setShowPaymentModal(false); setPendingPackageData(null); setSelectedChild(null); setSelectedCustomer(null); setRenewalPackageId(null); setRenewalRemainingHours(0); }}
           onSuccess={handlePaymentSuccess}
           packageData={pendingPackageData}
           child={selectedChild || undefined}
           customer={selectedCustomer}
+          renewalPackageId={renewalPackageId || undefined}
+          remainingHours={renewalRemainingHours}
         />
       )}
     </div>
