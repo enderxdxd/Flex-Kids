@@ -91,7 +91,7 @@ const Packages: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [showActiveOnly, currentUnit]);
+  }, [currentUnit]);
 
   const loadData = async () => {
     try {
@@ -103,7 +103,7 @@ const Packages: React.FC = () => {
         settingsServiceOffline.getPackagePlans(currentUnit),
       ]);
 
-      setPackages(showActiveOnly ? allPackages.filter(p => p.active && p.usedHours < p.hours) : allPackages);
+      setPackages(allPackages);
       setCustomers(allCustomers);
       setChildren(allChildren);
       setPlans(savedPlans);
@@ -505,7 +505,15 @@ const Packages: React.FC = () => {
   const getCustomerName = (customerId: string) => customers.find(c => c.id === customerId)?.name || '-';
   const getCustomerChildren = (customerId: string) => children.filter(c => c.customerId === customerId);
 
-  const activeCount = packages.filter(p => p.active).length;
+  const isVigente = (pkg: Package) => {
+    if (!pkg.active) return false;
+    if (pkg.usedHours >= pkg.hours) return false;
+    const exp = getExpirationDate(pkg);
+    if (exp && exp < new Date()) return false;
+    return true;
+  };
+  const displayedPackages = showActiveOnly ? packages.filter(isVigente) : packages;
+  const vigenteCount = packages.filter(isVigente).length;
 
   return (
     <div className="space-y-6">
@@ -513,7 +521,7 @@ const Packages: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Gestão de Pacotes</h1>
-          <p className="text-sm text-slate-500">{packages.length} pacotes {showActiveOnly ? '' : `(${activeCount} ativos)`}</p>
+          <p className="text-sm text-slate-500">{displayedPackages.length} pacotes {showActiveOnly ? '' : `(${vigenteCount} vigentes)`}</p>
         </div>
         <button onClick={loadData} disabled={loading} className="px-4 py-2.5 rounded-xl border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-400 disabled:opacity-50 transition-all flex items-center gap-2">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={loading ? 'animate-spin' : ''}><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
@@ -630,7 +638,7 @@ const Packages: React.FC = () => {
                 <div className="w-9 h-5 bg-slate-300 rounded-full peer-checked:bg-violet-500 transition-colors"></div>
                 <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-4"></div>
               </div>
-              <span className="text-xs text-slate-600 font-medium">Apenas ativos</span>
+              <span className="text-xs text-slate-600 font-medium">Apenas vigentes</span>
             </label>
           </div>
 
@@ -640,7 +648,7 @@ const Packages: React.FC = () => {
                 <div key={i} className="animate-pulse h-16 bg-slate-100/50 rounded-xl" />
               ))}
             </div>
-          ) : packages.length === 0 ? (
+          ) : displayedPackages.length === 0 ? (
             <div className="text-center py-10">
               <div className="w-14 h-14 bg-gradient-to-br from-slate-100 to-slate-200 rounded-2xl flex items-center justify-center mx-auto mb-3">
                 <span className="text-2xl">📦</span>
@@ -650,7 +658,7 @@ const Packages: React.FC = () => {
             </div>
           ) : (
             <div className="divide-y divide-slate-100/60">
-              {packages.filter((pkg) => {
+              {displayedPackages.filter((pkg) => {
                 if (!searchTerm.trim()) return true;
                 const term = searchTerm.toLowerCase();
                 const customerName = getCustomerName(pkg.customerId).toLowerCase();
