@@ -676,10 +676,15 @@ const Packages: React.FC = () => {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-bold text-slate-800 text-sm">{pkg.type}</p>
-                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${pkg.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                              {pkg.active ? 'Ativo' : 'Inativo'}
-                            </span>
-                            {isExpired && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">Expirado</span>}
+                            {!pkg.active ? (
+                              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">Inativo</span>
+                            ) : isExpired ? (
+                              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">Expirado</span>
+                            ) : remainH <= 0 ? (
+                              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Esgotado</span>
+                            ) : (
+                              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Vigente</span>
+                            )}
                             {(pkg as any).employeeDiscount && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">Desc. Colab.</span>}
                           </div>
                           <p className="text-xs text-slate-500 truncate mt-0.5">
