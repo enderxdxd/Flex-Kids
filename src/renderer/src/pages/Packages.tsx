@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { Package, Customer, Child } from '../../../shared/types';
 import { packagesServiceOffline } from '../../../shared/firebase/services/packages.service.offline';
 import { customersServiceOffline } from '../../../shared/firebase/services/customers.service.offline';
 import { settingsServiceOffline } from '../../../shared/firebase/services/settings.service.offline';
+import { bematechService } from '../../../shared/services/bematech.service';
 import PackagePaymentModal from '../components/modals/PackagePaymentModal';
 import { useUnit } from '../contexts/UnitContext';
 import { getChildAge } from '../../../shared/utils/age';
@@ -48,6 +50,11 @@ const Packages: React.FC = () => {
   const [pendingEditPkg, setPendingEditPkg] = useState<Package | null>(null);
   const [pendingAction, setPendingAction] = useState<'plans' | 'editPkg' | 'adjustHours' | null>(null);
   const ADMIN_PASSWORD = 'pactoflex123';
+
+  // Estado para modal de impressão de resumo do pacote
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printPkg, setPrintPkg] = useState<Package | null>(null);
+  const [printing, setPrinting] = useState(false);
 
   // Estado para modal de ajuste de horas (admin only)
   const [showAdjustModal, setShowAdjustModal] = useState(false);
@@ -259,6 +266,151 @@ const Packages: React.FC = () => {
     } finally {
       setAdjustSaving(false);
     }
+  };
+
+  // === Impressão de Resumo do Pacote ===
+  const openPrintModal = (pkg: Package) => {
+    setPrintPkg(pkg);
+    setShowPrintModal(true);
+  };
+
+  const getPrintData = (pkg: Package) => {
+    const customerName = getCustomerName(pkg.customerId);
+    const childName = pkg.childId ? getChildName(pkg.childId) : null;
+    const remaining = getRemainingHours(pkg);
+    const purchaseDate = pkg.createdAt instanceof Date ? pkg.createdAt : new Date(pkg.createdAt);
+    const expDate = getExpirationDate(pkg);
+    const isExpired = expDate && expDate < new Date();
+    const displayPrice = getDisplayPrice(pkg);
+    return { customerName, childName, remaining, purchaseDate, expDate, isExpired, displayPrice };
+  };
+
+  const handlePrintThermal = async () => {
+    if (!printPkg) return;
+    setPrinting(true);
+    try {
+      const fiscalConfig = await settingsServiceOffline.getFiscalConfig(currentUnit);
+      if (!fiscalConfig?.enableFiscalPrint) {
+        toast.error('Impressão fiscal não está habilitada nas configurações');
+        return;
+      }
+      const initialized = await bematechService.initialize(fiscalConfig);
+      if (!initialized) {
+        toast.error('Não foi possível conectar à impressora');
+        return;
+      }
+      const d = getPrintData(printPkg);
+      const lines: string[] = [
+        '================================',
+        '     RESUMO DO PACOTE           ',
+        '================================',
+        '',
+        `Cliente: ${d.customerName}`,
+        d.childName ? `Crianca: ${d.childName}` : '',
+        '',
+        '--------------------------------',
+        `Pacote: ${printPkg.type}`,
+        `Horas Totais: ${printPkg.hours}h`,
+        `Horas Usadas: ${printPkg.usedHours.toFixed(1)}h`,
+        `Horas Restantes: ${d.remaining.toFixed(1)}h`,
+        '--------------------------------',
+        '',
+        `Compra: ${format(d.purchaseDate, 'dd/MM/yyyy')}`,
+        d.expDate ? `Vencimento: ${format(d.expDate, 'dd/MM/yyyy')}` : '',
+        d.isExpired ? '*** PACOTE EXPIRADO ***' : '',
+        `Status: ${printPkg.active ? 'ATIVO' : 'INATIVO'}`,
+        d.displayPrice > 0 ? `Valor: R$ ${d.displayPrice.toFixed(2)}` : '',
+        '',
+        '================================',
+        `Impresso em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`,
+        '================================',
+      ].filter(Boolean);
+      const printed = await bematechService.printNonFiscalReport('RESUMO DO PACOTE', lines);
+      if (printed) {
+        toast.success('Resumo impresso com sucesso!');
+      } else {
+        toast.warning('Impressora não conectada');
+      }
+    } catch (error) {
+      console.error('Error printing package summary:', error);
+      toast.error('Erro ao imprimir resumo');
+    } finally {
+      setPrinting(false);
+    }
+  };
+
+  const handlePrintBrowser = () => {
+    if (!printPkg) return;
+    const d = getPrintData(printPkg);
+    const progressPct = getPackageProgress(printPkg);
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Resumo do Pacote</title>
+  <style>
+    @page { size: 80mm auto; margin: 4mm; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #1e293b; padding: 8px; max-width: 300px; margin: 0 auto; }
+    .header { text-align: center; border-bottom: 2px dashed #94a3b8; padding-bottom: 8px; margin-bottom: 8px; }
+    .header h1 { font-size: 15px; font-weight: 800; letter-spacing: 0.5px; }
+    .header p { font-size: 9px; color: #64748b; margin-top: 2px; }
+    .section { margin-bottom: 8px; }
+    .row { display: flex; justify-content: space-between; padding: 3px 0; }
+    .row .label { color: #64748b; }
+    .row .value { font-weight: 700; text-align: right; }
+    .divider { border-top: 1px dashed #cbd5e1; margin: 6px 0; }
+    .highlight { background: #f1f5f9; border-radius: 6px; padding: 8px; margin: 8px 0; text-align: center; }
+    .highlight .big { font-size: 22px; font-weight: 800; color: #7c3aed; }
+    .highlight .sub { font-size: 9px; color: #64748b; margin-top: 2px; }
+    .progress-bar { width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; margin: 4px 0; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 4px; background: ${progressPct >= 90 ? '#ef4444' : progressPct >= 70 ? '#f59e0b' : '#7c3aed'}; }
+    .expired { color: #dc2626; font-weight: 700; text-align: center; padding: 4px; background: #fef2f2; border-radius: 4px; margin: 4px 0; }
+    .footer { text-align: center; border-top: 2px dashed #94a3b8; padding-top: 6px; margin-top: 8px; font-size: 9px; color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>RESUMO DO PACOTE</h1>
+    <p>${printPkg.type}</p>
+  </div>
+  <div class="section">
+    <div class="row"><span class="label">Responsável</span><span class="value">${d.customerName}</span></div>
+    ${d.childName ? `<div class="row"><span class="label">Criança</span><span class="value">${d.childName}</span></div>` : ''}
+    <div class="row"><span class="label">Data da Compra</span><span class="value">${format(d.purchaseDate, 'dd/MM/yyyy')}</span></div>
+    ${d.expDate ? `<div class="row"><span class="label">Vencimento</span><span class="value" style="color:${d.isExpired ? '#dc2626' : '#1e293b'}">${format(d.expDate, 'dd/MM/yyyy')}</span></div>` : ''}
+    ${d.displayPrice > 0 ? `<div class="row"><span class="label">Valor Pago</span><span class="value">R$ ${d.displayPrice.toFixed(2)}</span></div>` : ''}
+    <div class="row"><span class="label">Status</span><span class="value" style="color:${printPkg.active ? '#059669' : '#dc2626'}">${printPkg.active ? 'Ativo' : 'Inativo'}</span></div>
+  </div>
+  <div class="divider"></div>
+  <div class="section">
+    <div class="row"><span class="label">Horas Totais</span><span class="value">${printPkg.hours}h</span></div>
+    <div class="row"><span class="label">Horas Usadas</span><span class="value">${printPkg.usedHours.toFixed(1)}h</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:${progressPct}%"></div></div>
+  </div>
+  <div class="highlight">
+    <div class="big">${d.remaining.toFixed(1)}h</div>
+    <div class="sub">horas restantes</div>
+  </div>
+  ${d.isExpired ? '<div class="expired">PACOTE EXPIRADO</div>' : ''}
+  <div class="footer">
+    <p>Impresso em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+  </div>
+</body>
+</html>`;
+
+    const printWindow = window.open('', '_blank', 'width=350,height=600');
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.onload = () => {
+        printWindow.print();
+        printWindow.onafterprint = () => printWindow.close();
+      };
+    }
+    toast.success('Janela de impressão aberta!');
   };
 
   const handleToggleActive = async (id: string, currentStatus: boolean) => {
@@ -529,6 +681,9 @@ const Packages: React.FC = () => {
                         </div>
 
                         <div className="flex gap-1">
+                          <button onClick={() => openPrintModal(pkg)} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-all" title="Imprimir Resumo">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                          </button>
                           <button onClick={() => openAdjustHoursModal(pkg)} className="p-2 rounded-lg hover:bg-amber-50 text-amber-500 transition-all" title="Ajustar Horas (Admin)">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                           </button>
@@ -727,6 +882,81 @@ const Packages: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Modal Imprimir Resumo do Pacote */}
+      {showPrintModal && printPkg && (() => {
+        const d = getPrintData(printPkg);
+        const progressPct = getPackageProgress(printPkg);
+        const remainingPct = 100 - progressPct;
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+              <div className="flex items-center justify-between p-5 border-b border-slate-200">
+                <h2 className="text-lg font-bold text-slate-800">Imprimir Resumo do Pacote</h2>
+                <button onClick={() => { setShowPrintModal(false); setPrintPkg(null); }} className="p-1 rounded-md hover:bg-slate-100 text-slate-400">✕</button>
+              </div>
+              <div className="p-5 space-y-4">
+                {/* Preview */}
+                <div className="bg-slate-50 rounded-xl p-4 space-y-3 border border-slate-200">
+                  <div className="text-center">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Resumo do Pacote</p>
+                    <p className="text-base font-bold text-slate-800 mt-0.5">{printPkg.type}</p>
+                  </div>
+                  <div className="space-y-1.5 text-sm">
+                    <div className="flex justify-between"><span className="text-slate-500">Responsável</span><span className="font-semibold text-slate-800">{d.customerName}</span></div>
+                    {d.childName && <div className="flex justify-between"><span className="text-slate-500">Criança</span><span className="font-semibold text-slate-800">{d.childName}</span></div>}
+                    <div className="flex justify-between"><span className="text-slate-500">Data da Compra</span><span className="font-semibold text-slate-800">{format(d.purchaseDate, 'dd/MM/yyyy')}</span></div>
+                    {d.expDate && <div className="flex justify-between"><span className="text-slate-500">Vencimento</span><span className={`font-semibold ${d.isExpired ? 'text-red-600' : 'text-slate-800'}`}>{format(d.expDate, 'dd/MM/yyyy')}</span></div>}
+                    <div className="flex justify-between"><span className="text-slate-500">Status</span><span className={`font-semibold ${printPkg.active ? 'text-emerald-600' : 'text-red-600'}`}>{printPkg.active ? 'Ativo' : 'Inativo'}</span></div>
+                  </div>
+                  <div className="border-t border-slate-200 pt-3">
+                    <div className="flex justify-between text-xs text-slate-500 mb-1">
+                      <span>{printPkg.usedHours.toFixed(1)}h / {printPkg.hours}h</span>
+                      <span className={`font-bold ${remainingPct <= 10 ? 'text-red-600' : remainingPct <= 30 ? 'text-amber-600' : 'text-emerald-600'}`}>{d.remaining.toFixed(1)}h restantes</span>
+                    </div>
+                    <div className="w-full bg-slate-200 rounded-full h-2">
+                      <div className={`h-2 rounded-full transition-all ${progressPct >= 90 ? 'bg-red-500' : progressPct >= 70 ? 'bg-amber-500' : 'bg-violet-500'}`} style={{ width: `${progressPct}%` }} />
+                    </div>
+                  </div>
+                  {d.isExpired && <p className="text-center text-xs font-bold text-red-600 bg-red-50 rounded-lg py-1.5">PACOTE EXPIRADO</p>}
+                </div>
+
+                {/* Print Options */}
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Escolha a forma de impressão</p>
+                  <button
+                    onClick={handlePrintThermal}
+                    disabled={printing}
+                    className="w-full flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 hover:border-violet-300 hover:bg-violet-50 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="w-10 h-10 bg-violet-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <span className="text-lg">🖨️</span>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm text-slate-800">Impressora Térmica</p>
+                      <p className="text-xs text-slate-500">Imprime na impressora Bematech configurada</p>
+                    </div>
+                  </button>
+                  <button
+                    onClick={handlePrintBrowser}
+                    className="w-full flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-all text-left"
+                  >
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <span className="text-lg">📄</span>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm text-slate-800">Imprimir via Navegador</p>
+                      <p className="text-xs text-slate-500">Abre janela de impressão do sistema (qualquer impressora)</p>
+                    </div>
+                  </button>
+                </div>
+
+                <button onClick={() => { setShowPrintModal(false); setPrintPkg(null); }} className="w-full py-2.5 rounded-xl border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Fechar</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Modal de Pagamento */}
       {showPaymentModal && pendingPackageData && selectedCustomer && (
