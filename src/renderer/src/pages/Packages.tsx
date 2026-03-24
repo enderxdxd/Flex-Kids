@@ -1095,6 +1095,7 @@ const Packages: React.FC = () => {
                     <select value={renewExpiryDays} onChange={(e) => setRenewExpiryDays(parseInt(e.target.value))} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
                       <option value="15">15 dias</option>
                       <option value="30">30 dias</option>
+                      <option value="45">45 dias</option>
                       <option value="60">60 dias</option>
                       <option value="90">90 dias</option>
                       <option value="120">120 dias</option>
