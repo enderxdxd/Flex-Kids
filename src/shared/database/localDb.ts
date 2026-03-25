@@ -187,9 +187,17 @@ class LocalDatabase {
     const tx = db.transaction(store as any, 'readwrite');
     for (const item of items) {
       const id = item.id || this.generateId();
-      // Preserve caller-supplied synced value (e.g. true for cache-only saves)
-      const synced = item.synced !== undefined ? item.synced : false;
-      tx.store.put({ ...item, id, synced } as any);
+      const callerSynced = item.synced !== undefined ? item.synced : false;
+      // If caller says synced=true (background fetch), check if existing item is pending sync
+      // Don't overwrite unsynced local changes with stale Firebase data
+      if (callerSynced === true || callerSynced === 1) {
+        const existing = await tx.store.get(id as any);
+        if (existing && (existing.synced === 0 || existing.synced === false)) {
+          // Existing item is pending sync — skip this overwrite to preserve local changes
+          continue;
+        }
+      }
+      tx.store.put({ ...item, id, synced: callerSynced } as any);
     }
     await tx.done;
   }

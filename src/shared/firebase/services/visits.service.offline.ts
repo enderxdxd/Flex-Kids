@@ -7,15 +7,59 @@ import { syncService } from '../../database/syncService';
 const COLLECTION = 'visits';
 
 let _checkInLock = false;
+// IndexedDB-backed lock: stores {childId, timestamp} to survive hot-reloads
+const LOCK_COOLDOWN_MS = 5000;
+let _lastCheckInAttempt: { childId: string; timestamp: number } | null = null;
+
+async function acquireCheckInLock(childId: string): Promise<boolean> {
+  if (_checkInLock) return false;
+  // Check timestamp-based lock (survives within same process session)
+  const now = Date.now();
+  if (_lastCheckInAttempt && _lastCheckInAttempt.childId === childId && now - _lastCheckInAttempt.timestamp < LOCK_COOLDOWN_MS) {
+    console.warn(`[CheckIn] Rejecting duplicate attempt for child ${childId} (${now - _lastCheckInAttempt.timestamp}ms since last)`);
+    return false;
+  }
+  _checkInLock = true;
+  _lastCheckInAttempt = { childId, timestamp: now };
+  return true;
+}
+
+function releaseCheckInLock(): void {
+  _checkInLock = false;
+}
 
 export const visitsServiceOffline = {
   async hasActiveVisit(childId: string, unitId: string): Promise<boolean> {
     try {
+      // 1. Check local cache first
       const localVisits = await syncService.getAllFromLocal(COLLECTION);
-      const activeVisit = (localVisits as Visit[]).find(
+      const localActive = (localVisits as Visit[]).find(
         v => v.childId === childId && v.unitId === unitId && !v.checkOut
       );
-      return !!activeVisit;
+      if (localActive) return true;
+
+      // 2. If cache has visits for this unit, trust it (cache is warm)
+      const unitVisits = (localVisits as Visit[]).filter(v => v.unitId === unitId);
+      if (unitVisits.length > 0) return false;
+
+      // 3. Cache is empty for this unit (cold start) — query Firebase as fallback
+      if (syncService.isOnline()) {
+        try {
+          const db = getDb();
+          const q = query(
+            collection(db, COLLECTION),
+            where('childId', '==', childId),
+            where('unitId', '==', unitId),
+            where('checkOut', '==', null)
+          );
+          const snapshot = await getDocsSafe(q);
+          return !snapshot.empty;
+        } catch (err) {
+          console.warn('[hasActiveVisit] Firebase fallback failed:', (err as Error).message);
+        }
+      }
+
+      return false;
     } catch (error) {
       console.error('Error checking active visit:', error);
       return false;
@@ -23,19 +67,25 @@ export const visitsServiceOffline = {
   },
 
   async checkIn(data: CheckInData): Promise<Visit> {
-    if (_checkInLock) {
+    const acquired = await acquireCheckInLock(data.childId);
+    if (!acquired) {
       throw new Error('Check-in já em andamento, aguarde.');
     }
-    _checkInLock = true;
 
     try {
       return await this._doCheckIn(data);
     } finally {
-      _checkInLock = false;
+      releaseCheckInLock();
     }
   },
 
   async _doCheckIn(data: CheckInData): Promise<Visit> {
+    // Service-level guard: last line of defense against duplicate check-ins
+    const alreadyActive = await this.hasActiveVisit(data.childId, data.unitId);
+    if (alreadyActive) {
+      throw new Error('Esta criança já possui um check-in ativo.');
+    }
+
     const visitData: any = {
       childId: data.childId,
       unitId: data.unitId,
@@ -187,10 +237,14 @@ export const visitsServiceOffline = {
 
       // 4. Se já tem cache, busca Firebase em background para atualizar
       this.fetchActiveVisitsFromFirebase(unitId, limit)
-        .then(visits => {
+        .then(async (visits) => {
+          // Filter: only truly active visits (have checkIn, no checkOut)
+          const activeOnly = visits.filter(v => v.checkIn && !v.checkOut);
+          // Enrich before dispatching to avoid flickering with incomplete data
+          const enriched = await this.enrichVisitsWithChildData(activeOnly);
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('visits-updated', { 
-              detail: { visits, unitId } 
+              detail: { visits: enriched, unitId } 
             }));
           }
         })

@@ -18,6 +18,7 @@ class SyncService {
   private _lastFirebaseFailure = 0;
   private _firebaseCooldownMs = 5000; // Starts at 5s, doubles on each failure (exponential backoff)
   private _lastFailureEscalation = 0; // Debounce: don't escalate more than once per 2s
+  private _firebaseConfirmedOnce = false; // True after the first successful Firebase operation this session
 
   constructor() {
     this.setupOnlineListener();
@@ -46,6 +47,15 @@ class SyncService {
     }
     this._firebaseReachable = true;
     this._firebaseCooldownMs = 5000; // Reset backoff on success
+    if (!this._firebaseConfirmedOnce) {
+      this._firebaseConfirmedOnce = true;
+      console.log('🟢 Firebase confirmed reachable for this session');
+    }
+  }
+
+  /** True if Firebase has been confirmed reachable at least once this session */
+  isFirebaseReady(): boolean {
+    return this._firebaseConfirmedOnce;
   }
 
   /** Call when a Firebase operation fails with connectivity error — triggers exponential backoff cooldown */
@@ -112,7 +122,15 @@ class SyncService {
       await localDb.init();
       this.initialized = true;
       console.log('SyncService initialized successfully');
-      
+
+      // Eagerly warm up Firestore — triggers cold start before any user operation
+      try {
+        const db = getDb();
+        console.log('🔥 Firestore instance acquired eagerly:', !!db);
+      } catch (e) {
+        console.warn('⚠️ Eager Firestore init failed (non-blocking):', (e as Error).message);
+      }
+
       // Purge soft-deleted items older than 30 days
       this.purgeSoftDeleted(30).catch(err => 
         console.error('Failed to purge soft-deleted items:', err)
@@ -302,10 +320,10 @@ class SyncService {
           const oldLocalId = item.data.id;
 
           // DEDUP: Check if this local item was already synced by a previous run
-          // by looking for matching name+createdAt in Firebase
           let existingFirebaseId: string | null = null;
           try {
             if (dataToCreate.name && dataToCreate.createdAt) {
+              // Collections with 'name' field: dedup by name + createdAt within 5s
               const createdAtValue = dataToCreate.createdAt;
               const q = query(collectionRef, where('name', '==', dataToCreate.name));
               const snapshot = await getDocsSafe(q);
@@ -316,10 +334,31 @@ class SyncService {
                 if (docCreatedAt && localCreatedAt) {
                   const docTime = docCreatedAt instanceof Date ? docCreatedAt.getTime() : new Date(docCreatedAt).getTime();
                   const localTime = localCreatedAt.getTime();
-                  // Same name and created within 5 seconds = duplicate
                   if (Math.abs(docTime - localTime) < 5000) {
                     existingFirebaseId = docSnap.id;
-                    console.log(`🔄 Found existing Firebase doc for ${oldLocalId} → ${existingFirebaseId} (dedup)`);
+                    console.log(`🔄 Found existing Firebase doc for ${oldLocalId} → ${existingFirebaseId} (dedup by name)`);
+                    break;
+                  }
+                }
+              }
+            } else if (item.collection === 'visits' && dataToCreate.childId && dataToCreate.checkIn) {
+              // Visits: dedup by childId + checkIn within 60s
+              const q = query(collectionRef,
+                where('childId', '==', dataToCreate.childId),
+                where('unitId', '==', dataToCreate.unitId || ''),
+                where('checkOut', '==', null)
+              );
+              const snapshot = await getDocsSafe(q);
+              const localCheckIn = dataToCreate.checkIn instanceof Date ? dataToCreate.checkIn : new Date(dataToCreate.checkIn);
+              for (const docSnap of snapshot.docs) {
+                const docData = docSnap.data();
+                const docCheckIn = docData.checkIn?.toDate?.() || docData.checkIn;
+                if (docCheckIn && localCheckIn) {
+                  const docTime = docCheckIn instanceof Date ? docCheckIn.getTime() : new Date(docCheckIn).getTime();
+                  const localTime = localCheckIn.getTime();
+                  if (Math.abs(docTime - localTime) < 60000) {
+                    existingFirebaseId = docSnap.id;
+                    console.log(`🔄 Found existing Firebase visit for ${oldLocalId} → ${existingFirebaseId} (dedup by childId+checkIn)`);
                     break;
                   }
                 }
