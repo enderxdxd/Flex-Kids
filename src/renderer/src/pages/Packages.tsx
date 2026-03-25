@@ -91,6 +91,16 @@ const Packages: React.FC = () => {
 
   useEffect(() => {
     loadData();
+
+    // Listen for background Firebase fetch completing with full package list
+    const handlePackagesUpdated = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.packages) {
+        setPackages(detail.packages);
+      }
+    };
+    window.addEventListener('packages-updated', handlePackagesUpdated);
+    return () => window.removeEventListener('packages-updated', handlePackagesUpdated);
   }, [currentUnit]);
 
   const loadData = async () => {

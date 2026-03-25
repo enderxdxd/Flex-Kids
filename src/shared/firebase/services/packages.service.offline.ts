@@ -164,12 +164,83 @@ export const packagesServiceOffline = {
 
   async getAllPackages(unitId?: string): Promise<Package[]> {
     try {
+      // 1. Return from local cache first
       const localPackages = unitId
         ? await syncService.getAllFromLocalByUnit(COLLECTION, unitId) as Package[]
         : await syncService.getAllFromLocal(COLLECTION) as Package[];
+
+      // 2. If online, fetch ALL packages from Firebase in background (including inactive/expired)
+      if (syncService.isOnline()) {
+        this.fetchAllPackagesFromFirebase(unitId)
+          .then(fbPackages => {
+            if (typeof window !== 'undefined' && fbPackages.length > 0) {
+              window.dispatchEvent(new CustomEvent('packages-updated', {
+                detail: { packages: fbPackages }
+              }));
+            }
+          })
+          .catch(err => {
+            if (!isFirebaseConnectivityError(err)) console.error('Background fetchAll packages failed:', err);
+          });
+
+        // If cache is empty, wait for Firebase (first load / clean cache)
+        if (localPackages.length === 0) {
+          try {
+            return await this.fetchAllPackagesFromFirebase(unitId);
+          } catch {
+            return [];
+          }
+        }
+      }
+
       return localPackages;
     } catch (error) {
       console.error('Error getting all packages:', error);
+      return [];
+    }
+  },
+
+  async fetchAllPackagesFromFirebase(unitId?: string): Promise<Package[]> {
+    try {
+      const db = getDb();
+      const constraints: any[] = [];
+      if (unitId) {
+        constraints.push(where('unitId', '==', unitId));
+      }
+      constraints.push(orderBy('createdAt', 'desc'));
+      const q = query(collection(db, COLLECTION), ...constraints);
+
+      const snapshot = await getDocsSafe(q);
+      const packages: Package[] = [];
+
+      for (const docSnap of snapshot.docs) {
+        const data = docSnap.data();
+        if (data.deletedAt) continue; // Skip soft-deleted
+
+        const pkg: Package = {
+          id: docSnap.id,
+          customerId: data.customerId,
+          childId: data.childId,
+          type: data.type,
+          hours: data.hours,
+          usedHours: data.usedHours || 0,
+          price: data.price,
+          expiresAt: data.expiresAt?.toDate(),
+          expiryDays: data.expiryDays,
+          active: data.active,
+          sharedAcrossUnits: data.sharedAcrossUnits ?? false,
+          unitId: data.unitId || unitId || '',
+          paymentId: data.paymentId,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate() || new Date(),
+        };
+        packages.push(pkg);
+      }
+
+      await syncService.bulkSaveToCacheOnly(COLLECTION, packages);
+      return packages;
+    } catch (error) {
+      if (!isFirebaseConnectivityError(error)) console.error('Error fetching all packages from Firebase:', error);
       return [];
     }
   },
