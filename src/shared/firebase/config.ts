@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { initializeFirestore, getFirestore, persistentLocalCache, persistentSingleTabManager, Firestore } from 'firebase/firestore';
+import { initializeFirestore, getFirestore, persistentLocalCache, persistentMultipleTabManager, Firestore } from 'firebase/firestore';
 import { getAuth, Auth } from 'firebase/auth';
 import { getAnalytics, Analytics } from 'firebase/analytics';
 import { FIREBASE_CONFIG } from './firebase.env';
@@ -79,7 +79,7 @@ export async function initFirebase(): Promise<void> {
     try {
       _db = initializeFirestore(_app, {
         localCache: persistentLocalCache({
-          tabManager: persistentSingleTabManager({ forceOwnership: true })
+          tabManager: persistentMultipleTabManager()
         })
       });
       persistenceOk = true;
