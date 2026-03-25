@@ -17,6 +17,11 @@ function getReadTimeout(): number {
   return FIREBASE_TIMEOUT_MS;
 }
 
+/** Mark Firebase as warmed up — call after initFirebase() to skip cold start timeout */
+export function markFirebaseWarmedUp(): void {
+  _isWarmedUp = true;
+}
+
 // Registered by syncService.init() to avoid circular dependency
 let _syncService: { markFirebaseSuccess: () => void; markFirebaseFailure: () => void } | null = null;
 

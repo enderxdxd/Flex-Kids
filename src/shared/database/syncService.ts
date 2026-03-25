@@ -1,7 +1,7 @@
 import { localDb } from './localDb';
-import { getDb } from '../firebase/config';
+import { getDb, initFirebase } from '../firebase/config';
 import { collection, doc, query, where } from 'firebase/firestore';
-import { getDocsSafe, addDocSafe, updateDocSafe, setDocSafe, deleteDocSafe, isFirebaseConnectivityError, registerSyncService } from '../firebase/firebaseHelpers';
+import { getDocsSafe, addDocSafe, updateDocSafe, setDocSafe, deleteDocSafe, isFirebaseConnectivityError, registerSyncService, markFirebaseWarmedUp } from '../firebase/firebaseHelpers';
 
 const MAX_RETRY_COUNT = 3;
 
@@ -120,16 +120,14 @@ class SyncService {
       registerSyncService(this);
       
       await localDb.init();
+
+      // Initialize Firebase eagerly BEFORE any service tries to use it
+      // This handles persistentSingleTabManager lock retries and warm-up
+      await initFirebase();
+      markFirebaseWarmedUp(); // Skip 30s cold start timeout — Firebase is already initialized
+
       this.initialized = true;
       console.log('SyncService initialized successfully');
-
-      // Eagerly warm up Firestore — triggers cold start before any user operation
-      try {
-        const db = getDb();
-        console.log('🔥 Firestore instance acquired eagerly:', !!db);
-      } catch (e) {
-        console.warn('⚠️ Eager Firestore init failed (non-blocking):', (e as Error).message);
-      }
 
       // Purge soft-deleted items older than 30 days
       this.purgeSoftDeleted(30).catch(err => 

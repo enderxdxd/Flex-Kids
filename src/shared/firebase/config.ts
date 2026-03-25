@@ -1,4 +1,4 @@
-import { initializeApp, FirebaseApp } from 'firebase/app';
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { initializeFirestore, getFirestore, persistentLocalCache, persistentSingleTabManager, Firestore } from 'firebase/firestore';
 import { getAuth, Auth } from 'firebase/auth';
 import { getAnalytics, Analytics } from 'firebase/analytics';
@@ -6,23 +6,18 @@ import { FIREBASE_CONFIG } from './firebase.env';
 
 // Helper para obter variável de ambiente (suporta Vite e Electron)
 const getEnv = (key: string): string | undefined => {
-  console.log(`🔍 Getting env var: ${key}`);
-  
   // Tenta import.meta.env primeiro (Vite)
   if (typeof import.meta !== 'undefined' && import.meta.env) {
     const value = import.meta.env[key];
-    console.log(`  ✅ Found in import.meta.env: ${value ? 'YES' : 'NO'}`);
     if (value) return value;
   }
   
   // Fallback para process.env (Electron/Node)
   if (typeof process !== 'undefined' && process.env) {
     const value = process.env[key];
-    console.log(`  ✅ Found in process.env: ${value ? 'YES' : 'NO'}`);
     if (value) return value;
   }
   
-  console.log(`  ❌ Not found in any environment`);
   return undefined;
 };
 
@@ -30,15 +25,6 @@ const getEnv = (key: string): string | undefined => {
 const apiKey = getEnv('VITE_FIREBASE_API_KEY');
 const projectId = getEnv('VITE_FIREBASE_PROJECT_ID');
 const authDomain = getEnv('VITE_FIREBASE_AUTH_DOMAIN');
-
-console.log('🔍 Checking environment variables:', {
-  hasApiKey: !!apiKey,
-  hasProjectId: !!projectId,
-  hasAuthDomain: !!authDomain,
-  apiKey: apiKey?.substring(0, 10) + '...',
-  projectId: projectId,
-  environment: typeof import.meta !== 'undefined' ? 'Vite' : 'Node/Electron'
-});
 
 // Usar variáveis de ambiente se disponíveis, senão usar configuração hardcoded
 const firebaseConfig = {
@@ -56,7 +42,6 @@ if (!apiKey || !projectId) {
   console.warn('⚠️ Using hardcoded Firebase config as fallback');
 }
 
-// Validar configuração
 if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
   console.error('❌ Firebase configuration is incomplete!', {
     apiKey: firebaseConfig.apiKey ? 'present' : 'MISSING',
@@ -64,56 +49,81 @@ if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
     authDomain: firebaseConfig.authDomain || 'MISSING'
   });
   console.warn('⚠️ Continuing without Firebase - app will work in offline mode only');
-  // Não lança erro para permitir modo offline
 }
 
-let app: FirebaseApp;
-let db: Firestore;
-let auth: Auth;
-let analytics: Analytics;
+let _app: FirebaseApp | null = null;
+let _db: Firestore | null = null;
+let _auth: Auth | null = null;
+let _analytics: Analytics | null = null;
+let _firebaseReady = false;
 
-export const getFirebaseApp = (): FirebaseApp => {
-  if (!app) {
-    console.log('🔥 Initializing Firebase with config:', {
-      projectId: firebaseConfig.projectId,
-      authDomain: firebaseConfig.authDomain,
-      hasApiKey: !!firebaseConfig.apiKey
-    });
-    app = initializeApp(firebaseConfig);
-    console.log('✅ Firebase initialized successfully');
-  }
-  return app;
-};
+const PERSISTENCE_RETRY_ATTEMPTS = 3;
+const PERSISTENCE_RETRY_DELAY_MS = 500;
 
-export const getDb = (): Firestore => {
-  if (!db) {
+/**
+ * Inicializa Firebase eagerly. Deve ser chamado UMA VEZ no bootstrap (syncService.init).
+ * Idempotente — chamadas repetidas são ignoradas.
+ * Retries persistentSingleTabManager lock up to 3 times with 500ms delay.
+ */
+export async function initFirebase(): Promise<void> {
+  if (_firebaseReady) return;
+
+  // Reutiliza app existente se já foi inicializado (evita erro "app already exists")
+  _app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+  console.log('🔥 Firebase app initialized:', { projectId: firebaseConfig.projectId });
+
+  // Tenta com persistência, aguarda até que o lock do IndexedDB seja liberado
+  let attempt = 0;
+  let persistenceOk = false;
+  while (attempt < PERSISTENCE_RETRY_ATTEMPTS) {
     try {
-      console.log('📊 Initializing Firestore with persistent cache...');
-      db = initializeFirestore(getFirebaseApp(), {
+      _db = initializeFirestore(_app, {
         localCache: persistentLocalCache({
           tabManager: persistentSingleTabManager({ forceOwnership: true })
         })
       });
+      persistenceOk = true;
       console.log('✅ Firestore initialized with offline persistence');
+      break;
     } catch (e) {
-      // initializeFirestore throws if Firestore was already started (e.g. by another import)
-      console.warn('⚠️ initializeFirestore failed, falling back to getFirestore:', (e as Error).message);
-      db = getFirestore(getFirebaseApp());
+      attempt++;
+      const msg = (e as Error).message;
+      if (attempt >= PERSISTENCE_RETRY_ATTEMPTS) {
+        console.warn(`⚠️ Persistence failed after ${PERSISTENCE_RETRY_ATTEMPTS} attempts, using mode without cache:`, msg);
+        _db = getFirestore(_app);
+      } else {
+        console.warn(`⚠️ Firestore persistence attempt ${attempt} failed, retrying in ${PERSISTENCE_RETRY_DELAY_MS}ms:`, msg);
+        await new Promise(r => setTimeout(r, PERSISTENCE_RETRY_DELAY_MS));
+      }
     }
   }
-  return db;
+
+  _auth = getAuth(_app);
+  _firebaseReady = true;
+  console.log(`✅ Firebase fully initialized (persistence: ${persistenceOk ? 'ON' : 'OFF'})`);
+}
+
+export const getFirebaseApp = (): FirebaseApp => {
+  if (!_app) throw new Error('Firebase not initialized. Call initFirebase() first.');
+  return _app;
+};
+
+export const getDb = (): Firestore => {
+  if (!_db) throw new Error('Firestore not initialized. Call initFirebase() first.');
+  return _db;
 };
 
 export const getFirebaseAuth = (): Auth => {
-  if (!auth) {
-    auth = getAuth(getFirebaseApp());
-  }
-  return auth;
+  if (!_auth) throw new Error('Auth not initialized. Call initFirebase() first.');
+  return _auth;
 };
 
 export const getFirebaseAnalytics = (): Analytics => {
-  if (!analytics && typeof window !== 'undefined') {
-    analytics = getAnalytics(getFirebaseApp());
+  if (!_analytics && typeof window !== 'undefined' && _app) {
+    _analytics = getAnalytics(_app);
   }
-  return analytics;
+  if (!_analytics) throw new Error('Analytics not available.');
+  return _analytics;
 };
+
+export const isFirebaseReady = (): boolean => _firebaseReady;
