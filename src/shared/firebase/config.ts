@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { initializeFirestore, getFirestore, persistentLocalCache, persistentMultipleTabManager, Firestore } from 'firebase/firestore';
+import { initializeFirestore, getFirestore, memoryLocalCache, Firestore } from 'firebase/firestore';
 import { getAuth, Auth } from 'firebase/auth';
 import { getAnalytics, Analytics } from 'firebase/analytics';
 import { FIREBASE_CONFIG } from './firebase.env';
@@ -57,13 +57,13 @@ let _auth: Auth | null = null;
 let _analytics: Analytics | null = null;
 let _firebaseReady = false;
 
-const PERSISTENCE_RETRY_ATTEMPTS = 3;
-const PERSISTENCE_RETRY_DELAY_MS = 500;
-
 /**
  * Inicializa Firebase eagerly. Deve ser chamado UMA VEZ no bootstrap (syncService.init).
  * Idempotente — chamadas repetidas são ignoradas.
- * Retries persistentSingleTabManager lock up to 3 times with 500ms delay.
+ *
+ * Uses memoryLocalCache instead of persistent cache to avoid IndexedDB lock conflicts
+ * that cause "client is offline" errors in Electron. The app has its own offline cache
+ * system (localDb/IndexedDB + syncService) so Firestore persistence is not needed.
  */
 export async function initFirebase(): Promise<void> {
   if (_firebaseReady) return;
@@ -72,35 +72,20 @@ export async function initFirebase(): Promise<void> {
   _app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
   console.log('🔥 Firebase app initialized:', { projectId: firebaseConfig.projectId });
 
-  // Tenta com persistência, aguarda até que o lock do IndexedDB seja liberado
-  let attempt = 0;
-  let persistenceOk = false;
-  while (attempt < PERSISTENCE_RETRY_ATTEMPTS) {
-    try {
-      _db = initializeFirestore(_app, {
-        localCache: persistentLocalCache({
-          tabManager: persistentMultipleTabManager()
-        })
-      });
-      persistenceOk = true;
-      console.log('✅ Firestore initialized with offline persistence');
-      break;
-    } catch (e) {
-      attempt++;
-      const msg = (e as Error).message;
-      if (attempt >= PERSISTENCE_RETRY_ATTEMPTS) {
-        console.warn(`⚠️ Persistence failed after ${PERSISTENCE_RETRY_ATTEMPTS} attempts, using mode without cache:`, msg);
-        _db = getFirestore(_app);
-      } else {
-        console.warn(`⚠️ Firestore persistence attempt ${attempt} failed, retrying in ${PERSISTENCE_RETRY_DELAY_MS}ms:`, msg);
-        await new Promise(r => setTimeout(r, PERSISTENCE_RETRY_DELAY_MS));
-      }
-    }
+  try {
+    _db = initializeFirestore(_app, {
+      localCache: memoryLocalCache()
+    });
+    console.log('✅ Firestore initialized with memory cache (no IndexedDB lock)');
+  } catch (e) {
+    // initializeFirestore throws if Firestore was already started (e.g. by another import)
+    console.warn('⚠️ initializeFirestore failed, falling back to getFirestore:', (e as Error).message);
+    _db = getFirestore(_app);
   }
 
   _auth = getAuth(_app);
   _firebaseReady = true;
-  console.log(`✅ Firebase fully initialized (persistence: ${persistenceOk ? 'ON' : 'OFF'})`);
+  console.log('✅ Firebase fully initialized');
 }
 
 export const getFirebaseApp = (): FirebaseApp => {
