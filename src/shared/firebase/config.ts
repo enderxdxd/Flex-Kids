@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { initializeFirestore, getFirestore, memoryLocalCache, Firestore } from 'firebase/firestore';
+import { initializeFirestore, getFirestore, persistentLocalCache, persistentSingleTabManager, enableNetwork, onSnapshotsInSync, collection, getDocs, query, limit, Firestore } from 'firebase/firestore';
 import { getAuth, Auth } from 'firebase/auth';
 import { getAnalytics, Analytics } from 'firebase/analytics';
 import { FIREBASE_CONFIG } from './firebase.env';
@@ -61,9 +61,12 @@ let _firebaseReady = false;
  * Inicializa Firebase eagerly. Deve ser chamado UMA VEZ no bootstrap (syncService.init).
  * Idempotente — chamadas repetidas são ignoradas.
  *
- * Uses memoryLocalCache instead of persistent cache to avoid IndexedDB lock conflicts
- * that cause "client is offline" errors in Electron. The app has its own offline cache
- * system (localDb/IndexedDB + syncService) so Firestore persistence is not needed.
+ * Uses persistentLocalCache so reads can return cached data while the WebSocket
+ * connection to the Firestore backend is being established. Without persistence,
+ * reads fail immediately with "client is offline" when the SDK hasn't connected yet.
+ *
+ * persistentSingleTabManager is used WITHOUT forceOwnership so it won't steal
+ * the lock from other instances — if the lock is held, it falls back gracefully.
  */
 export async function initFirebase(): Promise<void> {
   if (_firebaseReady) return;
@@ -72,20 +75,67 @@ export async function initFirebase(): Promise<void> {
   _app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
   console.log('🔥 Firebase app initialized:', { projectId: firebaseConfig.projectId });
 
+  // Try persistent cache first (allows reads from IndexedDB while connecting)
   try {
     _db = initializeFirestore(_app, {
-      localCache: memoryLocalCache()
+      localCache: persistentLocalCache({
+        tabManager: persistentSingleTabManager(undefined)
+      })
     });
-    console.log('✅ Firestore initialized with memory cache (no IndexedDB lock)');
+    console.log('✅ Firestore initialized with persistent cache');
   } catch (e) {
-    // initializeFirestore throws if Firestore was already started (e.g. by another import)
-    console.warn('⚠️ initializeFirestore failed, falling back to getFirestore:', (e as Error).message);
+    console.warn('⚠️ Persistent cache failed, using default Firestore:', (e as Error).message);
     _db = getFirestore(_app);
+  }
+
+  // Force the SDK to start its network connection and wait for it to be established.
+  // Without this, the prefetch fires 7+ parallel queries before the WebSocket is ready,
+  // causing cascading timeouts and "client is offline" errors.
+  try {
+    await enableNetwork(_db);
+    console.log('✅ Firestore network enabled, waiting for backend connection...');
+    await waitForFirestoreConnection(_db, 15000);
+  } catch (e) {
+    console.warn('⚠️ Firestore warm-up did not complete (app will work from cache):', (e as Error).message);
   }
 
   _auth = getAuth(_app);
   _firebaseReady = true;
   console.log('✅ Firebase fully initialized');
+}
+
+/**
+ * Waits for Firestore to establish its backend connection.
+ * Uses a probe read + onSnapshotsInSync to detect when the SDK has connected.
+ * Resolves when connected or rejects after timeoutMs.
+ */
+async function waitForFirestoreConnection(db: Firestore, timeoutMs: number): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    let resolved = false;
+    const timer = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        reject(new Error(`Firestore connection not established within ${timeoutMs}ms`));
+      }
+    }, timeoutMs);
+
+    // onSnapshotsInSync fires when the SDK has caught up with the backend
+    const unsubscribe = onSnapshotsInSync(db, () => {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timer);
+        unsubscribe();
+        console.log('✅ Firestore backend connection confirmed (onSnapshotsInSync)');
+        resolve();
+      }
+    });
+
+    // Also trigger a tiny probe read to kick the connection handshake
+    getDocs(query(collection(db, '__health__'), limit(1))).catch(() => {
+      // Ignore errors — the probe is just to trigger the connection.
+      // onSnapshotsInSync will resolve when the SDK connects.
+    });
+  });
 }
 
 export const getFirebaseApp = (): FirebaseApp => {

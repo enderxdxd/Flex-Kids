@@ -36,13 +36,24 @@ async function _doPrefetch(unitId: string): Promise<void> {
   const start = Date.now();
 
   try {
-    // Busca tudo em paralelo — os services offline já salvam no cache automaticamente
+    // Batch 1: Critical data — customers + children (needed for check-in UI)
+    console.log('[PREFETCH] Batch 1: customers + children');
     await Promise.allSettled([
       customersServiceOffline.getAllCustomers(unitId),
       customersServiceOffline.getAllChildren(unitId),
+    ]);
+
+    // Batch 2: Active visits + packages (needed for check-in validation)
+    console.log('[PREFETCH] Batch 2: visits + packages');
+    await Promise.allSettled([
       visitsServiceOffline.getActiveVisits(unitId),
-      paymentsServiceOffline.getTodayPayments(unitId),
       packagesServiceOffline.getActivePackages(undefined, unitId),
+    ]);
+
+    // Batch 3: Secondary data (not blocking for core operations)
+    console.log('[PREFETCH] Batch 3: payments + plans + settings');
+    await Promise.allSettled([
+      paymentsServiceOffline.getTodayPayments(unitId),
       kidsPlansServiceOffline.getAllPlans(unitId),
       settingsServiceOffline.getSettings(unitId),
     ]);
