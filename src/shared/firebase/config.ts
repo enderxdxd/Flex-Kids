@@ -68,8 +68,11 @@ let _firebaseReady = false;
  * persistentSingleTabManager is used WITHOUT forceOwnership so it won't steal
  * the lock from other instances — if the lock is held, it falls back gracefully.
  */
-export async function initFirebase(): Promise<void> {
-  if (_firebaseReady) return;
+/**
+ * @returns true if Firestore backend connection was established, false if offline/timed out.
+ */
+export async function initFirebase(): Promise<boolean> {
+  if (_firebaseReady) return true;
 
   // Reutiliza app existente se já foi inicializado (evita erro "app already exists")
   _app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
@@ -91,17 +94,20 @@ export async function initFirebase(): Promise<void> {
   // Force the SDK to start its network connection and wait for it to be established.
   // Without this, the prefetch fires 7+ parallel queries before the WebSocket is ready,
   // causing cascading timeouts and "client is offline" errors.
+  let connected = false;
   try {
     await enableNetwork(_db);
     console.log('✅ Firestore network enabled, waiting for backend connection...');
     await waitForFirestoreConnection(_db, 15000);
+    connected = true;
   } catch (e) {
     console.warn('⚠️ Firestore warm-up did not complete (app will work from cache):', (e as Error).message);
   }
 
   _auth = getAuth(_app);
   _firebaseReady = true;
-  console.log('✅ Firebase fully initialized');
+  console.log(`✅ Firebase fully initialized (connected: ${connected})`);
+  return connected;
 }
 
 /**

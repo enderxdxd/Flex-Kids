@@ -26,9 +26,12 @@ class SyncService {
 
   private setupOnlineListener(): void {
     window.addEventListener('online', () => {
-      console.log('Connection restored - starting sync');
-      this._firebaseReachable = true; // Optimistically assume Firebase is back
-      this._firebaseCooldownMs = 5000; // Reset backoff when network reconnects
+      console.log('Connection restored - attempting sync to confirm Firebase reachability');
+      // Don't optimistically set _firebaseReachable — let the actual sync confirm it.
+      // Reset cooldown so the sync attempt is allowed to try Firebase.
+      this._firebaseCooldownMs = 5000;
+      this._lastFirebaseFailure = 0; // Allow immediate retry
+      this._firebaseReachable = true; // Tentatively allow — sync will confirm or deny
       this.notifyListeners(true);
       this.syncAll();
     });
@@ -99,10 +102,16 @@ class SyncService {
   }
 
   isOnline(): boolean {
-    // Must have network AND Firebase must not be in cooldown
+    // Must have network
     if (!navigator.onLine) return false;
+
+    // Firebase must have been confirmed reachable at least once this session.
+    // Without this, the app thinks it's online when only the network is up,
+    // fires Firebase queries that timeout, and corrupts the cache with duplicates.
+    if (!this._firebaseConfirmedOnce) return false;
+
+    // If Firebase failed recently, respect the cooldown backoff
     if (!this._firebaseReachable) {
-      // Check if cooldown expired — allow retrying
       if (Date.now() - this._lastFirebaseFailure > this._firebaseCooldownMs) {
         this._firebaseReachable = true;
         return true;
@@ -121,10 +130,20 @@ class SyncService {
       
       await localDb.init();
 
-      // Initialize Firebase eagerly BEFORE any service tries to use it
-      // This handles persistentSingleTabManager lock retries and warm-up
-      await initFirebase();
+      // Initialize Firebase eagerly BEFORE any service tries to use it.
+      // Returns true if the Firestore backend connection was established.
+      const connected = await initFirebase();
       markFirebaseWarmedUp(); // Skip 30s cold start timeout — Firebase is already initialized
+
+      // Only mark Firebase as confirmed reachable if the warm-up actually connected.
+      // This prevents isOnline() from returning true when Firebase is unreachable,
+      // which would cause services to fire queries that timeout and corrupt the cache.
+      if (connected) {
+        this.markFirebaseSuccess();
+        console.log('🟢 Firebase connected during warm-up — online mode active');
+      } else {
+        console.log('🟠 Firebase did not connect during warm-up — offline mode until connection confirmed');
+      }
 
       this.initialized = true;
       console.log('SyncService initialized successfully');
@@ -139,9 +158,9 @@ class SyncService {
         console.error('Failed to purge settings from sync queue:', err)
       );
 
-      // Start periodic sync if online
+      // Always start periodic sync — it handles both online sync and offline->online recovery
+      this.startPeriodicSync();
       if (this.isOnline()) {
-        this.startPeriodicSync();
         // Immediate sync to flush any stale queue items
         setTimeout(() => this.syncAll(), 2000);
       }
@@ -160,12 +179,42 @@ class SyncService {
   private startPeriodicSync(): void {
     if (this.syncInterval) return;
     
-    // Sync every 30 seconds when online
+    // Sync every 30 seconds
     this.syncInterval = setInterval(() => {
       if (this.isOnline()) {
         this.syncAll();
+      } else if (navigator.onLine && !this._firebaseConfirmedOnce) {
+        // Network is up but Firebase hasn't been confirmed yet (warm-up failed).
+        // Try a lightweight probe to establish connectivity.
+        this.probeFirebaseConnection();
       }
     }, 30000);
+  }
+
+  /**
+   * Lightweight probe to check if Firebase is reachable.
+   * Called periodically when network is up but Firebase hasn't been confirmed yet.
+   */
+  private async probeFirebaseConnection(): Promise<void> {
+    try {
+      const db = getDb();
+      const { getDocs: rawGetDocs, collection: rawCollection, query: rawQuery, limit: rawLimit } = await import('firebase/firestore');
+      // Tiny read — just 1 doc from any collection to test the connection
+      const probe = rawQuery(rawCollection(db, 'customers'), rawLimit(1));
+      const timeoutMs = 10000;
+      await Promise.race([
+        rawGetDocs(probe),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('probe timeout')), timeoutMs))
+      ]);
+      // If we get here, Firebase is reachable
+      this.markFirebaseSuccess();
+      console.log('🟢 Firebase probe succeeded — transitioning to online mode');
+      // Trigger sync now that we're online
+      this.syncAll();
+    } catch (e) {
+      // Still offline — will retry next cycle
+      console.log('🟠 Firebase probe failed — staying in offline mode');
+    }
   }
 
   private stopPeriodicSync(): void {
