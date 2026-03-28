@@ -20,8 +20,21 @@ const CheckInOut: React.FC = () => {
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 30000);
-    return () => clearInterval(interval);
+    const interval = setInterval(loadData, 60000);
+
+    // Listen for background Firebase fetch completing with fresh visit data
+    const handleVisitsUpdated = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.visits && (!detail.unitId || detail.unitId === currentUnit)) {
+        setActiveVisits(detail.visits);
+      }
+    };
+    window.addEventListener('visits-updated', handleVisitsUpdated);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('visits-updated', handleVisitsUpdated);
+    };
   }, [currentUnit]);
 
   const loadData = async () => {

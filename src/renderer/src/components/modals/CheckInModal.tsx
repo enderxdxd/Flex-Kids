@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import ModalWrapper from './ModalWrapper';
 import { toast } from 'react-toastify';
 import { Customer, Child, KidsPlan } from '../../../../shared/types';
@@ -59,6 +59,24 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
     }
     return undefined;
   };
+
+  // Detect duplicate children: same name under different customers
+  const duplicateWarning = useMemo(() => {
+    if (!selectedChild) return null;
+    const child = children.find(c => c.id === selectedChild);
+    if (!child) return null;
+    const normalizedName = child.name.trim().toLowerCase();
+    const duplicates = children.filter(c =>
+      c.id !== child.id &&
+      c.customerId !== child.customerId &&
+      c.name.trim().toLowerCase() === normalizedName
+    );
+    if (duplicates.length === 0) return null;
+    return duplicates.map(dup => {
+      const parent = customers.find(c => c.id === dup.customerId);
+      return { child: dup, parentName: parent?.name || 'Desconhecido' };
+    });
+  }, [selectedChild, children, customers]);
 
   const filteredCustomers = customers.filter(c =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -307,6 +325,30 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
               </div>
             ) : null;
           })()}
+
+          {selectedChild && duplicateWarning && (
+            <div className="bg-orange-50 border-2 border-orange-200 rounded-2xl p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 bg-orange-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <svg className="w-4 h-4 text-orange-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <p className="text-sm font-bold text-orange-800">Criança duplicada detectada!</p>
+              </div>
+              <p className="text-xs text-orange-700 leading-relaxed">
+                Existe outra criança com o mesmo nome cadastrada sob outro responsável.
+                Verifique se não é a mesma criança para evitar problemas com pacotes.
+              </p>
+              {duplicateWarning.map((dup, i) => (
+                <div key={i} className="flex items-center gap-2 bg-orange-100/60 rounded-xl px-3 py-2">
+                  <span className="text-xs font-semibold text-orange-800">{dup.child.name}</span>
+                  <span className="text-orange-400">·</span>
+                  <span className="text-xs text-orange-600">Responsável: {dup.parentName}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {selectedChild && getChildPlan(selectedChild) && (
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200/50 rounded-2xl p-4 flex items-center gap-3 shadow-sm">

@@ -1,6 +1,6 @@
-import { collection, doc, setDoc, Timestamp } from 'firebase/firestore';
+import { collection, doc, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
-import { getDocsSafe, getDocSafe } from '../firebaseHelpers';
+import { getDocsSafe, getDocSafe, setDocSafe, isFirebaseConnectivityError } from '../firebaseHelpers';
 import { Settings, FiscalConfig } from '../../types';
 import { syncService } from '../../database/syncService';
 
@@ -68,8 +68,7 @@ export const settingsServiceOffline = {
       
       return value;
     } catch (error) {
-      // Silencia erros de offline/timeout - é esperado
-      if (!(error instanceof Error) || !error.message.includes('offline')) {
+      if (!isFirebaseConnectivityError(error)) {
         console.warn('[Settings] Firebase fetch failed for', key, ':', (error as Error).message);
       }
       return null;
@@ -89,28 +88,15 @@ export const settingsServiceOffline = {
 
     // Tenta salvar no Firebase em background (não bloqueia, não entra na sync queue)
     if (syncService.isOnline()) {
-      const firebaseSave = async () => {
-        try {
-          const db = getDb();
-          const settingRef = doc(db, COLLECTION, key);
-          
-          const firebasePromise = setDoc(settingRef, {
-            key,
-            value,
-            updatedAt: Timestamp.now(),
-          }, { merge: true });
-
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Firebase save timeout')), 5000)
-          );
-
-          await Promise.race([firebasePromise, timeoutPromise]);
-        } catch (error) {
-          console.warn(`[Settings] Firebase save failed for "${key}" (saved locally):`, error);
-        }
-      };
-      // Fire and forget - don't block the UI
-      firebaseSave();
+      const db = getDb();
+      const settingRef = doc(db, COLLECTION, key);
+      setDocSafe(settingRef, {
+        key,
+        value,
+        updatedAt: Timestamp.now(),
+      }, { merge: true }).catch(error => {
+        console.warn(`[Settings] Firebase save failed for "${key}" (saved locally):`, error);
+      });
     }
   },
 
@@ -126,9 +112,9 @@ export const settingsServiceOffline = {
 
       // 3. SEMPRE retorna cache primeiro e busca Firebase em background
       if (syncService.isOnline()) {
-        this.refreshSettingsInBackground().catch(err => 
-          console.error('Background refresh failed:', err)
-        );
+        this.refreshSettingsInBackground().catch(err => {
+          if (!isFirebaseConnectivityError(err)) console.error('Background refresh failed:', err);
+        });
       }
 
       return localSettings as Settings[];

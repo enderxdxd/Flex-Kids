@@ -12,6 +12,7 @@ class SyncService {
   private pendingCountListeners: Array<(count: number) => void> = [];
   private initialized = false;
   private bulkMode = false;
+  private _probing = false; // Guard against concurrent probes
 
   // Real Firebase connectivity tracking
   private _firebaseReachable = true;
@@ -27,13 +28,17 @@ class SyncService {
   private setupOnlineListener(): void {
     window.addEventListener('online', () => {
       console.log('Connection restored - attempting sync to confirm Firebase reachability');
-      // Don't optimistically set _firebaseReachable — let the actual sync confirm it.
-      // Reset cooldown so the sync attempt is allowed to try Firebase.
       this._firebaseCooldownMs = 5000;
       this._lastFirebaseFailure = 0; // Allow immediate retry
       this._firebaseReachable = true; // Tentatively allow — sync will confirm or deny
       this.notifyListeners(true);
-      this.syncAll();
+
+      if (!this._firebaseConfirmedOnce) {
+        // Never confirmed Firebase this session — probe immediately instead of waiting 30s
+        this.probeFirebaseConnection();
+      } else {
+        this.syncAll();
+      }
     });
 
     window.addEventListener('offline', () => {
@@ -178,7 +183,7 @@ class SyncService {
 
   private startPeriodicSync(): void {
     if (this.syncInterval) return;
-    
+
     // Sync every 30 seconds
     this.syncInterval = setInterval(() => {
       if (this.isOnline()) {
@@ -189,6 +194,22 @@ class SyncService {
         this.probeFirebaseConnection();
       }
     }, 30000);
+
+    // During cold start, probe aggressively every 5s for up to 60s.
+    // Once Firebase is confirmed, stop the aggressive probing.
+    if (!this._firebaseConfirmedOnce && navigator.onLine) {
+      let coldProbes = 0;
+      const coldStartProbe = setInterval(() => {
+        coldProbes++;
+        if (this._firebaseConfirmedOnce || coldProbes >= 12) {
+          clearInterval(coldStartProbe);
+          return;
+        }
+        if (navigator.onLine) {
+          this.probeFirebaseConnection();
+        }
+      }, 5000);
+    }
   }
 
   /**
@@ -196,24 +217,29 @@ class SyncService {
    * Called periodically when network is up but Firebase hasn't been confirmed yet.
    */
   private async probeFirebaseConnection(): Promise<void> {
+    if (this._probing) return; // Prevent concurrent probes
+    this._probing = true;
     try {
       const db = getDb();
       const { getDocs: rawGetDocs, collection: rawCollection, query: rawQuery, limit: rawLimit } = await import('firebase/firestore');
       // Tiny read — just 1 doc from any collection to test the connection
       const probe = rawQuery(rawCollection(db, 'customers'), rawLimit(1));
       const timeoutMs = 10000;
+      let timer: ReturnType<typeof setTimeout>;
       await Promise.race([
         rawGetDocs(probe),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('probe timeout')), timeoutMs))
-      ]);
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error('probe timeout')), timeoutMs);
+        })
+      ]).finally(() => clearTimeout(timer!));
       // If we get here, Firebase is reachable
       this.markFirebaseSuccess();
       console.log('🟢 Firebase probe succeeded — transitioning to online mode');
-      // Trigger sync now that we're online
       this.syncAll();
     } catch (e) {
-      // Still offline — will retry next cycle
       console.log('🟠 Firebase probe failed — staying in offline mode');
+    } finally {
+      this._probing = false;
     }
   }
 

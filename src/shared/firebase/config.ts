@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { initializeFirestore, getFirestore, persistentLocalCache, persistentSingleTabManager, enableNetwork, onSnapshotsInSync, collection, getDocs, query, limit, Firestore } from 'firebase/firestore';
+import { initializeFirestore, getFirestore, memoryLocalCache, enableNetwork, onSnapshotsInSync, collection, getDocs, query, limit, Firestore } from 'firebase/firestore';
 import { getAuth, Auth } from 'firebase/auth';
 import { getAnalytics, Analytics } from 'firebase/analytics';
 import { FIREBASE_CONFIG } from './firebase.env';
@@ -78,16 +78,16 @@ export async function initFirebase(): Promise<boolean> {
   _app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
   console.log('🔥 Firebase app initialized:', { projectId: firebaseConfig.projectId });
 
-  // Try persistent cache first (allows reads from IndexedDB while connecting)
+  // Use memory cache — the app has its own IndexedDB cache (localDb/syncService),
+  // so Firestore persistence is redundant. Memory cache eliminates IndexedDB lock
+  // deadlocks that cause "client is offline" after Electron crashes/force-closes.
   try {
     _db = initializeFirestore(_app, {
-      localCache: persistentLocalCache({
-        tabManager: persistentSingleTabManager(undefined)
-      })
+      localCache: memoryLocalCache()
     });
-    console.log('✅ Firestore initialized with persistent cache');
+    console.log('✅ Firestore initialized with memory cache');
   } catch (e) {
-    console.warn('⚠️ Persistent cache failed, using default Firestore:', (e as Error).message);
+    console.warn('⚠️ initializeFirestore failed, using default Firestore:', (e as Error).message);
     _db = getFirestore(_app);
   }
 
@@ -121,6 +121,7 @@ async function waitForFirestoreConnection(db: Firestore, timeoutMs: number): Pro
     const timer = setTimeout(() => {
       if (!resolved) {
         resolved = true;
+        unsubscribe();
         reject(new Error(`Firestore connection not established within ${timeoutMs}ms`));
       }
     }, timeoutMs);

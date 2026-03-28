@@ -327,69 +327,113 @@ export const visitsServiceOffline = {
   },
 
   async getVisitsByCustomer(customerId: string): Promise<Visit[]> {
+    // Get all children of this customer to find their childIds
+    const allChildren = await syncService.getAllFromLocal('children');
+    const customerChildIds = new Set(
+      allChildren.filter((c: any) => c.customerId === customerId).map((c: any) => c.id)
+    );
+
+    if (customerChildIds.size === 0) return [];
+
     if (syncService.isOnline()) {
       try {
         const db = getDb();
-        const q = query(
-          collection(db, COLLECTION),
-          where('childId', '==', customerId),
-          orderBy('checkIn', 'desc')
-        );
+        // Query visits for each child of this customer
+        const allVisits: Visit[] = [];
+        for (const childId of customerChildIds) {
+          const q = query(
+            collection(db, COLLECTION),
+            where('childId', '==', childId),
+            orderBy('checkIn', 'desc')
+          );
+          const snapshot = await getDocsSafe(q);
+          const visits = snapshot.docs.map(d => ({
+            id: d.id,
+            ...d.data(),
+            checkIn: d.data().checkIn?.toDate(),
+            checkOut: d.data().checkOut?.toDate(),
+            createdAt: d.data().createdAt?.toDate(),
+            updatedAt: d.data().updatedAt?.toDate(),
+          })) as Visit[];
+          allVisits.push(...visits);
+        }
 
-        const snapshot = await getDocsSafe(q);
-        const visits = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          checkIn: doc.data().checkIn?.toDate(),
-          checkOut: doc.data().checkOut?.toDate(),
-          createdAt: doc.data().createdAt?.toDate(),
-          updatedAt: doc.data().updatedAt?.toDate(),
-        })) as Visit[];
-
-        await syncService.bulkSaveToCacheOnly(COLLECTION, visits);
-
-        return visits;
+        await syncService.bulkSaveToCacheOnly(COLLECTION, allVisits);
+        return allVisits.sort((a, b) => {
+          const aTime = a.checkIn instanceof Date ? a.checkIn.getTime() : new Date(a.checkIn).getTime();
+          const bTime = b.checkIn instanceof Date ? b.checkIn.getTime() : new Date(b.checkIn).getTime();
+          return bTime - aTime;
+        });
       } catch (error) {
         if (!isFirebaseConnectivityError(error)) console.error('Failed to fetch visits by customer:', error);
       }
     }
 
     const allVisits = await syncService.getAllFromLocal(COLLECTION);
-    return allVisits.filter((visit: Visit) => visit.childId === customerId);
+    return allVisits.filter((visit: Visit) => customerChildIds.has(visit.childId));
   },
 
   async getAllVisits(unitId?: string): Promise<Visit[]> {
-    if (syncService.isOnline()) {
-      try {
-        const db = getDb();
-        const constraints: any[] = [];
-        if (unitId) {
-          constraints.push(where('unitId', '==', unitId));
-        }
-        constraints.push(orderBy('checkIn', 'desc'));
-        const q = query(collection(db, COLLECTION), ...constraints);
-        const snapshot = await getDocsSafe(q);
-        
-        const visits = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          checkIn: doc.data().checkIn?.toDate(),
-          checkOut: doc.data().checkOut?.toDate(),
-          createdAt: doc.data().createdAt?.toDate(),
-          updatedAt: doc.data().updatedAt?.toDate(),
-        })) as Visit[];
+    try {
+      // 1. Cache-first: always return local data immediately
+      const localVisits = unitId
+        ? await syncService.getAllFromLocalByUnit(COLLECTION, unitId)
+        : await syncService.getAllFromLocal(COLLECTION);
 
-        await syncService.bulkSaveToCacheOnly(COLLECTION, visits);
-
-        return visits;
-      } catch (error) {
-        if (!isFirebaseConnectivityError(error)) console.error('Failed to fetch all visits:', error);
+      // 2. If offline, return cache only
+      if (!syncService.isOnline()) {
+        return localVisits;
       }
-    }
 
-    const all = unitId
-      ? await syncService.getAllFromLocalByUnit(COLLECTION, unitId)
-      : await syncService.getAllFromLocal(COLLECTION);
-    return all;
+      // 3. If cache is empty, wait for Firebase (first load)
+      if (localVisits.length === 0) {
+        try {
+          return await this.fetchAllVisitsFromFirebase(unitId);
+        } catch {
+          return [];
+        }
+      }
+
+      // 4. Has cache — fetch Firebase in background to refresh
+      this.fetchAllVisitsFromFirebase(unitId)
+        .then(visits => {
+          if (typeof window !== 'undefined' && visits.length > 0) {
+            window.dispatchEvent(new CustomEvent('visits-updated', {
+              detail: { visits, unitId }
+            }));
+          }
+        })
+        .catch(err => {
+          if (!isFirebaseConnectivityError(err)) console.error('Background fetchAll visits failed:', err);
+        });
+
+      return localVisits;
+    } catch (error) {
+      if (!isFirebaseConnectivityError(error)) console.error('Error in getAllVisits:', error);
+      return [];
+    }
+  },
+
+  async fetchAllVisitsFromFirebase(unitId?: string): Promise<Visit[]> {
+    const db = getDb();
+    const constraints: any[] = [];
+    if (unitId) {
+      constraints.push(where('unitId', '==', unitId));
+    }
+    constraints.push(orderBy('checkIn', 'desc'));
+    const q = query(collection(db, COLLECTION), ...constraints);
+    const snapshot = await getDocsSafe(q);
+
+    const visits = snapshot.docs.map(d => ({
+      id: d.id,
+      ...d.data(),
+      checkIn: d.data().checkIn?.toDate(),
+      checkOut: d.data().checkOut?.toDate(),
+      createdAt: d.data().createdAt?.toDate(),
+      updatedAt: d.data().updatedAt?.toDate(),
+    })) as Visit[];
+
+    await syncService.bulkSaveToCacheOnly(COLLECTION, visits);
+    return visits;
   },
 };

@@ -59,6 +59,7 @@ class LocalDatabase {
   async init(): Promise<void> {
     if (this.db) return;
 
+    this.ghostMigrationDone = false;
     this.db = await openDB<FlexKidsDB>(this.DB_NAME, this.DB_VERSION, {
       upgrade(db, oldVersion, _newVersion, transaction) {
         // Visits store
@@ -139,6 +140,9 @@ class LocalDatabase {
         }
       },
     });
+
+    // Run ghost migration once at init, not on every sync queue read
+    await this.migrateGhostSyncItems();
   }
 
   private ensureDb(): IDBPDatabase<FlexKidsDB> {
@@ -170,14 +174,25 @@ class LocalDatabase {
     const db = this.ensureDb();
     const existing = await db.get(store as any, id);
     if (existing) {
-      await db.put(store as any, { ...existing, ...data, id, synced: false });
+      const synced = data.synced !== undefined ? data.synced : false;
+      await db.put(store as any, { ...existing, ...data, id, synced });
     }
   }
 
   async upsert(store: keyof FlexKidsDB, data: any): Promise<string> {
     const db = this.ensureDb();
     const id = data.id || this.generateId();
-    await db.put(store as any, { ...data, id, synced: false });
+    const callerSynced = data.synced !== undefined ? data.synced : false;
+    // If caller says synced=true (background fetch from Firebase), check if existing item
+    // is pending sync. Don't overwrite unsynced local changes with stale Firebase data.
+    if (callerSynced === true || callerSynced === 1) {
+      const existing = await db.get(store as any, id);
+      if (existing && (existing.synced === 0 || existing.synced === false)) {
+        // Existing item is pending sync — skip overwrite to preserve local changes
+        return id;
+      }
+    }
+    await db.put(store as any, { ...data, id, synced: callerSynced });
     return id;
   }
 
@@ -258,9 +273,6 @@ class LocalDatabase {
 
   async getPendingSyncItems(): Promise<any[]> {
     const db = this.ensureDb();
-    // First migrate any ghost items with boolean synced
-    await this.migrateGhostSyncItems();
-    // Now the index query will find everything correctly
     return await db.getAllFromIndex('syncQueue', 'by-synced', 0);
   }
 
@@ -297,8 +309,6 @@ class LocalDatabase {
 
   async cleanupSyncedItems(): Promise<number> {
     const db = this.ensureDb();
-    // Migration ensures all synced values are numbers, so index query works
-    await this.migrateGhostSyncItems();
     const synced = await db.getAllFromIndex('syncQueue', 'by-synced', 1);
     let removed = 0;
     const tx = db.transaction('syncQueue', 'readwrite');
@@ -312,7 +322,6 @@ class LocalDatabase {
 
   async getPendingSyncCount(): Promise<number> {
     const db = this.ensureDb();
-    await this.migrateGhostSyncItems();
     return await db.countFromIndex('syncQueue', 'by-synced', 0);
   }
 

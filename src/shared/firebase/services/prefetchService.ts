@@ -27,8 +27,8 @@ export async function prefetchAllData(unitId: string): Promise<void> {
 
 async function _doPrefetch(unitId: string): Promise<void> {
   if (!syncService.isOnline()) {
-    console.log('[PREFETCH] Offline, skipping prefetch');
-    _prefetchDone = true;
+    console.log('[PREFETCH] Offline, skipping prefetch (will retry when online)');
+    _prefetchPromise = null;
     return;
   }
 

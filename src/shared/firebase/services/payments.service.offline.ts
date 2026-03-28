@@ -106,7 +106,7 @@ export const paymentsServiceOffline = {
             }));
           }
         })
-        .catch(err => console.error('Background fetch failed:', err));
+        .catch(err => { if (!isFirebaseConnectivityError(err)) console.error('Background fetch failed:', err); });
       
       return cachedTodayPayments;
     } catch (error) {
@@ -258,7 +258,7 @@ export const paymentsServiceOffline = {
             }));
           }
         })
-        .catch(err => console.error('Background fetch failed:', err));
+        .catch(err => { if (!isFirebaseConnectivityError(err)) console.error('Background fetch failed:', err); });
       
       return cachedMonthPayments;
     } catch (error) {
@@ -324,47 +324,76 @@ export const paymentsServiceOffline = {
   },
 
   async getAllPayments(unitId?: string): Promise<Payment[]> {
-    if (syncService.isOnline()) {
-      try {
-        const db = getDb();
-        const constraints: any[] = [];
-        if (unitId) {
-          constraints.push(where('unitId', '==', unitId));
-        }
-        constraints.push(orderBy('createdAt', 'desc'));
-        const q = query(collection(db, COLLECTION), ...constraints);
-        const snapshot = await getDocsSafe(q);
-        
-        const payments: Payment[] = [];
-        for (const docSnap of snapshot.docs) {
-          const data = docSnap.data();
+    try {
+      // 1. Cache-first: always return local data immediately
+      const localPayments = await syncService.getAllFromLocal(COLLECTION);
+      const filtered = unitId ? localPayments.filter((p: Payment) => p.unitId === unitId) : localPayments;
 
-          payments.push({
-            id: docSnap.id,
-            customerId: data.customerId,
-            childId: data.childId,
-            childName: data.childName,
-            amount: data.amount,
-            method: data.method,
-            status: data.status,
-            type: data.type || 'visit',
-            packageId: data.packageId,
-            unitId: data.unitId || unitId,
-            description: data.description,
-            createdAt: data.createdAt?.toDate(),
-            updatedAt: data.updatedAt?.toDate(),
-          } as Payment);
-        }
-
-        await syncService.bulkSaveToCacheOnly(COLLECTION, payments);
-
-        return payments;
-      } catch (error) {
-        if (!isFirebaseConnectivityError(error)) console.error('Failed to fetch all payments:', error);
+      // 2. If offline, return cache only
+      if (!syncService.isOnline()) {
+        return filtered;
       }
+
+      // 3. If cache is empty, wait for Firebase (first load)
+      if (filtered.length === 0) {
+        try {
+          return await this.fetchAllPaymentsFromFirebase(unitId);
+        } catch {
+          return [];
+        }
+      }
+
+      // 4. Has cache — fetch Firebase in background to refresh
+      this.fetchAllPaymentsFromFirebase(unitId)
+        .then(payments => {
+          if (typeof window !== 'undefined' && payments.length > 0) {
+            window.dispatchEvent(new CustomEvent('payments-updated', {
+              detail: { payments }
+            }));
+          }
+        })
+        .catch(err => {
+          if (!isFirebaseConnectivityError(err)) console.error('Background fetchAll payments failed:', err);
+        });
+
+      return filtered;
+    } catch (error) {
+      if (!isFirebaseConnectivityError(error)) console.error('Error in getAllPayments:', error);
+      return [];
+    }
+  },
+
+  async fetchAllPaymentsFromFirebase(unitId?: string): Promise<Payment[]> {
+    const db = getDb();
+    const constraints: any[] = [];
+    if (unitId) {
+      constraints.push(where('unitId', '==', unitId));
+    }
+    constraints.push(orderBy('createdAt', 'desc'));
+    const q = query(collection(db, COLLECTION), ...constraints);
+    const snapshot = await getDocsSafe(q);
+
+    const payments: Payment[] = [];
+    for (const docSnap of snapshot.docs) {
+      const data = docSnap.data();
+      payments.push({
+        id: docSnap.id,
+        customerId: data.customerId,
+        childId: data.childId,
+        childName: data.childName,
+        amount: data.amount,
+        method: data.method,
+        status: data.status,
+        type: data.type || 'visit',
+        packageId: data.packageId,
+        unitId: data.unitId || unitId,
+        description: data.description,
+        createdAt: data.createdAt?.toDate(),
+        updatedAt: data.updatedAt?.toDate(),
+      } as Payment);
     }
 
-    const all = await syncService.getAllFromLocal(COLLECTION);
-    return unitId ? all.filter((p: Payment) => p.unitId === unitId) : all;
+    await syncService.bulkSaveToCacheOnly(COLLECTION, payments);
+    return payments;
   },
 };

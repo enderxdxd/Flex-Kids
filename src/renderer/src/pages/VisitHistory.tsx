@@ -5,6 +5,8 @@ import { ptBR } from 'date-fns/locale';
 import { Visit } from '../../../shared/types';
 import { visitsServiceOffline } from '../../../shared/firebase/services/visits.service.offline';
 import { customersServiceOffline } from '../../../shared/firebase/services/customers.service.offline';
+import { settingsServiceOffline } from '../../../shared/firebase/services/settings.service.offline';
+import { bematechService } from '../../../shared/services/bematech.service';
 import { useUnit } from '../contexts/UnitContext';
 
 const VisitHistory: React.FC = () => {
@@ -100,6 +102,65 @@ const VisitHistory: React.FC = () => {
   const completedVisits = filteredVisits.filter(v => v.checkOut);
   const totalMinutes = completedVisits.reduce((sum, v) => sum + calculateDuration(v.checkIn, v.checkOut), 0);
   const activeCount = filteredVisits.filter(v => !v.checkOut).length;
+  const [reprintingId, setReprintingId] = useState<string | null>(null);
+
+  const handleReprint = async (visit: Visit) => {
+    const child = getChild(visit.childId);
+    const customer = getCustomer(visit.childId);
+    if (!child) { toast.error('Criança não encontrada'); return; }
+
+    setReprintingId(visit.id);
+    try {
+      const fiscalConfig = await settingsServiceOffline.getFiscalConfig(currentUnit);
+      if (!fiscalConfig?.enableFiscalPrint) {
+        toast.warning('Impressão fiscal não está habilitada nas configurações');
+        return;
+      }
+
+      const initialized = await bematechService.initialize(fiscalConfig);
+      if (!initialized) {
+        toast.warning('Impressora não conectada');
+        return;
+      }
+
+      const checkIn = visit.checkIn instanceof Date ? visit.checkIn : new Date(visit.checkIn);
+      const checkOut = visit.checkOut instanceof Date ? visit.checkOut : new Date(visit.checkOut!);
+      const dur = calculateDuration(checkIn, checkOut);
+      const fmtTime = (d: Date) => d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+      const payLabel = visit.kidsPlanId ? 'PLANO KIDS' : visit.packageId ? 'PACOTE' : 'AVULSO';
+
+      const lines = [
+        '================================',
+        '       ** 2a VIA **',
+        '================================',
+        `CRIANCA: ${child.name}`,
+        `RESPONSAVEL: ${customer?.name || 'N/A'}`,
+        '',
+        `ENTRADA: ${fmtTime(checkIn)}`,
+        `SAIDA: ${fmtTime(checkOut)}`,
+        `DURACAO: ${Math.floor(dur / 60)}h ${dur % 60}min`,
+        '',
+        `VALOR TOTAL: R$ ${(visit.value || 0).toFixed(2)}`,
+        `PAGAMENTO: ${payLabel}`,
+        '================================',
+        `DATA: ${format(checkIn, 'dd/MM/yyyy')}`,
+        'Obrigado pela preferencia!',
+      ];
+
+      const printed = await bematechService.printNonFiscalReport('COMPROVANTE DE ATENDIMENTO', lines);
+      if (printed) {
+        toast.success('Comprovante reimpresso!');
+      } else {
+        toast.warning('Impressora não respondeu');
+      }
+    } catch (error) {
+      console.error('Reprint error:', error);
+      toast.error('Erro ao reimprimir comprovante');
+    } finally {
+      setReprintingId(null);
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -349,22 +410,36 @@ const VisitHistory: React.FC = () => {
                   </div>
 
                   {/* Right */}
-                  <div className="text-right flex-shrink-0 ml-4">
+                  <div className="flex items-center gap-3 flex-shrink-0 ml-4">
                     {isActive ? (
                       <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700">
                         Em andamento
                       </span>
                     ) : (
-                      <div>
-                        <p className={`font-bold text-sm ${isCancelled ? 'text-red-400 line-through' : 'text-slate-800'}`}>
-                          {duration !== null ? formatDuration(duration) : '—'}
-                        </p>
-                        {!isCancelled && visit.value && visit.value > 0 && (
-                          <p className="text-xs text-emerald-600 font-semibold mt-0.5">
-                            R$ {visit.value.toFixed(2)}
+                      <>
+                        <div className="text-right">
+                          <p className={`font-bold text-sm ${isCancelled ? 'text-red-400 line-through' : 'text-slate-800'}`}>
+                            {duration !== null ? formatDuration(duration) : '—'}
                           </p>
+                          {!isCancelled && visit.value && visit.value > 0 && (
+                            <p className="text-xs text-emerald-600 font-semibold mt-0.5">
+                              R$ {visit.value.toFixed(2)}
+                            </p>
+                          )}
+                        </div>
+                        {!isCancelled && (
+                          <button
+                            onClick={() => handleReprint(visit)}
+                            disabled={reprintingId === visit.id}
+                            title="Reimprimir comprovante"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition-colors disabled:opacity-50"
+                          >
+                            <svg className={`w-4 h-4 ${reprintingId === visit.id ? 'animate-pulse' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                            </svg>
+                          </button>
                         )}
-                      </div>
+                      </>
                     )}
                   </div>
                 </div>

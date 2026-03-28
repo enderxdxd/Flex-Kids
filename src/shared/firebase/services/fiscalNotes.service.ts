@@ -1,5 +1,6 @@
-import { collection, addDoc, updateDoc, doc, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, doc, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
+import { getDocsSafe, addDocSafe, updateDocSafe, isFirebaseConnectivityError } from '../firebaseHelpers';
 import { FiscalNote } from '../../types';
 import { syncService } from '../../database/syncService';
 
@@ -22,7 +23,7 @@ export const fiscalNotesService = {
           updatedAt: Timestamp.now(),
         };
 
-        const docRef = await addDoc(collection(db, COLLECTION), firestoreData);
+        const docRef = await addDocSafe(collection(db, COLLECTION), firestoreData);
         const fiscalNote = {
           id: docRef.id,
           ...noteData,
@@ -61,7 +62,7 @@ export const fiscalNotesService = {
           updatedAt: Timestamp.now(),
         };
 
-        await updateDoc(noteRef, firestoreData);
+        await updateDocSafe(noteRef, firestoreData);
         
         const localNote = await syncService.getFromLocal(COLLECTION, id);
         const updatedNote = { ...localNote, ...updateData };
@@ -98,11 +99,11 @@ export const fiscalNotesService = {
           orderBy('createdAt', 'desc')
         );
 
-        const snapshot = await getDocs(q);
-        const notes = snapshot.docs.map(doc => {
-          const data = doc.data();
+        const snapshot = await getDocsSafe(q);
+        const notes = snapshot.docs.map(d => {
+          const data = d.data();
           return {
-            id: doc.id,
+            id: d.id,
             visitId: data.visitId,
             paymentId: data.paymentId,
             customerId: data.customerId,
@@ -128,7 +129,7 @@ export const fiscalNotesService = {
 
         return notes;
       } catch (error) {
-        console.error('Failed to fetch from Firebase, using local data:', error);
+        if (!isFirebaseConnectivityError(error)) console.error('Failed to fetch from Firebase, using local data:', error);
       }
     }
 
@@ -166,12 +167,12 @@ export const fiscalNotesService = {
       try {
         const db = getDb();
         const q = query(collection(db, COLLECTION), orderBy('createdAt', 'desc'));
-        const snapshot = await getDocs(q);
+        const snapshot = await getDocsSafe(q);
         
-        const notes = snapshot.docs.map(doc => {
-          const data = doc.data();
+        const notes = snapshot.docs.map(d => {
+          const data = d.data();
           return {
-            id: doc.id,
+            id: d.id,
             visitId: data.visitId,
             paymentId: data.paymentId,
             customerId: data.customerId,
@@ -197,7 +198,7 @@ export const fiscalNotesService = {
 
         return notes;
       } catch (error) {
-        console.error('Failed to fetch from Firebase, using local data:', error);
+        if (!isFirebaseConnectivityError(error)) console.error('Failed to fetch from Firebase, using local data:', error);
       }
     }
 
