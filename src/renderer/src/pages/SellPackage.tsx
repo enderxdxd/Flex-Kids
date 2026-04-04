@@ -141,7 +141,7 @@ const SellPackage: React.FC = () => {
               </div>
             ) : packageOptions.length === 0 ? (
               <div className="text-center py-12 text-slate-400">
-                <p className="text-4xl mb-2">📦</p>
+                <svg className="w-10 h-10 mx-auto mb-2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" /></svg>
                 <p className="text-sm">Nenhum plano configurado</p>
                 <p className="text-xs mt-1">Configure os planos na Gestão de Pacotes</p>
               </div>
@@ -159,7 +159,7 @@ const SellPackage: React.FC = () => {
                         <p className="text-xs text-slate-500 mt-0.5">{pkg.hours}h &middot; {pkg.expiryDays} dias</p>
                       </div>
                       <div className="w-8 h-8 bg-violet-100 rounded-lg flex items-center justify-center group-hover:bg-violet-200 transition-colors">
-                        <span className="text-sm">📦</span>
+                        <svg className="w-4 h-4 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" /></svg>
                       </div>
                     </div>
                     <div className="flex items-end justify-between">

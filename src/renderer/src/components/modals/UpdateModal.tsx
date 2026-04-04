@@ -159,7 +159,8 @@ const UpdateModal: React.FC<UpdateModalProps> = ({
           {downloadState === 'downloaded' && (
             <div className="bg-green-50 border border-green-200/50 rounded-2xl p-4">
               <p className="text-sm text-green-700 font-semibold">
-                ✅ Download concluído! Clique em "Reiniciar e Instalar" para aplicar.
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 inline-block align-text-bottom mr-1"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                Download concluído! Clique em "Reiniciar e Instalar" para aplicar.
               </p>
             </div>
           )}
@@ -167,7 +168,7 @@ const UpdateModal: React.FC<UpdateModalProps> = ({
           {/* Error */}
           {downloadState === 'error' && (
             <div className="bg-red-50 border border-red-200/50 rounded-2xl p-4">
-              <p className="text-sm text-red-700 font-semibold">❌ Erro no download</p>
+              <p className="text-sm text-red-700 font-semibold flex items-center gap-1"><svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg> Erro no download</p>
               <p className="text-xs text-red-600 mt-1">{errorMsg}</p>
             </div>
           )}
@@ -188,7 +189,7 @@ const UpdateModal: React.FC<UpdateModalProps> = ({
           {downloadState === 'idle' && (
             <div className="bg-blue-50/50 border border-blue-200/50 rounded-2xl p-4">
               <p className="text-xs text-blue-700 leading-relaxed">
-                💡 <strong>Dica:</strong> O download será feito automaticamente. Após concluído, o app será reiniciado para instalar.
+                <svg className="w-4 h-4 text-blue-500 inline-block align-text-bottom mr-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 1 0-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" /></svg> <strong>Dica:</strong> O download será feito automaticamente. Após concluído, o app será reiniciado para instalar.
               </p>
             </div>
           )}
@@ -228,7 +229,7 @@ const UpdateModal: React.FC<UpdateModalProps> = ({
               onClick={handleInstall}
               className="flex-1 py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-sm font-bold transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
             >
-              🔄 Reiniciar e Instalar
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.992 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" /></svg> Reiniciar e Instalar
             </button>
           )}
 

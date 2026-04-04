@@ -117,7 +117,7 @@ const CancellationReport: React.FC = () => {
             disabled={loading}
             className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
           >
-            {loading ? '⏳' : '🔄'} Atualizar
+            {loading ? <svg className="w-4 h-4 animate-spin inline-block" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> : <svg className="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.992 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" /></svg>} Atualizar
           </button>
         </div>
       </div>
@@ -146,7 +146,7 @@ const CancellationReport: React.FC = () => {
           </div>
         ) : cancellations.length === 0 ? (
           <div className="text-center py-12 text-slate-400">
-            <p className="text-4xl mb-2">✅</p>
+            <svg className="w-10 h-10 mx-auto mb-2 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
             <p className="font-medium">Nenhum cancelamento no período</p>
           </div>
         ) : (

@@ -18,6 +18,7 @@ interface CustomerFormData {
 interface ChildFormData {
   name: string;
   birthDate: string;
+  cpf: string;
   enrollmentCode: string;
   observations: string;
   customerId: string;
@@ -49,6 +50,7 @@ const Customers: React.FC = () => {
   const [childFormData, setChildFormData] = useState<ChildFormData>({
     name: '',
     birthDate: '',
+    cpf: '',
     enrollmentCode: '',
     observations: '',
     customerId: '',
@@ -121,10 +123,10 @@ const Customers: React.FC = () => {
     try {
       if (editingCustomer) {
         await customersServiceOffline.updateCustomer(editingCustomer.id, formData);
-        toast.success('✅ Cliente atualizado com sucesso!');
+        toast.success('Cliente atualizado com sucesso!');
       } else {
         await customersServiceOffline.createCustomer({ ...formData, unitId: currentUnit });
-        toast.success('✅ Cliente cadastrado com sucesso!');
+        toast.success('Cliente cadastrado com sucesso!');
       }
       setShowModal(false);
       loadData();
@@ -143,10 +145,10 @@ const Customers: React.FC = () => {
       const bd = child.birthDate
         ? (typeof child.birthDate === 'string' ? child.birthDate : new Date(child.birthDate).toISOString().split('T')[0])
         : '';
-      setChildFormData({ name: child.name, birthDate: bd, enrollmentCode: child.enrollmentCode || '', observations: child.observations || '', customerId });
+      setChildFormData({ name: child.name, birthDate: bd, cpf: child.cpf || '', enrollmentCode: child.enrollmentCode || '', observations: child.observations || '', customerId });
     } else {
       setEditingChild(null);
-      setChildFormData({ name: '', birthDate: '', enrollmentCode: '', observations: '', customerId });
+      setChildFormData({ name: '', birthDate: '', cpf: '', enrollmentCode: '', observations: '', customerId });
     }
     setShowChildModal(true);
   };
@@ -170,23 +172,25 @@ const Customers: React.FC = () => {
           name: childFormData.name,
           age,
           birthDate: birthDateObj,
+          cpf: childFormData.cpf || undefined,
           enrollmentCode: childFormData.enrollmentCode || undefined,
           observations: childFormData.observations || undefined,
         });
-        toast.success('✅ Criança atualizada com sucesso!');
+        toast.success('Criança atualizada com sucesso!');
       } else {
         await customersServiceOffline.addChild(childFormData.customerId, {
           name: childFormData.name,
           age,
           birthDate: birthDateObj,
+          cpf: childFormData.cpf || undefined,
           enrollmentCode: childFormData.enrollmentCode || undefined,
           observations: childFormData.observations || undefined,
           unitId: currentUnit,
         });
-        toast.success('✅ Criança cadastrada com sucesso!');
+        toast.success('Criança cadastrada com sucesso!');
       }
       setEditingChild(null);
-      setChildFormData({ name: '', birthDate: '', enrollmentCode: '', observations: '', customerId: '' });
+      setChildFormData({ name: '', birthDate: '', cpf: '', enrollmentCode: '', observations: '', customerId: '' });
       setShowChildModal(false);
       loadData();
     } catch (error) {
@@ -232,8 +236,9 @@ const Customers: React.FC = () => {
           <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">Clientes</h1>
           <p className="text-sm text-slate-600 font-medium mt-1">{customers.length} cadastrados</p>
         </div>
-        <button onClick={() => openModal()} className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105">
-          + Novo Cliente
+        <button onClick={() => openModal()} className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white px-5 py-3 rounded-xl font-semibold text-sm transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 focus:outline-none focus:ring-2 focus:ring-violet-500 inline-flex items-center gap-1.5">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+          Novo Cliente
         </button>
       </div>
 
@@ -248,7 +253,7 @@ const Customers: React.FC = () => {
           className="flex-1 px-5 py-3.5 border border-slate-200 rounded-2xl text-sm bg-white/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent focus:bg-white shadow-sm hover:shadow-md transition-all duration-200"
         />
         {searchTerm && (
-          <button onClick={() => { setSearchTerm(''); loadData(); }} className="px-5 py-3.5 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 shadow-sm hover:shadow-md">Limpar</button>
+          <button onClick={() => { setSearchTerm(''); loadData(); }} className="px-5 py-3.5 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-violet-500">Limpar</button>
         )}
       </div>
 
@@ -263,8 +268,8 @@ const Customers: React.FC = () => {
             ))}
           </div>
         ) : filteredCustomers.length === 0 ? (
-          <div className="text-center py-12 text-slate-400">
-            <p className="text-4xl mb-2">👥</p>
+          <div className="text-center py-12 text-slate-500">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-10 h-10 mx-auto mb-2 text-slate-400"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" /></svg>
             <p className="font-medium">Nenhum cliente encontrado</p>
           </div>
         ) : (
@@ -283,11 +288,11 @@ const Customers: React.FC = () => {
                           <p className="font-semibold text-slate-800 text-sm">{customer.name}</p>
                           <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
                             <span>{customer.phone}</span>
-                            {customer.email && <><span className="text-slate-300">|</span><span className="truncate">{customer.email}</span></>}
-                            {customer.cpf && <><span className="text-slate-300">|</span><span>{customer.cpf}</span></>}
+                            {customer.email && <><span className="text-slate-400">|</span><span className="truncate">{customer.email}</span></>}
+                            {customer.cpf && <><span className="text-slate-400">|</span><span>{customer.cpf}</span></>}
                           </div>
                           {customer.observations && (
-                            <p className="text-[11px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded mt-1 truncate max-w-md" title={customer.observations}>📝 {customer.observations}</p>
+                            <p className="text-[11px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded mt-1 truncate max-w-md inline-flex items-center gap-1" title={customer.observations}><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5 flex-shrink-0"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg> {customer.observations}</p>
                           )}
                         </div>
                       </div>
@@ -301,7 +306,7 @@ const Customers: React.FC = () => {
                             const mins = Math.round((remaining - hours) * 60);
                             return (
                               <span className="text-[11px] bg-gradient-to-r from-emerald-100 to-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full font-bold whitespace-nowrap border border-emerald-200">
-                                ⏱ {hours}h{mins > 0 ? `${mins}m` : ''} restantes
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5 inline-block mr-0.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg> {hours}h{mins > 0 ? `${mins}m` : ''} restantes
                               </span>
                             );
                           }
@@ -311,18 +316,18 @@ const Customers: React.FC = () => {
                         {/* Children badges */}
                         <div className="hidden md:flex items-center gap-1">
                           {custChildren.length === 0 ? (
-                            <span className="text-xs text-slate-400">Sem crianças</span>
+                            <span className="text-xs text-slate-500">Sem crianças</span>
                           ) : (
                             custChildren.map(ch => (
                               <span key={ch.id} className="text-[11px] bg-gradient-to-r from-blue-100 to-blue-50 text-blue-700 px-2.5 py-1 rounded-full font-bold cursor-pointer hover:from-blue-200 hover:to-blue-100 hover:scale-105 transition-all duration-200 border border-blue-200" onClick={() => openChildModal(customer.id, ch)} title={ch.enrollmentCode ? `Matrícula: ${ch.enrollmentCode}` : 'Clique para editar'}>
-                                {ch.name} ({getChildAge(ch)}a){ch.enrollmentCode ? ` [${ch.enrollmentCode}]` : ''} ✏️
+                                {ch.name} ({getChildAge(ch)}a){ch.enrollmentCode ? ` [${ch.enrollmentCode}]` : ''} <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5 inline-block ml-0.5"><path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" /></svg>
                               </span>
                             ))
                           )}
                         </div>
 
-                        <button onClick={() => openChildModal(customer.id)} className="p-1.5 rounded-md hover:bg-blue-50 text-blue-600 transition-colors text-sm" title="Adicionar criança">👶+</button>
-                        <button onClick={() => openModal(customer)} className="p-1.5 rounded-md hover:bg-blue-50 text-blue-600 transition-colors text-sm" title="Editar">✏️</button>
+                        <button onClick={() => openChildModal(customer.id)} className="p-2.5 rounded-md hover:bg-blue-50 text-blue-600 transition-colors text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" title="Adicionar criança" aria-label="Adicionar criança"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" /></svg></button>
+                        <button onClick={() => openModal(customer)} className="p-2.5 rounded-md hover:bg-blue-50 text-blue-600 transition-colors text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" title="Editar cliente" aria-label="Editar cliente"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" /></svg></button>
                       </div>
                     </div>
                   </div>
@@ -351,7 +356,7 @@ const Customers: React.FC = () => {
                       <div className="bg-slate-50 rounded-lg p-3 space-y-2">
                         <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Pacotes Ativos</p>
                         {getCustomerPackages(customer.id).length === 0 ? (
-                          <p className="text-xs text-slate-400">Nenhum pacote ativo</p>
+                          <p className="text-xs text-slate-500">Nenhum pacote ativo</p>
                         ) : (
                           <div className="space-y-1.5">
                             {getCustomerPackages(customer.id).map(pkg => {
@@ -370,7 +375,7 @@ const Customers: React.FC = () => {
                                   <div className="mt-1.5 w-full bg-slate-200 rounded-full h-1.5">
                                     <div className={`h-1.5 rounded-full transition-all ${pct > 80 ? 'bg-red-400' : pct > 50 ? 'bg-amber-400' : 'bg-emerald-400'}`} style={{ width: `${Math.min(100, pct)}%` }} />
                                   </div>
-                                  <p className="text-[10px] text-slate-400 mt-1">{pkg.usedHours.toFixed(1)}h usadas de {pkg.hours}h</p>
+                                  <p className="text-[10px] text-slate-500 mt-1">{pkg.usedHours.toFixed(1)}h usadas de {pkg.hours}h</p>
                                 </div>
                               );
                             })}
@@ -392,7 +397,7 @@ const Customers: React.FC = () => {
           <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 max-w-lg w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-300">
             <div className="flex items-center justify-between p-6 border-b border-slate-200/50">
               <h2 className="text-xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">{editingCustomer ? 'Editar Cliente' : 'Novo Cliente'}</h2>
-              <button onClick={() => setShowModal(false)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all duration-200 hover:rotate-90">✕</button>
+              <button onClick={() => setShowModal(false)} className="p-2.5 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-all duration-200 hover:rotate-90 focus:outline-none focus:ring-2 focus:ring-violet-500" aria-label="Fechar"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg></button>
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
@@ -424,8 +429,8 @@ const Customers: React.FC = () => {
                 <textarea value={formData.observations} onChange={(e) => setFormData({ ...formData, observations: e.target.value })} placeholder="Observações sobre o responsável..." rows={2} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent focus:bg-white transition-all duration-200 resize-none" />
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-400 transition-all duration-200">Cancelar</button>
-                <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-sm font-bold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed">{saving ? 'Salvando...' : (editingCustomer ? 'Salvar' : 'Cadastrar')}</button>
+                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500">Cancelar</button>
+                <button type="submit" disabled={saving} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-sm font-bold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-violet-500">{saving ? 'Salvando...' : (editingCustomer ? 'Salvar' : 'Cadastrar')}</button>
               </div>
             </form>
           </div>
@@ -438,7 +443,7 @@ const Customers: React.FC = () => {
           <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 max-w-sm w-full animate-in zoom-in-95 duration-300">
             <div className="flex items-center justify-between p-6 border-b border-slate-200/50">
               <h2 className="text-xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">{editingChild ? 'Editar Criança' : 'Adicionar Criança'}</h2>
-              <button onClick={() => { setShowChildModal(false); setEditingChild(null); }} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all duration-200 hover:rotate-90">✕</button>
+              <button onClick={() => { setShowChildModal(false); setEditingChild(null); }} className="p-2.5 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-all duration-200 hover:rotate-90 focus:outline-none focus:ring-2 focus:ring-violet-500" aria-label="Fechar"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg></button>
             </div>
             <form onSubmit={handleChildSubmit} className="p-6 space-y-4">
               <div>
@@ -448,6 +453,10 @@ const Customers: React.FC = () => {
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">Nome *</label>
                 <input type="text" value={childFormData.name} onChange={(e) => setChildFormData({ ...childFormData, name: e.target.value })} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent focus:bg-white transition-all duration-200" required />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">CPF</label>
+                <input type="text" value={childFormData.cpf || ''} onChange={(e) => setChildFormData({ ...childFormData, cpf: e.target.value.replace(/\D/g, '').replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4').slice(0, 14) })} placeholder="000.000.000-00" className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent focus:bg-white transition-all duration-200" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">Data de Nascimento *</label>
@@ -461,8 +470,8 @@ const Customers: React.FC = () => {
                 <textarea value={childFormData.observations} onChange={(e) => setChildFormData({ ...childFormData, observations: e.target.value })} placeholder="Observações sobre a criança (alergias, necessidades especiais, etc.)" rows={2} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent focus:bg-white transition-all duration-200 resize-none" />
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => { setShowChildModal(false); setEditingChild(null); }} className="flex-1 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-400 transition-all duration-200">Cancelar</button>
-                <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-sm font-bold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed">{saving ? 'Salvando...' : (editingChild ? 'Salvar' : 'Adicionar')}</button>
+                <button type="button" onClick={() => { setShowChildModal(false); setEditingChild(null); }} className="flex-1 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500">Cancelar</button>
+                <button type="submit" disabled={saving} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-sm font-bold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-violet-500">{saving ? 'Salvando...' : (editingChild ? 'Salvar' : 'Adicionar')}</button>
               </div>
             </form>
           </div>

@@ -74,7 +74,7 @@ const CheckInOut: React.FC = () => {
         childId: selectedChild,
         unitId: currentUnit,
       });
-      toast.success('✅ Check-in realizado com sucesso!');
+      toast.success('Check-in realizado com sucesso!');
       setSelectedChild('');
       setSearchTerm('');
       loadData();
@@ -91,7 +91,7 @@ const CheckInOut: React.FC = () => {
 
     try {
       await visitsServiceOffline.checkOut({ visitId });
-      toast.success('✅ Check-out realizado com sucesso!');
+      toast.success('Check-out realizado com sucesso!');
       loadData();
     } catch (error) {
       console.error('Error during check-out:', error);
@@ -127,9 +127,14 @@ const CheckInOut: React.FC = () => {
         <button
           onClick={loadData}
           disabled={loading}
-          className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 flex items-center gap-2"
+          className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 flex items-center gap-2 focus:ring-2 focus:ring-violet-500 focus:ring-offset-1"
+          aria-label="Atualizar dados"
         >
-          <span>{loading ? '⏳' : '🔄'}</span>
+          {loading ? (
+            <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6l4 2" /><circle cx="12" cy="12" r="10" strokeWidth={2} fill="none" /></svg>
+          ) : (
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.992 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" /></svg>
+          )}
           Atualizar
         </button>
       </div>
@@ -138,7 +143,7 @@ const CheckInOut: React.FC = () => {
         <div className="lg:col-span-1 space-y-6">
           <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl shadow-lg p-6">
             <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-              <span>➕</span> Novo Check-In
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.5v15m7.5-7.5h-15" /></svg> Novo Check-In
             </h2>
             <div className="space-y-4">
               <div>
@@ -150,7 +155,7 @@ const CheckInOut: React.FC = () => {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Digite o nome..."
-                  className="w-full px-4 py-3 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  className="w-full px-4 py-3 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-1"
                 />
               </div>
               <div>
@@ -160,7 +165,7 @@ const CheckInOut: React.FC = () => {
                 <select
                   value={selectedChild}
                   onChange={(e) => setSelectedChild(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  className="w-full px-4 py-3 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-1"
                 >
                   <option value="">Selecione...</option>
                   {filteredChildren.map((child) => (
@@ -173,9 +178,10 @@ const CheckInOut: React.FC = () => {
               <button
                 onClick={handleCheckIn}
                 disabled={!selectedChild || loading}
-                className="w-full bg-white text-blue-600 py-4 rounded-lg font-bold hover:bg-blue-50 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed transition-all transform hover:scale-105 shadow-lg"
+                className="w-full bg-white text-blue-600 py-4 rounded-lg font-bold hover:bg-blue-50 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed transition-all transform hover:scale-105 shadow-lg focus:ring-2 focus:ring-violet-500 focus:ring-offset-1 flex items-center justify-center gap-2"
               >
-                ✓ Realizar Check-In
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                Realizar Check-In
               </button>
             </div>
           </div>
@@ -216,8 +222,10 @@ const CheckInOut: React.FC = () => {
                 ))}
               </div>
             ) : activeVisits.length === 0 ? (
-              <div className="text-center py-16 text-gray-400">
-                <p className="text-6xl mb-4">🎯</p>
+              <div className="text-center py-16 text-slate-500">
+                <div className="flex justify-center mb-4">
+                  <svg className="w-16 h-16 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                </div>
                 <p className="text-xl font-medium">Nenhuma visita ativa</p>
                 <p className="text-sm mt-2">Faça o primeiro check-in do dia!</p>
               </div>
@@ -269,9 +277,11 @@ const CheckInOut: React.FC = () => {
                         
                         <button
                           onClick={() => handleCheckOut(visit.id, child?.name || 'Criança')}
-                          className="ml-4 bg-gradient-to-r from-red-500 to-red-600 text-white px-6 py-3 rounded-lg font-bold hover:opacity-90 transition-all transform hover:scale-105 shadow-lg"
+                          className="ml-4 bg-gradient-to-r from-red-500 to-red-600 text-white px-6 py-3 rounded-lg font-bold hover:opacity-90 transition-all transform hover:scale-105 shadow-lg focus:ring-2 focus:ring-violet-500 focus:ring-offset-1 flex items-center gap-2"
+                          aria-label={`Check-out de ${child?.name || 'Criança'}`}
                         >
-                          ✓ Check-Out
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                          Check-Out
                         </button>
                       </div>
                     </div>

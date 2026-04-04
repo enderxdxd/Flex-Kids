@@ -27,14 +27,14 @@ const formatDuration = (minutes: number) => {
   return h > 0 ? `${h}h ${m}min` : `${m}min`;
 };
 
-const getPaymentMethodIcon = (method: string) => {
+const PaymentMethodIcon: React.FC<{ method: string }> = ({ method }) => {
   switch (method) {
-    case 'pix': return '⚡';
-    case 'credit': return '💳';
-    case 'debit': return '💳';
-    case 'cash': return '💵';
-    case 'package': return '📦';
-    default: return '💰';
+    case 'pix': return <svg className="w-5 h-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>;
+    case 'credit':
+    case 'debit': return <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>;
+    case 'cash': return <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
+    case 'package': return <svg className="w-5 h-5 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>;
+    default: return <svg className="w-5 h-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
   }
 };
 
@@ -203,7 +203,7 @@ const DashboardNew: React.FC = () => {
               <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                 <TargetIcon className="text-blue-600" size={22} />
               </div>
-              {loading && isInitialLoad && <div className="animate-spin text-sm">⏳</div>}
+              {loading && isInitialLoad && <svg className="w-4 h-4 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>}
             </div>
             <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wide">Visitas Ativas</p>
             <p className={`text-3xl font-bold mt-1 ${stats.activeVisits > 0 ? 'bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent' : 'text-slate-300'}`}>{stats.activeVisits}</p>
@@ -268,7 +268,7 @@ const DashboardNew: React.FC = () => {
                     <div className="flex items-center justify-between p-4">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <div className={`w-10 h-10 ${colors.light} rounded-full flex items-center justify-center flex-shrink-0`}>
-                          <span className="text-base">🧒</span>
+                          <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" /></svg>
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
@@ -277,7 +277,7 @@ const DashboardNew: React.FC = () => {
                           </div>
                           <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
                             <span className="flex items-center gap-1">
-                              <span className="text-slate-400">🕐</span>
+                              <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
                               {new Date(visit.checkIn).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                             </span>
                             <span className={`${colors.text} ${colors.light} font-bold px-2 py-0.5 rounded-full text-[11px]`}>{formatDuration(elapsed)}</span>
@@ -315,7 +315,7 @@ const DashboardNew: React.FC = () => {
             <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-white/20 p-6 shadow-lg hover:shadow-xl transition-shadow duration-300">
               <div className="flex items-center gap-2 mb-5">
                 <div className="w-8 h-8 bg-gradient-to-br from-violet-100 to-purple-200 rounded-xl flex items-center justify-center">
-                  <span className="text-lg">⚡</span>
+                  <svg className="w-5 h-5 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                 </div>
                 <h2 className="text-lg font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">Ações Rápidas</h2>
               </div>
@@ -398,7 +398,7 @@ const DashboardNew: React.FC = () => {
                   recentPayments.map((payment) => (
                     <div key={payment.id} className="group flex items-center gap-3 py-3 px-3 rounded-xl hover:bg-gradient-to-r hover:from-emerald-50/50 hover:to-teal-50/30 transition-all duration-200 border border-transparent hover:border-emerald-200/50 hover:shadow-md">
                       <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 group-hover:from-emerald-100 group-hover:to-teal-100 flex items-center justify-center flex-shrink-0 text-base transition-all duration-200 shadow-sm">
-                        {getPaymentMethodIcon(payment.method)}
+                        <PaymentMethodIcon method={payment.method} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-sm text-slate-800 truncate group-hover:text-emerald-700 transition-colors">{payment.childName || payment.description || 'Pagamento'}</p>

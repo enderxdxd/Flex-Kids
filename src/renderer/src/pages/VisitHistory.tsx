@@ -135,6 +135,7 @@ const VisitHistory: React.FC = () => {
         '       ** 2a VIA **',
         '================================',
         `CRIANCA: ${child.name}`,
+        ...(child.cpf ? [`CPF: ${child.cpf}`] : []),
         `RESPONSAVEL: ${customer?.name || 'N/A'}`,
         '',
         `ENTRADA: ${fmtTime(checkIn)}`,

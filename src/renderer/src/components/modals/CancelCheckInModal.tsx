@@ -80,14 +80,14 @@ const CancelCheckInModal: React.FC<CancelCheckInModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-slate-200">
           <h2 className="text-lg font-bold text-slate-800">Cancelar Check-In</h2>
-          <button onClick={onClose} disabled={loading} className="p-1 rounded-md hover:bg-slate-100 text-slate-400">✕</button>
+          <button onClick={onClose} disabled={loading} className="p-1 rounded-md hover:bg-slate-100 text-slate-400"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" /></svg></button>
         </div>
 
         <div className="p-5 space-y-4">
           {/* Info */}
           <div className="text-center">
             <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center mx-auto mb-3">
-              <span className="text-2xl">⚠️</span>
+              <svg className="w-7 h-7 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" /></svg>
             </div>
             <p className="text-sm text-slate-600">
               Cancelar check-in de <span className="font-bold text-slate-800">{visit.child?.name || 'Criança'}</span>?

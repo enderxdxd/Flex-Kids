@@ -232,13 +232,13 @@ const CashReport: React.FC = () => {
   const packageCount = payments.filter(p => p.type === 'package').length;
   const visitCount = payments.filter(p => p.type === 'visit').length;
 
-  const getMethodIcon = (method: string) => {
+  const MethodIcon: React.FC<{ method: string; className?: string }> = ({ method, className = 'w-4 h-4' }) => {
     const m = method.toLowerCase();
-    if (m === 'pix') return '⚡';
-    if (['cash', 'dinheiro'].includes(m)) return '💵';
-    if (['card', 'cartao', 'credit', 'debit'].includes(m)) return '💳';
-    if (['package', 'pacote'].includes(m)) return '📦';
-    return '💰';
+    if (m === 'pix') return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>;
+    if (['cash', 'dinheiro'].includes(m)) return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
+    if (['card', 'cartao', 'credit', 'debit'].includes(m)) return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" /><path d="M1 10h22" /></svg>;
+    if (['package', 'pacote'].includes(m)) return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>;
+    return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
   };
 
   return (
@@ -290,7 +290,7 @@ const CashReport: React.FC = () => {
                 onChange={(e) => setSelectedDate(e.target.value)}
                 className="pl-9 pr-3 py-2.5 border border-slate-300 rounded-xl text-sm font-medium text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-400 transition-all hover:border-slate-400"
               />
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-sm">📅</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg></span>
             </div>
             <span className="text-sm text-slate-500 capitalize">{format(new Date(selectedDate + 'T12:00:00'), "EEEE, dd 'de' MMMM", { locale: ptBR })}</span>
           </>
@@ -303,7 +303,7 @@ const CashReport: React.FC = () => {
                 onChange={(e) => setSelectedMonth(e.target.value)}
                 className="pl-9 pr-3 py-2.5 border border-slate-300 rounded-xl text-sm font-medium text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-400 transition-all hover:border-slate-400"
               />
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-sm">📅</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg></span>
             </div>
             <span className="text-sm text-slate-500 capitalize">{format(new Date(selectedMonth + '-15'), "MMMM 'de' yyyy", { locale: ptBR })}</span>
           </>
@@ -315,7 +315,7 @@ const CashReport: React.FC = () => {
         {/* Pacotes */}
         <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-white/20 p-5 shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-300">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-base">📦</span>
+            <svg className="w-4 h-4 text-violet-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
             <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wide">Pacotes</p>
           </div>
           <p className={`text-2xl font-bold ${totalPackages > 0 ? 'bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent' : 'text-slate-300'}`}>R$ {totalPackages.toFixed(2)}</p>
@@ -325,7 +325,7 @@ const CashReport: React.FC = () => {
         {/* Visitas */}
         <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-white/20 p-5 shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-300">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-base">🎮</span>
+            <svg className="w-4 h-4 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M6 12h4m-2-2v4m5-2h.01M17 10h.01" /><path d="M2 15.5V8a4 4 0 014-4h12a4 4 0 014 4v7.5a2.5 2.5 0 01-4.96.44l-.54-2.13a1 1 0 00-.97-.81H7.47a1 1 0 00-.97.81l-.54 2.13A2.5 2.5 0 012 15.5z" /></svg>
             <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wide">Visitas</p>
           </div>
           <p className={`text-2xl font-bold ${totalVisits > 0 ? 'bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent' : 'text-slate-300'}`}>R$ {totalVisits.toFixed(2)}</p>
@@ -335,7 +335,7 @@ const CashReport: React.FC = () => {
         {/* Total Geral - Destaque */}
         <div className="bg-gradient-to-br from-emerald-50 to-teal-50 backdrop-blur-xl rounded-2xl border border-emerald-200/50 p-5 shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-300">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-base">💰</span>
+            <svg className="w-4 h-4 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             <p className="text-[11px] text-emerald-600 font-bold uppercase tracking-wide">Total Geral</p>
           </div>
           <p className={`text-2xl font-bold ${totalGeneral > 0 ? 'bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent' : 'text-slate-300'}`}>R$ {totalGeneral.toFixed(2)}</p>
@@ -347,15 +347,15 @@ const CashReport: React.FC = () => {
           <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wide mb-3">Por Método</p>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-xs text-slate-500"><span>💵</span> Dinheiro</span>
+              <span className="flex items-center gap-1.5 text-xs text-slate-500"><svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg> Dinheiro</span>
               <span className={`text-xs font-bold ${totalByMethod.dinheiro > 0 ? 'text-slate-800' : 'text-slate-300'}`}>R$ {totalByMethod.dinheiro.toFixed(2)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-xs text-slate-500"><span>⚡</span> PIX</span>
+              <span className="flex items-center gap-1.5 text-xs text-slate-500"><svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> PIX</span>
               <span className={`text-xs font-bold ${totalByMethod.pix > 0 ? 'text-slate-800' : 'text-slate-300'}`}>R$ {totalByMethod.pix.toFixed(2)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-xs text-slate-500"><span>💳</span> Cartão</span>
+              <span className="flex items-center gap-1.5 text-xs text-slate-500"><svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" /><path d="M1 10h22" /></svg> Cartão</span>
               <span className={`text-xs font-bold ${totalByMethod.cartao > 0 ? 'text-slate-800' : 'text-slate-300'}`}>R$ {totalByMethod.cartao.toFixed(2)}</span>
             </div>
           </div>
@@ -379,7 +379,7 @@ const CashReport: React.FC = () => {
         ) : payments.length === 0 ? (
           <div className="text-center py-10">
             <div className="w-14 h-14 bg-gradient-to-br from-slate-100 to-slate-200 rounded-2xl flex items-center justify-center mx-auto mb-3">
-              <span className="text-2xl">📊</span>
+              <svg className="w-7 h-7 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M18 20V10M12 20V4M6 20V14" /></svg>
             </div>
             <p className="text-sm font-semibold text-slate-500">Nenhum pagamento nesta data</p>
             <p className="text-xs text-slate-400 mt-1">Selecione outra data para ver o relatório</p>
@@ -408,7 +408,7 @@ const CashReport: React.FC = () => {
                     </td>
                     <td className="px-4 py-3.5">
                       <span className="flex items-center gap-1.5 text-slate-600">
-                        <span className="text-xs">{getMethodIcon(payment.method)}</span>
+                        <MethodIcon method={payment.method} className="w-3.5 h-3.5" />
                         {getPaymentMethodLabel(payment.method)}
                       </span>
                     </td>
@@ -419,7 +419,7 @@ const CashReport: React.FC = () => {
                     )}
                     <td className="px-4 py-3.5 text-slate-500">
                       <span className="flex items-center gap-1">
-                        <span className="text-slate-400 text-xs">🕐</span>
+                        <svg className="w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
                         {new Date(payment.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </td>

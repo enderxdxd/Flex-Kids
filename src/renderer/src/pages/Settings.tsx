@@ -94,7 +94,7 @@ const Settings: React.FC = () => {
           enableFiscalPrint: enablePrinting,
         }, currentUnit),
       ]);
-      toast.success('✅ Configurações salvas com sucesso!');
+      toast.success('Configurações salvas com sucesso!');
     } catch (error) {
       console.error('Error saving settings:', error);
       toast.error('Erro ao salvar configurações');
@@ -121,7 +121,7 @@ const Settings: React.FC = () => {
         printerModel: 'MP-4200',
         enableFiscalPrint: enabled,
       }, currentUnit);
-      toast.success(enabled ? '✅ Impressão habilitada!' : '✅ Impressão desabilitada!');
+      toast.success(enabled ? 'Impressão habilitada!' : 'Impressão desabilitada!');
     } catch (error) {
       console.error('Error saving print config:', error);
       toast.error('Erro ao salvar configuração');
@@ -146,7 +146,7 @@ const Settings: React.FC = () => {
         printerModel: 'MP-4200',
         enableFiscalPrint: enablePrinting,
       }, currentUnit);
-      toast.success('✅ Porta atualizada!');
+      toast.success('Porta atualizada!');
     } catch (error) {
       console.error('Error saving port config:', error);
       toast.error('Erro ao salvar porta');
@@ -192,9 +192,9 @@ const Settings: React.FC = () => {
             'Impressora funcionando!',
           ]
         );
-        toast.success('✅ Impressora testada com sucesso!');
+        toast.success('Impressora testada com sucesso!');
       } else {
-        toast.error('❌ Não foi possível conectar à impressora');
+        toast.error('Não foi possível conectar à impressora');
       }
     } catch (error) {
       console.error('Error testing printer:', error);
@@ -225,23 +225,23 @@ const Settings: React.FC = () => {
             <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-white/20 shadow-md p-6">
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-2">
-                  <span className="text-base">💲</span>
+                  <svg className="w-4 h-4 text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
                   <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Cobrança</h2>
                 </div>
                 {canEditBilling && !isAdmin && (
-                  <button onClick={() => { setBillingAdminAuth(false); setBillingAdminPwd(''); }} className="text-[11px] text-slate-500 hover:text-slate-700 transition-colors">🔓 Bloquear</button>
+                  <button onClick={() => { setBillingAdminAuth(false); setBillingAdminPwd(''); }} className="text-[11px] text-slate-500 hover:text-slate-700 transition-colors flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-violet-500 rounded" aria-label="Bloquear edição de cobrança"><svg className="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 1 1 9 0v3.75M3.75 21.75h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H3.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" /></svg> Bloquear</button>
                 )}
               </div>
 
               {!canEditBilling && (
                 <div className="mb-5 p-4 border-2 border-amber-200 bg-amber-50 rounded-xl">
-                  <p className="text-xs font-semibold text-amber-800 mb-2">🔒 Senha de administrador necessária</p>
+                  <p className="text-xs font-semibold text-amber-800 mb-2 flex items-center gap-1.5"><svg className="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" /></svg> Senha de administrador necessária</p>
                   <div className="flex gap-2">
                     <input type="password" value={billingAdminPwd} onChange={(e) => setBillingAdminPwd(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') { if (billingAdminPwd === ADMIN_PASSWORD) { setBillingAdminAuth(true); toast.success('Autenticado!'); } else { toast.error('Senha incorreta'); setBillingAdminPwd(''); } } }}
                       placeholder="Senha admin" className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
                     <button type="button" onClick={() => { if (billingAdminPwd === ADMIN_PASSWORD) { setBillingAdminAuth(true); toast.success('Autenticado!'); } else { toast.error('Senha incorreta'); setBillingAdminPwd(''); } }}
-                      className="bg-amber-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-amber-600 transition-colors">Entrar</button>
+                      className="bg-amber-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-amber-600 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500">Entrar</button>
                   </div>
                 </div>
               )}
@@ -250,12 +250,12 @@ const Settings: React.FC = () => {
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-2">Valor por Hora (R$)</label>
                   <input type="number" step="0.01" min="0" value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)} disabled={!canEditBilling} className={`w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-400 transition-all hover:border-slate-300 ${!canEditBilling ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-50/50'}`} placeholder="30.00" />
-                  <p className="text-[11px] text-slate-400 mt-1.5">{canEditBilling ? 'Valor por hora no playground' : '🔒 Digite a senha acima para alterar'}</p>
+                  <p className="text-[11px] text-slate-400 mt-1.5">{canEditBilling ? 'Valor por hora no playground' : 'Digite a senha acima para alterar'}</p>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-2">Tempo Mínimo (min)</label>
                   <input type="number" min="0" value={minimumTime} onChange={(e) => setMinimumTime(e.target.value)} disabled={!canEditBilling} className={`w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-400 transition-all hover:border-slate-300 ${!canEditBilling ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-50/50'}`} placeholder="30" />
-                  <p className="text-[11px] text-slate-400 mt-1.5">{canEditBilling ? 'Cobrança mínima' : '🔒 Digite a senha acima para alterar'}</p>
+                  <p className="text-[11px] text-slate-400 mt-1.5">{canEditBilling ? 'Cobrança mínima' : 'Digite a senha acima para alterar'}</p>
                 </div>
               </div>
             </div>
@@ -265,13 +265,13 @@ const Settings: React.FC = () => {
             <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-white/20 shadow-md p-6">
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-2">
-                  <span className="text-base">🖨️</span>
+                  <svg className="w-4 h-4 text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m10.5 0a48.536 48.536 0 0 0-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18.75 12h.008v.008h-.008V12Zm-2.25 0h.008v.008H16.5V12Z" /></svg>
                   <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Impressora</h2>
                 </div>
                 {enablePrinting && (
                   <button onClick={handleTestPrinter} disabled={testing} className="text-xs font-semibold text-violet-600 hover:text-violet-700 disabled:opacity-50 flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-violet-50 transition-all">
                     {testing ? (
-                      <><span className="animate-spin">⏳</span> Testando...</>
+                      <><svg className="w-3.5 h-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> Testando...</>
                     ) : (
                       <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Testar</>
                     )}
@@ -303,7 +303,7 @@ const Settings: React.FC = () => {
             {/* Save */}
             <button onClick={handleSave} disabled={saving} className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white py-3.5 rounded-xl font-semibold text-sm transition-all duration-200 disabled:opacity-50 shadow-md hover:shadow-lg flex items-center justify-center gap-2">
               {saving ? (
-                <><span className="animate-spin">⏳</span> Salvando...</>
+                <><svg className="w-4 h-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> Salvando...</>
               ) : (
                 <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salvar Configurações</>
               )}
@@ -314,7 +314,7 @@ const Settings: React.FC = () => {
               {/* System Info */}
               <div className="bg-slate-50/80 backdrop-blur-xl rounded-2xl border border-slate-200/50 p-5">
                 <div className="flex items-center gap-2 mb-4">
-                  <span className="text-base">⚙️</span>
+                  <svg className="w-4 h-4 text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
                   <h2 className="text-sm font-bold text-slate-600 uppercase tracking-wider">Sistema</h2>
                 </div>
                 <div className="space-y-2">
@@ -340,7 +340,7 @@ const Settings: React.FC = () => {
               {/* Danger Zone */}
               <div className="bg-red-50/80 backdrop-blur-xl rounded-2xl border border-red-200/50 p-5">
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="text-base">⚠️</span>
+                  <svg className="w-4 h-4 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" /></svg>
                   <h2 className="text-sm font-bold text-red-600 uppercase tracking-wider">Zona de Perigo</h2>
                 </div>
                 <p className="text-[11px] text-red-400 mb-4 leading-relaxed">Limpa todo o cache local (IndexedDB). Dados no Firebase não são afetados.</p>
@@ -378,7 +378,7 @@ const Settings: React.FC = () => {
                                 window.indexedDB.deleteDatabase(dbInfo.name);
                               }
                             }
-                            toast.success('✅ Cache limpo! Recarregando...');
+                            toast.success('Cache limpo! Recarregando...');
                             setTimeout(() => window.location.reload(), 1500);
                           } catch (error) {
                             console.error('Error clearing cache:', error);
@@ -392,7 +392,7 @@ const Settings: React.FC = () => {
                         disabled={clearingCache || !adminPassword}
                         className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-xl font-semibold text-xs transition-all disabled:opacity-50"
                       >
-                        {clearingCache ? '⏳ Limpando...' : 'Confirmar'}
+                        {clearingCache ? 'Limpando...' : 'Confirmar'}
                       </button>
                       <button
                         onClick={() => { setConfirmClear(false); setAdminPassword(''); }}
@@ -415,7 +415,7 @@ const Settings: React.FC = () => {
             {/* Summary */}
             <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-white/20 shadow-md p-5">
               <div className="flex items-center gap-2 mb-4">
-                <span className="text-base">📋</span>
+                <svg className="w-4 h-4 text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15a2.25 2.25 0 0 1 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" /></svg>
                 <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Resumo</h2>
               </div>
               <div className="space-y-1">
@@ -437,7 +437,7 @@ const Settings: React.FC = () => {
             {/* Backup & Sync */}
             <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-white/20 shadow-md p-5">
               <div className="flex items-center gap-2 mb-4">
-                <span className="text-base">☁️</span>
+                <svg className="w-4 h-4 text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" /></svg>
                 <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Backup & Sync</h2>
               </div>
 
@@ -549,7 +549,7 @@ const Settings: React.FC = () => {
                   disabled={!!exportingSales}
                   className="w-full flex items-center gap-2.5 px-4 py-3 rounded-xl border border-emerald-200 bg-emerald-50/50 hover:bg-emerald-50 text-emerald-700 font-semibold text-xs transition-all hover:border-emerald-300 disabled:opacity-50"
                 >
-                  <span>📊</span>
+                  <svg className="w-4 h-4 text-emerald-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" /></svg>
                   <div className="text-left flex-1">
                     <span className="block">{exportingSales ? 'Exportando...' : 'Relatório de Vendas (CSV)'}</span>
                     <span className="text-[10px] font-normal text-emerald-500">Pagamentos, visitas e pacotes</span>
@@ -585,7 +585,7 @@ const Settings: React.FC = () => {
                   disabled={exporting}
                   className="w-full flex items-center gap-2.5 px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-all hover:border-slate-300 disabled:opacity-50"
                 >
-                  <span>💾</span>
+                  <svg className="w-4 h-4 text-slate-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" /></svg>
                   <div className="text-left flex-1">
                     <span className="block">{exporting ? 'Exportando...' : 'Backup Completo (JSON)'}</span>
                     <span className="text-[10px] font-normal text-slate-400">Dados brutos para restauração</span>
@@ -610,7 +610,7 @@ const Settings: React.FC = () => {
                     }}
                     className="w-full flex items-center gap-2.5 px-4 py-3 rounded-xl border border-amber-200 bg-amber-50/50 hover:bg-amber-50 text-amber-700 font-semibold text-xs transition-all hover:border-amber-300"
                   >
-                    <span>🔄</span>
+                    <svg className="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.992 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" /></svg>
                     <div className="text-left flex-1">
                       <span className="block">Forçar Sincronização</span>
                       <span className="text-[10px] font-normal text-amber-500">{pendingSync} itens pendentes</span>
@@ -620,7 +620,7 @@ const Settings: React.FC = () => {
               </div>
 
               <div className="bg-blue-50/80 rounded-xl p-3 mt-3 border border-blue-100/50">
-                <p className="text-[11px] font-semibold text-blue-700 mb-0.5">☁️ Seus dados estão seguros</p>
+                <p className="text-[11px] font-semibold text-blue-700 mb-0.5 flex items-center gap-1"><svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" /></svg> Seus dados estão seguros</p>
                 <p className="text-[10px] text-blue-500 leading-relaxed">Todos os dados são salvos automaticamente no Firebase. O CSV é para controle financeiro pessoal.</p>
               </div>
             </div>

@@ -79,6 +79,7 @@ const Packages: React.FC = () => {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [renewalPackageId, setRenewalPackageId] = useState<string | null>(null);
   const [renewalRemainingHours, setRenewalRemainingHours] = useState(0);
+  const [editExpiresAt, setEditExpiresAt] = useState<string>('');
 
   const [formData, setFormData] = useState<PackageFormData>({
     customerId: '',
@@ -178,6 +179,9 @@ const Packages: React.FC = () => {
         expiryDays: pkg.expiryDays || 30,
         unitId: pkg.unitId,
       });
+      // Calcular data de expiração para o input date
+      const expDate = getExpirationDate(pkg);
+      setEditExpiresAt(expDate ? format(expDate, 'yyyy-MM-dd') : '');
     } else {
       setEditingPackage(null);
       setFormData({
@@ -202,13 +206,17 @@ const Packages: React.FC = () => {
     setSaving(true);
     try {
       if (editingPackage) {
-        await packagesServiceOffline.updatePackage(editingPackage.id, {
+        const updatePayload: any = {
           type: formData.type,
           hours: formData.hours,
           price: formData.price,
           expiryDays: formData.expiryDays || 30,
           unitId: currentUnit,
-        });
+        };
+        if (editExpiresAt) {
+          updatePayload.expiresAt = new Date(editExpiresAt + 'T23:59:59');
+        }
+        await packagesServiceOffline.updatePackage(editingPackage.id, updatePayload);
         toast.success('Pacote atualizado!');
         setShowModal(false);
         loadData();
@@ -609,7 +617,7 @@ const Packages: React.FC = () => {
                 {plans.map((plan, idx) => (
                   <div key={idx} className="flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
                     <div className="flex items-center gap-4">
-                      <div className="w-9 h-9 bg-violet-100 rounded-lg flex items-center justify-center"><span className="text-sm">📦</span></div>
+                      <div className="w-9 h-9 bg-violet-100 rounded-lg flex items-center justify-center"><svg className="w-4 h-4 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" /></svg></div>
                       <div>
                         <p className="font-semibold text-sm text-slate-800">{plan.name}</p>
                         <p className="text-xs text-slate-500">{plan.hours}h &middot; {plan.expiryDays} dias &middot; R$ {(plan.price / plan.hours).toFixed(2)}/h</p>
@@ -617,8 +625,8 @@ const Packages: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-lg font-bold text-violet-600">R$ {plan.price.toFixed(2)}</span>
-                      <button onClick={() => handleEditPlan(idx)} className="p-1.5 rounded-md hover:bg-blue-50 text-blue-600 transition-colors text-sm">✏️</button>
-                      <button onClick={() => handleDeletePlan(idx)} className="p-1.5 rounded-md hover:bg-red-50 text-red-500 transition-colors text-sm">🗑️</button>
+                      <button onClick={() => handleEditPlan(idx)} className="p-1.5 rounded-md hover:bg-blue-50 text-blue-600 transition-colors text-sm"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" /></svg></button>
+                      <button onClick={() => handleDeletePlan(idx)} className="p-1.5 rounded-md hover:bg-red-50 text-red-500 transition-colors text-sm"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg></button>
                     </div>
                   </div>
                 ))}
@@ -661,7 +669,7 @@ const Packages: React.FC = () => {
           ) : displayedPackages.length === 0 ? (
             <div className="text-center py-10">
               <div className="w-14 h-14 bg-gradient-to-br from-slate-100 to-slate-200 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                <span className="text-2xl">📦</span>
+                <svg className="w-7 h-7 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" /></svg>
               </div>
               <p className="text-sm font-semibold text-slate-500">Nenhum pacote encontrado</p>
               <p className="text-xs text-slate-400 mt-1">Tente mudar o filtro ou busca</p>
@@ -689,7 +697,7 @@ const Packages: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3.5 flex-1 min-w-0">
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${isExpired ? 'bg-red-100' : 'bg-violet-100'}`}>
-                          <span className="text-base">{isExpired ? '⏰' : '📦'}</span>
+                          {isExpired ? <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg> : <svg className="w-5 h-5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" /></svg>}
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -798,7 +806,7 @@ const Packages: React.FC = () => {
           <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-5 border-b border-slate-200">
               <h2 className="text-lg font-bold text-slate-800">{editingPackage ? 'Editar Pacote' : 'Novo Pacote'}</h2>
-              <button onClick={() => setShowModal(false)} className="p-1 rounded-md hover:bg-slate-100 text-slate-400">✕</button>
+              <button onClick={() => setShowModal(false)} className="p-1 rounded-md hover:bg-slate-100 text-slate-400"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" /></svg></button>
             </div>
             <form onSubmit={handleSubmit} className="p-5 space-y-4">
               <div>
@@ -848,6 +856,7 @@ const Packages: React.FC = () => {
                   <select value={formData.expiryDays || 30} onChange={(e) => setFormData({ ...formData, expiryDays: parseInt(e.target.value) })} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500">
                     <option value="15">15 dias</option>
                     <option value="30">30 dias</option>
+                    <option value="45">45 dias</option>
                     <option value="60">60 dias</option>
                     <option value="90">90 dias</option>
                     <option value="120">120 dias</option>
@@ -856,6 +865,19 @@ const Packages: React.FC = () => {
                   </select>
                 </div>
               </div>
+
+              {editingPackage && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Data de Expiração</label>
+                  <input
+                    type="date"
+                    value={editExpiresAt}
+                    onChange={(e) => setEditExpiresAt(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Altere para definir uma data de expiração personalizada</p>
+                </div>
+              )}
 
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
@@ -872,7 +894,7 @@ const Packages: React.FC = () => {
           <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full">
             <div className="flex items-center justify-between p-5 border-b border-slate-200">
               <h2 className="text-lg font-bold text-slate-800">Autenticação Admin</h2>
-              <button onClick={() => { setPendingEditPkg(null); setPendingAction(null); setAdminPasswordInput(''); }} className="p-1 rounded-md hover:bg-slate-100 text-slate-400">✕</button>
+              <button onClick={() => { setPendingEditPkg(null); setPendingAction(null); setAdminPasswordInput(''); }} className="p-1 rounded-md hover:bg-slate-100 text-slate-400"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" /></svg></button>
             </div>
             <div className="p-5 space-y-3">
               <p className="text-sm text-slate-600">
@@ -920,7 +942,7 @@ const Packages: React.FC = () => {
                   {adjustPkg.childId ? ` · ${getChildName(adjustPkg.childId)}` : ''}
                 </p>
               </div>
-              <button onClick={() => { setShowAdjustModal(false); setAdjustPkg(null); }} className="p-1 rounded-md hover:bg-slate-100 text-slate-400">✕</button>
+              <button onClick={() => { setShowAdjustModal(false); setAdjustPkg(null); }} className="p-1 rounded-md hover:bg-slate-100 text-slate-400"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" /></svg></button>
             </div>
             <div className="p-5 space-y-4">
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
@@ -977,7 +999,7 @@ const Packages: React.FC = () => {
             <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
               <div className="flex items-center justify-between p-5 border-b border-slate-200">
                 <h2 className="text-lg font-bold text-slate-800">Imprimir Resumo do Pacote</h2>
-                <button onClick={() => { setShowPrintModal(false); setPrintPkg(null); }} className="p-1 rounded-md hover:bg-slate-100 text-slate-400">✕</button>
+                <button onClick={() => { setShowPrintModal(false); setPrintPkg(null); }} className="p-1 rounded-md hover:bg-slate-100 text-slate-400"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" /></svg></button>
               </div>
               <div className="p-5 space-y-4">
                 {/* Preview */}
@@ -1014,7 +1036,7 @@ const Packages: React.FC = () => {
                     className="w-full flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 hover:border-violet-300 hover:bg-violet-50 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <div className="w-10 h-10 bg-violet-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <span className="text-lg">🖨️</span>
+                      <svg className="w-5 h-5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m10.5 0a48.536 48.536 0 0 0-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18.25 7.034V12" /></svg>
                     </div>
                     <div>
                       <p className="font-semibold text-sm text-slate-800">Impressora Térmica</p>
@@ -1026,7 +1048,7 @@ const Packages: React.FC = () => {
                     className="w-full flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-all text-left"
                   >
                     <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <span className="text-lg">📄</span>
+                      <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
                     </div>
                     <div>
                       <p className="font-semibold text-sm text-slate-800">Imprimir via Navegador</p>
@@ -1058,7 +1080,7 @@ const Packages: React.FC = () => {
                     {renewPkg.childId ? ` · ${getChildName(renewPkg.childId)}` : ''}
                   </p>
                 </div>
-                <button onClick={() => { setShowRenewModal(false); setRenewPkg(null); }} className="p-1 rounded-md hover:bg-slate-100 text-slate-400">✕</button>
+                <button onClick={() => { setShowRenewModal(false); setRenewPkg(null); }} className="p-1 rounded-md hover:bg-slate-100 text-slate-400"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" /></svg></button>
               </div>
               <div className="p-5 space-y-4">
                 {/* Current package info */}

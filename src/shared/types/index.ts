@@ -19,6 +19,7 @@ export interface Child {
   name: string;
   age: number;
   birthDate?: Date;
+  cpf?: string;
   enrollmentCode?: string;
   observations?: string;
   customerId: string;
