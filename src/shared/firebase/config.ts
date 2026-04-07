@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { initializeFirestore, getFirestore, memoryLocalCache, enableNetwork, collection, getDocs, query, limit, Firestore } from 'firebase/firestore';
+import { initializeFirestore, getFirestore, persistentLocalCache, persistentMultipleTabManager, enableNetwork, onSnapshotsInSync, collection, getDocs, query, limit, Firestore } from 'firebase/firestore';
 import { getAuth, Auth } from 'firebase/auth';
 import { getAnalytics, Analytics } from 'firebase/analytics';
 import { FIREBASE_CONFIG } from './firebase.env';
@@ -61,14 +61,6 @@ let _firebaseReady = false;
  * Inicializa Firebase eagerly. Deve ser chamado UMA VEZ no bootstrap (syncService.init).
  * Idempotente — chamadas repetidas são ignoradas.
  *
- * Uses persistentLocalCache so reads can return cached data while the WebSocket
- * connection to the Firestore backend is being established. Without persistence,
- * reads fail immediately with "client is offline" when the SDK hasn't connected yet.
- *
- * persistentSingleTabManager is used WITHOUT forceOwnership so it won't steal
- * the lock from other instances — if the lock is held, it falls back gracefully.
- */
-/**
  * @returns true if Firestore backend connection was established, false if offline/timed out.
  */
 export async function initFirebase(): Promise<boolean> {
@@ -78,16 +70,23 @@ export async function initFirebase(): Promise<boolean> {
   _app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
   console.log('🔥 Firebase app initialized:', { projectId: firebaseConfig.projectId });
 
-  // Use memory cache — the app has its own IndexedDB cache (localDb/syncService),
-  // so Firestore persistence is redundant. Memory cache eliminates IndexedDB lock
-  // deadlocks that cause "client is offline" after Electron crashes/force-closes.
+  // Use persistentLocalCache with persistentMultipleTabManager.
+  // - Persistent cache allows reads to be served from IndexedDB immediately while
+  //   the WebSocket to Firestore backend connects in background.
+  // - MultipleTabManager supports multiple instances (multiple PCs / Electron windows)
+  //   without IndexedDB lock conflicts — unlike SingleTabManager.
+  // - Without persistent cache, every app open requires a full download from backend,
+  //   and if the WebSocket is slow, ALL queries timeout.
   try {
     _db = initializeFirestore(_app, {
-      localCache: memoryLocalCache()
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+      })
     });
-    console.log('✅ Firestore initialized with memory cache');
+    console.log('✅ Firestore initialized with persistent cache (MultipleTabManager)');
   } catch (e) {
-    console.warn('⚠️ initializeFirestore failed, using default Firestore:', (e as Error).message);
+    // If persistent cache fails (e.g. IndexedDB unavailable), fall back to default
+    console.warn('⚠️ initializeFirestore with persistent cache failed, using default Firestore:', (e as Error).message);
     _db = getFirestore(_app);
   }
 
@@ -112,28 +111,40 @@ export async function initFirebase(): Promise<boolean> {
 
 /**
  * Waits for Firestore to establish its backend connection.
- * Performs a real probe read — only resolves when getDocs succeeds,
- * proving the WebSocket to Firestore backend is active.
+ * Uses onSnapshotsInSync to detect when the SDK has synced with the backend,
+ * plus a probe read to kick the connection handshake.
  *
- * With memoryLocalCache the SDK cannot serve from cache on cold start,
- * so a successful getDocs guarantees a live backend connection.
+ * With persistentLocalCache, reads can be served from cache even if this times out,
+ * so the app remains functional regardless.
  */
 async function waitForFirestoreConnection(db: Firestore, timeoutMs: number): Promise<void> {
-  const probeQuery = query(collection(db, 'customers'), limit(1));
+  return new Promise<void>((resolve, reject) => {
+    let resolved = false;
 
-  let timer: ReturnType<typeof setTimeout>;
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(`Firestore connection not established within ${timeoutMs}ms`)), timeoutMs);
+    const timer = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        unsubscribe();
+        reject(new Error(`Firestore connection not established within ${timeoutMs}ms`));
+      }
+    }, timeoutMs);
+
+    // onSnapshotsInSync fires when the SDK has caught up with the backend
+    const unsubscribe = onSnapshotsInSync(db, () => {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timer);
+        unsubscribe();
+        console.log('✅ Firestore backend connection confirmed (onSnapshotsInSync)');
+        resolve();
+      }
+    });
+
+    // Trigger a probe read to kick the connection handshake
+    getDocs(query(collection(db, '__health__'), limit(1))).catch(() => {
+      // Ignore errors — the probe just triggers the WebSocket connection.
+    });
   });
-
-  try {
-    await Promise.race([getDocs(probeQuery), timeoutPromise]);
-    clearTimeout(timer!);
-    console.log('✅ Firestore backend connection confirmed (probe read succeeded)');
-  } catch (err) {
-    clearTimeout(timer!);
-    throw err;
-  }
 }
 
 export const getFirebaseApp = (): FirebaseApp => {
