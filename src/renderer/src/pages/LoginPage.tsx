@@ -15,7 +15,7 @@ const LoginPage: React.FC = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUnit) {
       setError('Selecione uma unidade');
@@ -24,14 +24,12 @@ const LoginPage: React.FC = () => {
     setError('');
     setIsLoading(true);
 
-    setTimeout(() => {
-      const success = login(selectedUnit, password);
-      if (!success) {
-        setError('Senha incorreta para esta unidade');
-        setPassword('');
-      }
-      setIsLoading(false);
-    }, 400);
+    const result = await login(selectedUnit, password);
+    if (!result.success) {
+      setError(result.error || 'Senha incorreta para esta unidade');
+      setPassword('');
+    }
+    setIsLoading(false);
   };
 
   return (

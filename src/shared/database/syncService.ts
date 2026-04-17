@@ -1,5 +1,5 @@
 import { localDb } from './localDb';
-import { getDb, initFirebase } from '../firebase/config';
+import { getDb, initFirebase, getFirebaseAuth, isFirebaseReady } from '../firebase/config';
 import { collection, doc, query, where, limit, getDocsFromServer } from 'firebase/firestore';
 import { getDocsSafe, addDocSafe, updateDocSafe, setDocSafe, deleteDocSafe, isFirebaseConnectivityError, registerSyncService, markFirebaseWarmedUp } from '../firebase/firebaseHelpers';
 
@@ -126,6 +126,18 @@ class SyncService {
     // Must have network
     if (!navigator.onLine) return false;
 
+    // Must be authenticated with Firebase Auth — Security Rules require auth
+    try {
+      if (isFirebaseReady()) {
+        const auth = getFirebaseAuth();
+        if (!auth.currentUser) return false;
+      } else {
+        return false;
+      }
+    } catch {
+      return false;
+    }
+
     // Firebase must have been confirmed reachable at least once this session.
     // Without this, the app thinks it's online when only the network is up,
     // fires Firebase queries that timeout, and corrupts the cache with duplicates.
@@ -244,7 +256,11 @@ class SyncService {
       const timeoutMs = 15000;
       let timer: ReturnType<typeof setTimeout> | null = null;
       await Promise.race([
-        getDocsFromServer(probe),
+        getDocsFromServer(probe).catch((err: any) => {
+          // permission-denied means the server IS reachable — it responded with a denial
+          if (err?.code === 'permission-denied') return;
+          throw err;
+        }),
         new Promise<never>((_, reject) => {
           timer = setTimeout(() => reject(new Error('probe timeout')), timeoutMs);
         })

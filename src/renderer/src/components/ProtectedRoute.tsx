@@ -11,21 +11,19 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
-    setTimeout(() => {
-      const success = loginAdmin(password);
-      if (success) {
-        setPassword('');
-      } else {
-        setError('Senha de administrador incorreta');
-        setPassword('');
-      }
-      setIsLoading(false);
-    }, 400);
+    const result = await loginAdmin(password);
+    if (result.success) {
+      setPassword('');
+    } else {
+      setError(result.error || 'Senha de administrador incorreta');
+      setPassword('');
+    }
+    setIsLoading(false);
   };
 
   if (isAdmin) {

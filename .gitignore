@@ -30,3 +30,8 @@ prisma/*.db-journal
 *.sw?
 firebase.env.ts
 .claude
+
+# Firebase Functions
+functions/lib
+functions/node_modules
+functions/.env

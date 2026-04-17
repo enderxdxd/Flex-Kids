@@ -24,7 +24,7 @@ const STORAGE_KEY = 'flex-kids-current-unit';
 const UnitContext = createContext<UnitContextType | undefined>(undefined);
 
 export const UnitProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { authenticatedUnit, isAuthenticated } = useAuth();
+  const { authenticatedUnit, isAuthenticated, isFirebaseAuthenticated } = useAuth();
 
   const [currentUnit, setCurrentUnitState] = useState<string>(() => {
     try {
@@ -50,17 +50,17 @@ export const UnitProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [isAuthenticated, authenticatedUnit]);
 
-  // Prefetch data from Firebase when unit is set
+  // Prefetch data from Firebase when unit is set AND Firebase Auth is confirmed
   useEffect(() => {
-    if (currentUnit) {
+    if (currentUnit && isFirebaseAuthenticated) {
       prefetchAllData(currentUnit).catch(err =>
         console.error('[UnitContext] Prefetch error:', err)
       );
     }
-  }, [currentUnit]);
+  }, [currentUnit, isFirebaseAuthenticated]);
 
   useEffect(() => {
-    if (!currentUnit) return;
+    if (!currentUnit || !isFirebaseAuthenticated) return;
 
     const unsubscribe = syncService.onConnectionChange((online) => {
       if (online) {
@@ -71,7 +71,7 @@ export const UnitProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
 
     return unsubscribe;
-  }, [currentUnit]);
+  }, [currentUnit, isFirebaseAuthenticated]);
 
   const isUnitLocked = isAuthenticated && !!authenticatedUnit;
 

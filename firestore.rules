@@ -1,0 +1,89 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper: verifica se o usuário está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper: verifica se o usuário é admin
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.isAdmin == true;
+    }
+
+    // Helper: verifica se o unitId do documento bate com o do token
+    function isUnitOwner() {
+      return isAuthenticated() && request.auth.token.unitId == resource.data.unitId;
+    }
+
+    // Helper: verifica se o unitId do documento sendo criado bate com o do token
+    function isCreatingForOwnUnit() {
+      return isAuthenticated() && request.auth.token.unitId == request.resource.data.unitId;
+    }
+
+    // Customers: leitura/escrita somente para a própria unidade
+    match /customers/{customerId} {
+      allow read: if isUnitOwner() || isAdmin();
+      allow create: if isCreatingForOwnUnit() || isAdmin();
+      allow update: if isUnitOwner() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Children: leitura/escrita somente para a própria unidade
+    match /children/{childId} {
+      allow read: if isUnitOwner() || isAdmin();
+      allow create: if isCreatingForOwnUnit() || isAdmin();
+      allow update: if isUnitOwner() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Visits: leitura/escrita somente para a própria unidade
+    match /visits/{visitId} {
+      allow read: if isUnitOwner() || isAdmin();
+      allow create: if isCreatingForOwnUnit() || isAdmin();
+      allow update: if isUnitOwner() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Packages: leitura/escrita somente para a própria unidade
+    match /packages/{packageId} {
+      allow read: if isUnitOwner() || isAdmin();
+      allow create: if isCreatingForOwnUnit() || isAdmin();
+      allow update: if isUnitOwner() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Payments: leitura/escrita somente para a própria unidade
+    match /payments/{paymentId} {
+      allow read: if isUnitOwner() || isAdmin();
+      allow create: if isCreatingForOwnUnit() || isAdmin();
+      allow update: if isUnitOwner() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Kids Plans: leitura/escrita somente para a própria unidade
+    match /kidsPlans/{planId} {
+      allow read: if isUnitOwner() || isAdmin();
+      allow create: if isCreatingForOwnUnit() || isAdmin();
+      allow update: if isUnitOwner() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Fiscal Notes: leitura/escrita para qualquer autenticado (não tem unitId)
+    match /fiscalNotes/{noteId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Settings: leitura para qualquer autenticado, escrita para qualquer autenticado
+    // (settings são globais ou por unit-key, não por unitId no documento)
+    match /settings/{settingId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Bloqueia tudo que não está listado acima
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,9 +1,8 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { initializeFirestore, getFirestore, persistentLocalCache, persistentMultipleTabManager, enableNetwork, collection, query, limit, Firestore, getDocsFromServer } from 'firebase/firestore';
 import { getAuth, Auth } from 'firebase/auth';
+import { getFunctions as _getFunctions, Functions } from 'firebase/functions';
 import { getAnalytics, Analytics } from 'firebase/analytics';
-import { FIREBASE_CONFIG } from './firebase.env';
-
 // Helper para obter variável de ambiente (suporta Vite e Electron)
 const getEnv = (key: string): string | undefined => {
   // Tenta import.meta.env primeiro (Vite)
@@ -21,26 +20,29 @@ const getEnv = (key: string): string | undefined => {
   return undefined;
 };
 
-// Validar variáveis de ambiente
-const apiKey = getEnv('VITE_FIREBASE_API_KEY');
-const projectId = getEnv('VITE_FIREBASE_PROJECT_ID');
-const authDomain = getEnv('VITE_FIREBASE_AUTH_DOMAIN');
-
-// Usar variáveis de ambiente se disponíveis, senão usar configuração hardcoded
-const firebaseConfig = {
-  apiKey: apiKey || FIREBASE_CONFIG.apiKey,
-  authDomain: authDomain || FIREBASE_CONFIG.authDomain,
-  databaseURL: getEnv('VITE_FIREBASE_DATABASE_URL') || FIREBASE_CONFIG.databaseURL,
-  projectId: projectId || FIREBASE_CONFIG.projectId,
-  storageBucket: getEnv('VITE_FIREBASE_STORAGE_BUCKET') || FIREBASE_CONFIG.storageBucket,
-  messagingSenderId: getEnv('VITE_FIREBASE_MESSAGING_SENDER_ID') || FIREBASE_CONFIG.messagingSenderId,
-  appId: getEnv('VITE_FIREBASE_APP_ID') || FIREBASE_CONFIG.appId,
-  measurementId: getEnv('VITE_FIREBASE_MEASUREMENT_ID') || FIREBASE_CONFIG.measurementId
+// Fallback hardcoded — usado quando variáveis de ambiente não estão definidas (ex: dev local, Electron)
+// Em produção (Vercel), as variáveis VITE_FIREBASE_* devem estar configuradas no painel.
+const FALLBACK_CONFIG = {
+  apiKey: 'AIzaSyApYMDae0KxgM8TGd4FrKqE82rv1GPtCkE',
+  authDomain: 'mobius-74bec.firebaseapp.com',
+  databaseURL: 'https://mobius-74bec-default-rtdb.firebaseio.com',
+  projectId: 'mobius-74bec',
+  storageBucket: 'mobius-74bec.firebasestorage.app',
+  messagingSenderId: '710658322047',
+  appId: '1:710658322047:web:ba0ad2e0b925fc5c5ad94a',
+  measurementId: 'G-TWMN41GGEZ',
 };
 
-if (!apiKey || !projectId) {
-  console.warn('⚠️ Using hardcoded Firebase config as fallback');
-}
+const firebaseConfig = {
+  apiKey: getEnv('VITE_FIREBASE_API_KEY') || FALLBACK_CONFIG.apiKey,
+  authDomain: getEnv('VITE_FIREBASE_AUTH_DOMAIN') || FALLBACK_CONFIG.authDomain,
+  databaseURL: getEnv('VITE_FIREBASE_DATABASE_URL') || FALLBACK_CONFIG.databaseURL,
+  projectId: getEnv('VITE_FIREBASE_PROJECT_ID') || FALLBACK_CONFIG.projectId,
+  storageBucket: getEnv('VITE_FIREBASE_STORAGE_BUCKET') || FALLBACK_CONFIG.storageBucket,
+  messagingSenderId: getEnv('VITE_FIREBASE_MESSAGING_SENDER_ID') || FALLBACK_CONFIG.messagingSenderId,
+  appId: getEnv('VITE_FIREBASE_APP_ID') || FALLBACK_CONFIG.appId,
+  measurementId: getEnv('VITE_FIREBASE_MEASUREMENT_ID') || FALLBACK_CONFIG.measurementId,
+};
 
 if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
   console.error('❌ Firebase configuration is incomplete!', {
@@ -55,6 +57,7 @@ let _app: FirebaseApp | null = null;
 let _db: Firestore | null = null;
 let _auth: Auth | null = null;
 let _analytics: Analytics | null = null;
+let _functions: Functions | null = null;
 let _firebaseReady = false;
 
 /**
@@ -104,6 +107,7 @@ export async function initFirebase(): Promise<boolean> {
   }
 
   _auth = getAuth(_app);
+  _functions = _getFunctions(_app);
   _firebaseReady = true;
   console.log(`✅ Firebase fully initialized (connected: ${connected})`);
   return connected;
@@ -118,7 +122,16 @@ async function waitForFirestoreConnection(db: Firestore, timeoutMs: number): Pro
   let timer: ReturnType<typeof setTimeout> | null = null;
   try {
     await Promise.race([
-      getDocsFromServer(query(collection(db, 'customers'), limit(1))),
+      getDocsFromServer(query(collection(db, 'customers'), limit(1)))
+        .catch((err: any) => {
+          // permission-denied means the server IS reachable — it responded with a denial.
+          // This counts as a successful connectivity check.
+          if (err?.code === 'permission-denied') {
+            console.log('✅ Firestore backend reachable (permission-denied before auth — expected)');
+            return;
+          }
+          throw err;
+        }),
       new Promise<never>((_, reject) => {
         timer = setTimeout(() => {
           reject(new Error(`Firestore connection not established within ${timeoutMs}ms`));
@@ -146,6 +159,11 @@ export const getDb = (): Firestore => {
 export const getFirebaseAuth = (): Auth => {
   if (!_auth) throw new Error('Auth not initialized. Call initFirebase() first.');
   return _auth;
+};
+
+export const getFirebaseFunctions = (): Functions => {
+  if (!_functions) throw new Error('Functions not initialized. Call initFirebase() first.');
+  return _functions;
 };
 
 export const getFirebaseAnalytics = (): Analytics => {
