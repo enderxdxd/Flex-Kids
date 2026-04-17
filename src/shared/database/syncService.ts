@@ -1,6 +1,6 @@
 import { localDb } from './localDb';
 import { getDb, initFirebase } from '../firebase/config';
-import { collection, doc, query, where } from 'firebase/firestore';
+import { collection, doc, query, where, limit, getDocsFromServer } from 'firebase/firestore';
 import { getDocsSafe, addDocSafe, updateDocSafe, setDocSafe, deleteDocSafe, isFirebaseConnectivityError, registerSyncService, markFirebaseWarmedUp } from '../firebase/firebaseHelpers';
 
 const MAX_RETRY_COUNT = 3;
@@ -27,18 +27,12 @@ class SyncService {
 
   private setupOnlineListener(): void {
     window.addEventListener('online', () => {
-      console.log('Connection restored - attempting sync to confirm Firebase reachability');
+      console.log('Connection restored - probing Firebase before leaving offline mode');
       this._firebaseCooldownMs = 5000;
-      this._lastFirebaseFailure = 0; // Allow immediate retry
-      this._firebaseReachable = true; // Tentatively allow — sync will confirm or deny
-      this.notifyListeners(true);
-
-      if (!this._firebaseConfirmedOnce) {
-        // Never confirmed Firebase this session — probe immediately instead of waiting 30s
-        this.probeFirebaseConnection();
-      } else {
-        this.syncAll();
-      }
+      this._lastFirebaseFailure = 0;
+      this._firebaseReachable = false;
+      this.notifyListeners(false);
+      void this.probeFirebaseConnection();
     });
 
     window.addEventListener('offline', () => {
@@ -50,6 +44,7 @@ class SyncService {
 
   /** Call when a Firebase operation succeeds — marks Firebase as reachable and resets backoff */
   markFirebaseSuccess(): void {
+    const wasOnline = navigator.onLine && this._firebaseConfirmedOnce && this._firebaseReachable;
     if (!this._firebaseReachable) {
       console.log('🟢 Firebase connection restored');
     }
@@ -58,6 +53,12 @@ class SyncService {
     if (!this._firebaseConfirmedOnce) {
       this._firebaseConfirmedOnce = true;
       console.log('🟢 Firebase confirmed reachable for this session');
+    }
+    if (!wasOnline) {
+      this.notifyListeners(true);
+      if (this.initialized) {
+        void this.syncAll();
+      }
     }
   }
 
@@ -68,6 +69,7 @@ class SyncService {
 
   /** Call when a Firebase operation fails with connectivity error — triggers exponential backoff cooldown */
   markFirebaseFailure(): void {
+    const wasOnline = navigator.onLine && this._firebaseConfirmedOnce && this._firebaseReachable;
     this._firebaseReachable = false;
     this._lastFirebaseFailure = Date.now();
     // Debounce: only escalate backoff if last escalation was >2s ago (prevents parallel failures from cascading)
@@ -77,6 +79,9 @@ class SyncService {
       this._lastFailureEscalation = now;
     }
     console.warn(`[Firebase] Cooldown set to ${this._firebaseCooldownMs / 1000}s after failure`);
+    if (wasOnline) {
+      this.notifyListeners(false);
+    }
   }
 
   onConnectionChange(callback: (online: boolean) => void): () => void {
@@ -106,6 +111,17 @@ class SyncService {
     }
   }
 
+  private shouldProbeFirebase(): boolean {
+    if (!navigator.onLine || this._probing) return false;
+    if (!this._firebaseConfirmedOnce) {
+      return this._lastFirebaseFailure === 0 || Date.now() - this._lastFirebaseFailure > this._firebaseCooldownMs;
+    }
+    if (!this._firebaseReachable) {
+      return Date.now() - this._lastFirebaseFailure > this._firebaseCooldownMs;
+    }
+    return false;
+  }
+
   isOnline(): boolean {
     // Must have network
     if (!navigator.onLine) return false;
@@ -113,13 +129,16 @@ class SyncService {
     // Firebase must have been confirmed reachable at least once this session.
     // Without this, the app thinks it's online when only the network is up,
     // fires Firebase queries that timeout, and corrupts the cache with duplicates.
-    if (!this._firebaseConfirmedOnce) return false;
+    if (!this._firebaseConfirmedOnce) {
+      if (this.shouldProbeFirebase()) {
+        void this.probeFirebaseConnection();
+      }
+      return false;
+    }
 
-    // If Firebase failed recently, respect the cooldown backoff
     if (!this._firebaseReachable) {
-      if (Date.now() - this._lastFirebaseFailure > this._firebaseCooldownMs) {
-        this._firebaseReachable = true;
-        return true;
+      if (this.shouldProbeFirebase()) {
+        void this.probeFirebaseConnection();
       }
       return false;
     }
@@ -147,6 +166,7 @@ class SyncService {
         this.markFirebaseSuccess();
         console.log('🟢 Firebase connected during warm-up — online mode active');
       } else {
+        this.markFirebaseFailure();
         console.log('🟠 Firebase did not connect during warm-up — offline mode until connection confirmed');
       }
 
@@ -188,9 +208,7 @@ class SyncService {
     this.syncInterval = setInterval(() => {
       if (this.isOnline()) {
         this.syncAll();
-      } else if (navigator.onLine && !this._firebaseConfirmedOnce) {
-        // Network is up but Firebase hasn't been confirmed yet (warm-up failed).
-        // Try a lightweight probe to establish connectivity.
+      } else if (this.shouldProbeFirebase()) {
         this.probeFirebaseConnection();
       }
     }, 30000);
@@ -205,7 +223,7 @@ class SyncService {
           clearInterval(coldStartProbe);
           return;
         }
-        if (navigator.onLine) {
+        if (this.shouldProbeFirebase()) {
           this.probeFirebaseConnection();
         }
       }, 5000);
@@ -221,22 +239,23 @@ class SyncService {
     this._probing = true;
     try {
       const db = getDb();
-      const { getDocs: rawGetDocs, collection: rawCollection, query: rawQuery, limit: rawLimit } = await import('firebase/firestore');
+      const probe = query(collection(db, 'customers'), limit(1));
       // Tiny read — just 1 doc from any collection to test the connection
-      const probe = rawQuery(rawCollection(db, 'customers'), rawLimit(1));
-      const timeoutMs = 10000;
-      let timer: ReturnType<typeof setTimeout>;
+      const timeoutMs = 15000;
+      let timer: ReturnType<typeof setTimeout> | null = null;
       await Promise.race([
-        rawGetDocs(probe),
+        getDocsFromServer(probe),
         new Promise<never>((_, reject) => {
           timer = setTimeout(() => reject(new Error('probe timeout')), timeoutMs);
         })
-      ]).finally(() => clearTimeout(timer!));
+      ]).finally(() => {
+        if (timer) clearTimeout(timer);
+      });
       // If we get here, Firebase is reachable
       this.markFirebaseSuccess();
       console.log('🟢 Firebase probe succeeded — transitioning to online mode');
-      this.syncAll();
     } catch (e) {
+      this.markFirebaseFailure();
       console.log('🟠 Firebase probe failed — staying in offline mode');
     } finally {
       this._probing = false;
@@ -539,6 +558,14 @@ class SyncService {
     }
   }
 
+  private generateOfflineSafeId(collectionName: string): string {
+    try {
+      return doc(collection(getDb(), collectionName)).id;
+    } catch {
+      return `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+  }
+
   async saveLocally(
     collection: string,
     operation: 'create' | 'update',
@@ -546,7 +573,11 @@ class SyncService {
   ): Promise<string> {
     this.ensureInitialized();
     
-    const id = data.id || `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id = data.id || (
+      operation === 'create'
+        ? this.generateOfflineSafeId(collection)
+        : `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    );
     const itemWithId = { ...data, id, synced: 0 };
 
     if (operation === 'create') {
@@ -581,7 +612,7 @@ class SyncService {
     data: any
   ): Promise<void> {
     this.ensureInitialized();
-    const id = data.id || `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id = data.id || this.generateOfflineSafeId(collectionName);
     await localDb.upsert(collectionName as any, { ...data, id, synced: true });
     // Skip notification during bulk imports to avoid hundreds of UI updates
     if (!this.bulkMode) {
@@ -612,7 +643,7 @@ class SyncService {
     this.ensureInitialized();
     const prepared = items.map(data => ({
       ...data,
-      id: data.id || `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: data.id || this.generateOfflineSafeId(collectionName),
       synced: true,
     }));
     await localDb.bulkUpsert(collectionName as any, prepared);

@@ -1,4 +1,4 @@
-import { collection, addDoc, updateDoc, deleteDoc, doc, getDoc, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, updateDoc, deleteDoc, doc, getDoc, getDocs, query, where, orderBy, Timestamp, setDoc } from 'firebase/firestore';
 import { getDb } from '../config';
 import { Customer, Child } from '../../types';
 
@@ -8,15 +8,16 @@ const CHILDREN_COLLECTION = 'children';
 export const customersService = {
   async createCustomer(data: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>): Promise<Customer> {
     const db = getDb();
+    const customerRef = doc(collection(db, CUSTOMERS_COLLECTION));
     const customerData = {
       ...data,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     };
 
-    const docRef = await addDoc(collection(db, CUSTOMERS_COLLECTION), customerData);
+    await setDoc(customerRef, customerData);
     return {
-      id: docRef.id,
+      id: customerRef.id,
       ...data,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -91,6 +92,7 @@ export const customersService = {
 
   async addChild(customerId: string, childData: Omit<Child, 'id' | 'customerId' | 'createdAt' | 'updatedAt'>): Promise<Child> {
     const db = getDb();
+    const childRef = doc(collection(db, CHILDREN_COLLECTION));
     const data = {
       ...childData,
       customerId,
@@ -98,9 +100,9 @@ export const customersService = {
       updatedAt: Timestamp.now(),
     };
 
-    const docRef = await addDoc(collection(db, CHILDREN_COLLECTION), data);
+    await setDoc(childRef, data);
     return {
-      id: docRef.id,
+      id: childRef.id,
       ...childData,
       customerId,
       createdAt: new Date(),

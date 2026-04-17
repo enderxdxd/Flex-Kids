@@ -1,6 +1,6 @@
 import { collection, doc, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
-import { getDocsSafe, addDocSafe, updateDocSafe, isFirebaseConnectivityError } from '../firebaseHelpers';
+import { getDocsSafe, setDocSafe, updateDocSafe, isFirebaseConnectivityError } from '../firebaseHelpers';
 import { Package } from '../../types';
 import { syncService } from '../../database/syncService';
 
@@ -10,7 +10,6 @@ let _createLock = false;
 
 export const packagesServiceOffline = {
   async createPackage(data: Omit<Package, 'id' | 'createdAt' | 'updatedAt'>): Promise<Package> {
-    // Throttle: prevent duplicate creation from double-clicks
     if (_createLock) {
       throw new Error('Criação de pacote já em andamento, aguarde.');
     }
@@ -24,7 +23,10 @@ export const packagesServiceOffline = {
   },
 
   async _doCreatePackage(data: Omit<Package, 'id' | 'createdAt' | 'updatedAt'>): Promise<Package> {
+    const db = getDb();
+    const packageRef = doc(collection(db, COLLECTION));
     const packageData = {
+      id: packageRef.id,
       ...data,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -32,7 +34,6 @@ export const packagesServiceOffline = {
 
     if (syncService.isOnline()) {
       try {
-        const db = getDb();
         const firestoreData: Record<string, any> = {
           ...data,
           sharedAcrossUnits: data.sharedAcrossUnits ?? false,
@@ -40,12 +41,10 @@ export const packagesServiceOffline = {
           updatedAt: Timestamp.now(),
           expiresAt: data.expiresAt ? Timestamp.fromDate(data.expiresAt) : null,
         };
-        // Firestore rejects undefined values — remove them
         Object.keys(firestoreData).forEach(k => firestoreData[k] === undefined && delete firestoreData[k]);
 
-        const docRef = await addDocSafe(collection(db, COLLECTION), firestoreData);
+        await setDocSafe(packageRef, firestoreData);
         const pkg = {
-          id: docRef.id,
           ...packageData,
         };
 
@@ -85,7 +84,6 @@ export const packagesServiceOffline = {
         if (data.createdAt) {
           firestoreData.createdAt = Timestamp.fromDate(data.createdAt instanceof Date ? data.createdAt : new Date(data.createdAt));
         }
-        // Firestore rejects undefined values — remove them
         Object.keys(firestoreData).forEach(k => firestoreData[k] === undefined && delete firestoreData[k]);
 
         await updateDocSafe(packageRef, firestoreData);
@@ -164,12 +162,10 @@ export const packagesServiceOffline = {
 
   async getAllPackages(unitId?: string): Promise<Package[]> {
     try {
-      // 1. Return from local cache first
       const localPackages = unitId
         ? await syncService.getAllFromLocalByUnit(COLLECTION, unitId) as Package[]
         : await syncService.getAllFromLocal(COLLECTION) as Package[];
 
-      // 2. If online, fetch ALL packages from Firebase in background (including inactive/expired)
       if (syncService.isOnline()) {
         this.fetchAllPackagesFromFirebase(unitId)
           .then(fbPackages => {
@@ -183,7 +179,6 @@ export const packagesServiceOffline = {
             if (!isFirebaseConnectivityError(err)) console.error('Background fetchAll packages failed:', err);
           });
 
-        // If cache is empty, wait for Firebase (first load / clean cache)
         if (localPackages.length === 0) {
           try {
             return await this.fetchAllPackagesFromFirebase(unitId);
@@ -215,7 +210,7 @@ export const packagesServiceOffline = {
 
       for (const docSnap of snapshot.docs) {
         const data = docSnap.data();
-        if (data.deletedAt) continue; // Skip soft-deleted
+        if (data.deletedAt) continue;
 
         const pkg: Package = {
           id: docSnap.id,
@@ -267,7 +262,6 @@ export const packagesServiceOffline = {
 
   async getActivePackages(customerId?: string, unitId?: string): Promise<Package[]> {
     try {
-      // 1. Busca do cache filtrado por unidade
       const localPackages = unitId
         ? await syncService.getAllFromLocalByUnit(COLLECTION, unitId) as Package[]
         : await syncService.getAllFromLocal(COLLECTION) as Package[];
@@ -282,12 +276,10 @@ export const packagesServiceOffline = {
           return bTime - aTime;
         });
 
-      // 2. Se offline, retorna cache
       if (!syncService.isOnline()) {
         return cachedPackages;
       }
 
-      // 3. Se cache vazio, tenta Firebase (primeira carga / cache limpo)
       if (cachedPackages.length === 0) {
         try {
           return await this.fetchActivePackagesFromFirebase(customerId, unitId);
@@ -296,7 +288,6 @@ export const packagesServiceOffline = {
         }
       }
 
-      // 4. Se já tem cache, busca Firebase em background para atualizar
       this.fetchActivePackagesFromFirebase(customerId, unitId)
         .then(packages => {
           if (typeof window !== 'undefined') {
@@ -324,7 +315,7 @@ export const packagesServiceOffline = {
         constraints.push(where('unitId', '==', unitId));
       }
       constraints.push(orderBy('createdAt', 'desc'));
-      let q = query(collection(db, COLLECTION), ...constraints);
+      const q = query(collection(db, COLLECTION), ...constraints);
 
       const snapshot = await getDocsSafe(q);
 
@@ -369,7 +360,6 @@ export const packagesServiceOffline = {
         }
       }
 
-      // Salva em batch (transação única)
       await syncService.bulkSaveToCacheOnly(COLLECTION, packages);
 
       return packages.filter(pkg => !customerId || pkg.customerId === customerId);

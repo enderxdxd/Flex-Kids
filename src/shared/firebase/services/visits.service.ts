@@ -1,4 +1,4 @@
-import { collection, addDoc, updateDoc, doc, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, updateDoc, doc, getDocs, query, where, orderBy, Timestamp, setDoc } from 'firebase/firestore';
 import { getDb } from '../config';
 import { Visit, CheckInData, CheckOutData } from '../../types';
 
@@ -7,6 +7,7 @@ const COLLECTION = 'visits';
 export const visitsService = {
   async checkIn(data: CheckInData): Promise<Visit> {
     const db = getDb();
+    const visitRef = doc(collection(db, COLLECTION));
     const visitData = {
       childId: data.childId,
       unitId: data.unitId,
@@ -16,9 +17,9 @@ export const visitsService = {
       updatedAt: Timestamp.now(),
     };
 
-    const docRef = await addDoc(collection(db, COLLECTION), visitData);
+    await setDoc(visitRef, visitData);
     return {
-      id: docRef.id,
+      id: visitRef.id,
       childId: data.childId,
       unitId: data.unitId,
       checkIn: new Date(),

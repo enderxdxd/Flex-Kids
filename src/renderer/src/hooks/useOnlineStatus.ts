@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react';
 import { syncService } from '../../../shared/database/syncService';
 
 export const useOnlineStatus = () => {
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isOnline, setIsOnline] = useState(() => syncService.isOnline());
   const [isSyncing, setIsSyncing] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
+    setIsOnline(syncService.isOnline());
+
     const handleOnline = () => {
-      setIsOnline(true);
+      setIsOnline(syncService.isOnline());
     };
 
     const handleOffline = () => {

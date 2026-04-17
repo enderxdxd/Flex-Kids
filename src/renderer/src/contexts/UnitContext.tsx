@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Unit } from '../../../shared/types';
 import { useAuth } from './AuthContext';
 import { prefetchAllData, resetPrefetch } from '../../../shared/firebase/services/prefetchService';
+import { syncService } from '../../../shared/database/syncService';
 
 interface UnitContextType {
   currentUnit: string;
@@ -56,6 +57,20 @@ export const UnitProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.error('[UnitContext] Prefetch error:', err)
       );
     }
+  }, [currentUnit]);
+
+  useEffect(() => {
+    if (!currentUnit) return;
+
+    const unsubscribe = syncService.onConnectionChange((online) => {
+      if (online) {
+        prefetchAllData(currentUnit).catch(err =>
+          console.error('[UnitContext] Prefetch retry error:', err)
+        );
+      }
+    });
+
+    return unsubscribe;
   }, [currentUnit]);
 
   const isUnitLocked = isAuthenticated && !!authenticatedUnit;

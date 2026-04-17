@@ -1,6 +1,6 @@
 import { collection, doc, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
-import { getDocsSafe, addDocSafe, updateDocSafe, isFirebaseConnectivityError } from '../firebaseHelpers';
+import { getDocsSafe, setDocSafe, updateDocSafe, isFirebaseConnectivityError } from '../firebaseHelpers';
 import { KidsPlan } from '../../types';
 import { syncService } from '../../database/syncService';
 
@@ -23,7 +23,10 @@ export const kidsPlansServiceOffline = {
   },
 
   async _doCreatePlan(data: Omit<KidsPlan, 'id' | 'createdAt' | 'updatedAt'>): Promise<KidsPlan> {
+    const db = getDb();
+    const planRef = doc(collection(db, COLLECTION));
     const planData = {
+      id: planRef.id,
       ...data,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -31,7 +34,6 @@ export const kidsPlansServiceOffline = {
 
     if (syncService.isOnline()) {
       try {
-        const db = getDb();
         const firestoreData: Record<string, any> = {
           ...data,
           createdAt: Timestamp.now(),
@@ -41,9 +43,8 @@ export const kidsPlansServiceOffline = {
         };
         Object.keys(firestoreData).forEach(k => firestoreData[k] === undefined && delete firestoreData[k]);
 
-        const docRef = await addDocSafe(collection(db, COLLECTION), firestoreData);
+        await setDocSafe(planRef, firestoreData);
         const plan = {
-          id: docRef.id,
           ...planData,
         };
 
@@ -126,17 +127,14 @@ export const kidsPlansServiceOffline = {
 
   async getAllPlans(unitId?: string): Promise<KidsPlan[]> {
     try {
-      // 1. Busca do cache local primeiro
       const localPlans = unitId
         ? await syncService.getAllFromLocalByUnit(COLLECTION, unitId) as KidsPlan[]
         : await syncService.getAllFromLocal(COLLECTION) as KidsPlan[];
 
-      // 2. Se offline, retorna cache
       if (!syncService.isOnline()) {
         return localPlans.filter((p: any) => !p.deletedAt);
       }
 
-      // 3. Se cache vazio e online, aguarda o fetch do Firebase
       if (localPlans.length === 0 && unitId) {
         try {
           const firebasePlans = await this.fetchFromFirebase(unitId);
@@ -146,7 +144,6 @@ export const kidsPlansServiceOffline = {
         }
       }
 
-      // 4. Se já tem cache, busca Firebase em background para sincronizar
       if (unitId) {
         this.fetchFromFirebase(unitId)
           .catch(err => { if (!isFirebaseConnectivityError(err)) console.error('Background fetch kidsPlans failed:', err); });

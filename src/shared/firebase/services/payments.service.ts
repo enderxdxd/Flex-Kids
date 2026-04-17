@@ -1,4 +1,4 @@
-import { collection, addDoc, updateDoc, doc, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, updateDoc, doc, getDocs, query, where, orderBy, Timestamp, setDoc } from 'firebase/firestore';
 import { getDb } from '../config';
 import { Payment } from '../../types';
 
@@ -7,15 +7,16 @@ const COLLECTION = 'payments';
 export const paymentsService = {
   async createPayment(data: Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>): Promise<Payment> {
     const db = getDb();
+    const paymentRef = doc(collection(db, COLLECTION));
     const paymentData = {
       ...data,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     };
 
-    const docRef = await addDoc(collection(db, COLLECTION), paymentData);
+    await setDoc(paymentRef, paymentData);
     return {
-      id: docRef.id,
+      id: paymentRef.id,
       ...data,
       createdAt: new Date(),
       updatedAt: new Date(),

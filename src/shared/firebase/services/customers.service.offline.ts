@@ -1,6 +1,6 @@
 import { collection, doc, query, where, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
-import { getDocsSafe, getDocSafe, addDocSafe, updateDocSafe, isFirebaseConnectivityError } from '../firebaseHelpers';
+import { getDocsSafe, getDocSafe, setDocSafe, updateDocSafe, isFirebaseConnectivityError } from '../firebaseHelpers';
 import { Customer, Child } from '../../types';
 import { syncService } from '../../database/syncService';
 
@@ -28,7 +28,11 @@ export const customersServiceOffline = {
   async _doCreateCustomer(data: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>): Promise<Customer> {
     console.log('🔵 createCustomer called with:', data);
     
+    const db = getDb();
+    const customerRef = doc(collection(db, CUSTOMERS_COLLECTION));
+
     const customerData = {
+      id: customerRef.id,
       ...data,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -37,7 +41,6 @@ export const customersServiceOffline = {
     if (syncService.isOnline()) {
       console.log('🌐 Online - attempting Firebase save with timeout');
       try {
-        const db = getDb();
         const firestoreData: Record<string, any> = {
           ...data,
           createdAt: Timestamp.now(),
@@ -51,11 +54,10 @@ export const customersServiceOffline = {
         console.log('📦 Data:', firestoreData);
         
         // Timeout de 10 segundos para operação Firebase
-        const docRef = await addDocSafe(collection(db, CUSTOMERS_COLLECTION), firestoreData);
-        console.log('✅ Firebase save successful, ID:', docRef.id);
+        await setDocSafe(customerRef, firestoreData);
+        console.log('✅ Firebase save successful, ID:', customerRef.id);
         
         const customer = {
-          id: docRef.id,
           ...customerData,
         };
 
@@ -290,7 +292,11 @@ export const customersServiceOffline = {
   },
 
   async _doAddChild(customerId: string, data: Omit<Child, 'id' | 'customerId' | 'createdAt' | 'updatedAt'> & { unitId?: string }): Promise<Child> {
+    const db = getDb();
+    const childRef = doc(collection(db, CHILDREN_COLLECTION));
+
     const childData = {
+      id: childRef.id,
       ...data,
       customerId,
       createdAt: new Date(),
@@ -299,7 +305,6 @@ export const customersServiceOffline = {
 
     if (syncService.isOnline()) {
       try {
-        const db = getDb();
         const firestoreData: Record<string, any> = {
           ...data,
           customerId,
@@ -311,9 +316,8 @@ export const customersServiceOffline = {
         // Firestore rejects undefined values — remove them
         Object.keys(firestoreData).forEach(k => firestoreData[k] === undefined && delete firestoreData[k]);
 
-        const docRef = await addDocSafe(collection(db, CHILDREN_COLLECTION), firestoreData);
+        await setDocSafe(childRef, firestoreData);
         const child = {
-          id: docRef.id,
           ...childData,
         };
 

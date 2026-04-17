@@ -1,4 +1,4 @@
-import { collection, addDoc, updateDoc, doc, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, updateDoc, doc, getDocs, query, where, orderBy, Timestamp, setDoc } from 'firebase/firestore';
 import { getDb } from '../config';
 import { Package } from '../../types';
 
@@ -7,6 +7,7 @@ const COLLECTION = 'packages';
 export const packagesService = {
   async createPackage(data: Omit<Package, 'id' | 'createdAt' | 'updatedAt'>): Promise<Package> {
     const db = getDb();
+    const packageRef = doc(collection(db, COLLECTION));
     const packageData = {
       ...data,
       sharedAcrossUnits: data.sharedAcrossUnits ?? false,
@@ -15,9 +16,9 @@ export const packagesService = {
       expiresAt: data.expiresAt ? Timestamp.fromDate(data.expiresAt) : null,
     };
 
-    const docRef = await addDoc(collection(db, COLLECTION), packageData);
+    await setDoc(packageRef, packageData);
     return {
-      id: docRef.id,
+      id: packageRef.id,
       ...data,
       sharedAcrossUnits: data.sharedAcrossUnits ?? false,
       createdAt: new Date(),

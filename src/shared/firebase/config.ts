@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { initializeFirestore, getFirestore, persistentLocalCache, persistentMultipleTabManager, enableNetwork, onSnapshotsInSync, collection, getDocs, query, limit, Firestore } from 'firebase/firestore';
+import { initializeFirestore, getFirestore, persistentLocalCache, persistentMultipleTabManager, enableNetwork, collection, query, limit, Firestore, getDocsFromServer } from 'firebase/firestore';
 import { getAuth, Auth } from 'firebase/auth';
 import { getAnalytics, Analytics } from 'firebase/analytics';
 import { FIREBASE_CONFIG } from './firebase.env';
@@ -111,40 +111,26 @@ export async function initFirebase(): Promise<boolean> {
 
 /**
  * Waits for Firestore to establish its backend connection.
- * Uses onSnapshotsInSync to detect when the SDK has synced with the backend,
- * plus a probe read to kick the connection handshake.
- *
- * With persistentLocalCache, reads can be served from cache even if this times out,
- * so the app remains functional regardless.
+ * Uses a real server read so we don't mistake a cache-only sync for
+ * backend connectivity during cold start.
  */
 async function waitForFirestoreConnection(db: Firestore, timeoutMs: number): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
-    let resolved = false;
-
-    const timer = setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        unsubscribe();
-        reject(new Error(`Firestore connection not established within ${timeoutMs}ms`));
-      }
-    }, timeoutMs);
-
-    // onSnapshotsInSync fires when the SDK has caught up with the backend
-    const unsubscribe = onSnapshotsInSync(db, () => {
-      if (!resolved) {
-        resolved = true;
-        clearTimeout(timer);
-        unsubscribe();
-        console.log('✅ Firestore backend connection confirmed (onSnapshotsInSync)');
-        resolve();
-      }
-    });
-
-    // Trigger a probe read to kick the connection handshake
-    getDocs(query(collection(db, '__health__'), limit(1))).catch(() => {
-      // Ignore errors — the probe just triggers the WebSocket connection.
-    });
-  });
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  try {
+    await Promise.race([
+      getDocsFromServer(query(collection(db, 'customers'), limit(1))),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          reject(new Error(`Firestore connection not established within ${timeoutMs}ms`));
+        }, timeoutMs);
+      })
+    ]);
+    console.log('✅ Firestore backend connection confirmed (server probe)');
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
 }
 
 export const getFirebaseApp = (): FirebaseApp => {

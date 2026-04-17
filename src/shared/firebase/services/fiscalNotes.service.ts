@@ -1,6 +1,6 @@
 import { collection, doc, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
-import { getDocsSafe, addDocSafe, updateDocSafe, isFirebaseConnectivityError } from '../firebaseHelpers';
+import { getDocsSafe, setDocSafe, updateDocSafe, isFirebaseConnectivityError } from '../firebaseHelpers';
 import { FiscalNote } from '../../types';
 import { syncService } from '../../database/syncService';
 
@@ -8,7 +8,10 @@ const COLLECTION = 'fiscalNotes';
 
 export const fiscalNotesService = {
   async createFiscalNote(data: Omit<FiscalNote, 'id' | 'createdAt' | 'updatedAt'>): Promise<FiscalNote> {
+    const db = getDb();
+    const fiscalNoteRef = doc(collection(db, COLLECTION));
     const noteData = {
+      id: fiscalNoteRef.id,
       ...data,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -16,16 +19,14 @@ export const fiscalNotesService = {
 
     if (syncService.isOnline()) {
       try {
-        const db = getDb();
         const firestoreData = {
           ...data,
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
         };
 
-        const docRef = await addDocSafe(collection(db, COLLECTION), firestoreData);
+        await setDocSafe(fiscalNoteRef, firestoreData);
         const fiscalNote = {
-          id: docRef.id,
           ...noteData,
         };
 

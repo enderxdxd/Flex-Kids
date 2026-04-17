@@ -31,6 +31,11 @@ interface FlexKidsDB extends DBSchema {
     value: any;
     indexes: { 'by-sync': string; 'by-unit': string; 'by-child': string };
   };
+  fiscalNotes: {
+    key: string;
+    value: any;
+    indexes: { 'by-sync': string };
+  };
   settings: {
     key: string;
     value: any;
@@ -53,7 +58,7 @@ interface FlexKidsDB extends DBSchema {
 class LocalDatabase {
   private db: IDBPDatabase<FlexKidsDB> | null = null;
   private readonly DB_NAME = 'flex-kids-db';
-  private readonly DB_VERSION = 4;
+  private readonly DB_VERSION = 5;
   private ghostMigrationDone = false;
 
   async init(): Promise<void> {
@@ -62,14 +67,12 @@ class LocalDatabase {
     this.ghostMigrationDone = false;
     this.db = await openDB<FlexKidsDB>(this.DB_NAME, this.DB_VERSION, {
       upgrade(db, oldVersion, _newVersion, transaction) {
-        // Visits store
         if (!db.objectStoreNames.contains('visits')) {
           const visitStore = db.createObjectStore('visits', { keyPath: 'id' });
           visitStore.createIndex('by-sync', 'synced');
           visitStore.createIndex('by-unit', 'unitId');
         }
 
-        // Customers store
         if (!db.objectStoreNames.contains('customers')) {
           const customerStore = db.createObjectStore('customers', { keyPath: 'id' });
           customerStore.createIndex('by-sync', 'synced');
@@ -81,7 +84,6 @@ class LocalDatabase {
           }
         }
 
-        // Children store
         if (!db.objectStoreNames.contains('children')) {
           const childrenStore = db.createObjectStore('children', { keyPath: 'id' });
           childrenStore.createIndex('by-sync', 'synced');
@@ -94,7 +96,6 @@ class LocalDatabase {
           }
         }
 
-        // Payments store
         if (!db.objectStoreNames.contains('payments')) {
           const paymentStore = db.createObjectStore('payments', { keyPath: 'id' });
           paymentStore.createIndex('by-sync', 'synced');
@@ -107,7 +108,6 @@ class LocalDatabase {
           }
         }
 
-        // Packages store
         if (!db.objectStoreNames.contains('packages')) {
           const packageStore = db.createObjectStore('packages', { keyPath: 'id' });
           packageStore.createIndex('by-sync', 'synced');
@@ -120,7 +120,6 @@ class LocalDatabase {
           }
         }
 
-        // Kids Plans store
         if (!db.objectStoreNames.contains('kidsPlans')) {
           const kidsPlansStore = db.createObjectStore('kidsPlans', { keyPath: 'id' });
           kidsPlansStore.createIndex('by-sync', 'synced');
@@ -128,12 +127,15 @@ class LocalDatabase {
           kidsPlansStore.createIndex('by-child', 'childId');
         }
 
-        // Settings store
+        if (!db.objectStoreNames.contains('fiscalNotes')) {
+          const fiscalNotesStore = db.createObjectStore('fiscalNotes', { keyPath: 'id' });
+          fiscalNotesStore.createIndex('by-sync', 'synced');
+        }
+
         if (!db.objectStoreNames.contains('settings')) {
           db.createObjectStore('settings', { keyPath: 'id' });
         }
 
-        // Sync queue store
         if (!db.objectStoreNames.contains('syncQueue')) {
           const syncStore = db.createObjectStore('syncQueue', { keyPath: 'id' });
           syncStore.createIndex('by-synced', 'synced');
@@ -141,7 +143,6 @@ class LocalDatabase {
       },
     });
 
-    // Run ghost migration once at init, not on every sync queue read
     await this.migrateGhostSyncItems();
   }
 
@@ -152,7 +153,6 @@ class LocalDatabase {
     return this.db;
   }
 
-  // Generic CRUD operations
   async add(store: keyof FlexKidsDB, data: any): Promise<string> {
     const db = this.ensureDb();
     const id = data.id || this.generateId();
@@ -183,12 +183,9 @@ class LocalDatabase {
     const db = this.ensureDb();
     const id = data.id || this.generateId();
     const callerSynced = data.synced !== undefined ? data.synced : false;
-    // If caller says synced=true (background fetch from Firebase), check if existing item
-    // is pending sync. Don't overwrite unsynced local changes with stale Firebase data.
     if (callerSynced === true || callerSynced === 1) {
       const existing = await db.get(store as any, id);
       if (existing && (existing.synced === 0 || existing.synced === false)) {
-        // Existing item is pending sync — skip overwrite to preserve local changes
         return id;
       }
     }
@@ -203,12 +200,9 @@ class LocalDatabase {
     for (const item of items) {
       const id = item.id || this.generateId();
       const callerSynced = item.synced !== undefined ? item.synced : false;
-      // If caller says synced=true (background fetch), check if existing item is pending sync
-      // Don't overwrite unsynced local changes with stale Firebase data
       if (callerSynced === true || callerSynced === 1) {
         const existing = await tx.store.get(id as any);
         if (existing && (existing.synced === 0 || existing.synced === false)) {
-          // Existing item is pending sync — skip this overwrite to preserve local changes
           continue;
         }
       }
@@ -231,20 +225,85 @@ class LocalDatabase {
     return await db.getAllFromIndex(store as any, indexName, query);
   }
 
-  // Sync queue operations
   async addToSyncQueue(
     collection: string,
     operation: 'create' | 'update' | 'delete',
     data: any
   ): Promise<void> {
     const db = this.ensureDb();
+    const dataId = data?.id;
+    const now = Date.now();
+
+    if (dataId) {
+      const pendingItems = await db.getAllFromIndex('syncQueue', 'by-synced', 0);
+      const sameTarget = pendingItems.filter(
+        item => item.collection === collection && item.data?.id === dataId
+      );
+
+      const existingCreate = sameTarget.find(item => item.operation === 'create');
+      const existingUpdate = sameTarget.find(item => item.operation === 'update');
+      const existingDelete = sameTarget.find(item => item.operation === 'delete');
+
+      if (operation === 'update') {
+        if (existingCreate) {
+          await db.put('syncQueue', {
+            ...existingCreate,
+            data: { ...existingCreate.data, ...data },
+            timestamp: now,
+          });
+          return;
+        }
+
+        if (existingUpdate) {
+          await db.put('syncQueue', {
+            ...existingUpdate,
+            data: { ...existingUpdate.data, ...data },
+            timestamp: now,
+          });
+          return;
+        }
+      }
+
+      if (operation === 'delete') {
+        if (existingCreate) {
+          await db.delete('syncQueue', existingCreate.id);
+          if (existingUpdate) {
+            await db.delete('syncQueue', existingUpdate.id);
+          }
+          return;
+        }
+
+        if (existingUpdate) {
+          await db.delete('syncQueue', existingUpdate.id);
+        }
+
+        if (existingDelete) {
+          await db.put('syncQueue', {
+            ...existingDelete,
+            data,
+            timestamp: now,
+          });
+          return;
+        }
+      }
+
+      if (operation === 'create' && existingCreate) {
+        await db.put('syncQueue', {
+          ...existingCreate,
+          data: { ...existingCreate.data, ...data },
+          timestamp: now,
+        });
+        return;
+      }
+    }
+
     const id = this.generateId();
     await db.add('syncQueue', {
       id,
       collection,
       operation,
       data,
-      timestamp: Date.now(),
+      timestamp: now,
       synced: 0,
       retryCount: 0,
     });
@@ -295,7 +354,6 @@ class LocalDatabase {
     const item = await db.get('syncQueue', queueId);
     if (item) {
       const newCount = (item.retryCount || 0) + 1;
-      // Set synced back to 0 so it gets picked up on next sync attempt
       await db.put('syncQueue', { ...item, retryCount: newCount, synced: 0 });
       return newCount;
     }
@@ -334,7 +392,7 @@ class LocalDatabase {
 
   async exportBackup(): Promise<Record<string, any[]>> {
     const db = this.ensureDb();
-    const stores: Array<keyof FlexKidsDB> = ['visits', 'customers', 'children', 'payments', 'packages', 'kidsPlans', 'settings'];
+    const stores: Array<keyof FlexKidsDB> = ['visits', 'customers', 'children', 'payments', 'packages', 'kidsPlans', 'fiscalNotes', 'settings'];
     const backup: Record<string, any[]> = {};
     for (const store of stores) {
       backup[store] = await db.getAll(store as any);
@@ -370,11 +428,10 @@ class LocalDatabase {
         }
         await tx.done;
       } catch {
-        // Store may not exist or be empty
+        // Best-effort reference repair; ignore stores that are missing or incompatible.
       }
     }
 
-    // Also update references inside pending sync queue items
     try {
       const pending = await db.getAll('syncQueue');
       const tx = db.transaction('syncQueue', 'readwrite');
@@ -395,13 +452,12 @@ class LocalDatabase {
       }
       await tx.done;
     } catch {
-      // Ignore sync queue errors
+      // Best-effort queue repair; keep the rest of the migration path running.
     }
 
     return updated;
   }
 
-  // Mark item as synced in main stores
   async markItemAsSynced(store: keyof FlexKidsDB, id: string): Promise<void> {
     const db = this.ensureDb();
     const item = await db.get(store as any, id);

@@ -63,10 +63,9 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
   };
 
   const getChildPlan = (childId: string): KidsPlan | undefined => {
-    // 1. Match by childId
     const byId = kidsPlans.find(p => p.childId === childId && (p.status === 'active' || p.status === 'expiring'));
     if (byId) return byId;
-    // 2. Fallback: match by enrollmentCode
+
     const child = children.find(c => c.id === childId);
     if (child?.enrollmentCode) {
       return kidsPlans.find(p => p.enrollmentCode === child.enrollmentCode && (p.status === 'active' || p.status === 'expiring'));
@@ -74,7 +73,6 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
     return undefined;
   };
 
-  // Detect duplicate children: same name under different customers
   const duplicateWarning = useMemo(() => {
     if (!selectedChild) return null;
     const child = children.find(c => c.id === selectedChild);
@@ -116,7 +114,6 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
     try {
       setLoading(true);
       
-      // Verificar se a criança já tem check-in ativo
       const hasActiveCheckIn = await visitsServiceOffline.hasActiveVisit(selectedChild, currentUnit);
       if (hasActiveCheckIn) {
         toast.error('Esta criança já possui um check-in ativo!');

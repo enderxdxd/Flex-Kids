@@ -1,6 +1,6 @@
-import { collection, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, doc, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { getDb } from '../config';
-import { getDocsSafe, addDocSafe, isFirebaseConnectivityError } from '../firebaseHelpers';
+import { getDocsSafe, setDocSafe, isFirebaseConnectivityError } from '../firebaseHelpers';
 import { Payment } from '../../types';
 import { syncService } from '../../database/syncService';
 
@@ -23,7 +23,10 @@ export const paymentsServiceOffline = {
   },
 
   async _doCreatePayment(data: Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>): Promise<Payment> {
+    const db = getDb();
+    const paymentRef = doc(collection(db, COLLECTION));
     const paymentData = {
+      id: paymentRef.id,
       ...data,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -31,7 +34,6 @@ export const paymentsServiceOffline = {
 
     if (syncService.isOnline()) {
       try {
-        const db = getDb();
         const firestoreData: Record<string, any> = {
           ...data,
           createdAt: Timestamp.now(),
@@ -40,9 +42,8 @@ export const paymentsServiceOffline = {
         // Firestore rejects undefined values — remove them
         Object.keys(firestoreData).forEach(k => firestoreData[k] === undefined && delete firestoreData[k]);
 
-        const docRef = await addDocSafe(collection(db, COLLECTION), firestoreData);
+        await setDocSafe(paymentRef, firestoreData);
         const payment = {
-          id: docRef.id,
           ...paymentData,
         };
 
