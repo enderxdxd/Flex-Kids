@@ -282,7 +282,7 @@ const DashboardNew: React.FC = () => {
                             </span>
                             <span className={`${colors.text} ${colors.light} font-bold px-2 py-0.5 rounded-full text-[11px]`}>{formatDuration(elapsed)}</span>
                             <span className="text-slate-300">·</span>
-                            <span className="truncate text-slate-400">{visit.child?.customer?.name || 'Cliente'}</span>
+                            <span className="truncate text-slate-400">{visit.child?.customer?.name || 'Cliente'}{visit.child?.customer?.phone ? ` · ${visit.child.customer.phone}` : ''}</span>
                           </div>
                         </div>
                       </div>
@@ -455,6 +455,7 @@ const DashboardNew: React.FC = () => {
           }}
           onSuccess={handleCheckOutSuccess}
           visit={selectedVisit}
+          activeVisits={activeVisits}
         />
       )}
 
