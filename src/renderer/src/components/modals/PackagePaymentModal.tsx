@@ -124,6 +124,7 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
           active: true,
           expiryDays: packageData.expiryDays || 30,
           createdAt: new Date(),
+          expiresAt: expirationDate,
           paymentId: payment.id,
           employeeDiscount: employeeDiscount || undefined,
           originalPrice: employeeDiscount ? packageData.price : undefined,
