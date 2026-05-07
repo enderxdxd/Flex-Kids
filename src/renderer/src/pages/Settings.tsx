@@ -207,12 +207,12 @@ const Settings: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Configurações</h1>
-        <p className="text-sm text-slate-500">Configurações da unidade <span className="font-semibold text-violet-600">{currentUnit}</span></p>
+        <h1 className="text-display bg-brand-gradient bg-clip-text text-transparent">Configurações</h1>
+        <p className="text-sm text-slate-500 mt-1">Configurações da unidade <span className="font-semibold text-brand-700">{currentUnit}</span></p>
       </div>
 
       {loading ? (
-        <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-white/20 shadow-md p-6">
+        <div className="bg-white rounded-card-lg border border-slate-200/80 shadow-card p-6">
           <div className="animate-pulse space-y-4">
             {[1, 2, 3, 4].map(i => <div key={i} className="h-12 bg-slate-100/50 rounded-xl" />)}
           </div>
@@ -222,7 +222,7 @@ const Settings: React.FC = () => {
           {/* Main Settings */}
           <div className="lg:col-span-2 space-y-5">
             {/* Cobrança */}
-            <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-white/20 shadow-md p-6">
+            <div className="bg-white rounded-card-lg border border-slate-200/80 shadow-card p-6">
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-2">
                   <svg className="w-4 h-4 text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
@@ -249,12 +249,12 @@ const Settings: React.FC = () => {
               <div className="grid grid-cols-2 gap-5">
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-2">Valor por Hora (R$)</label>
-                  <input type="number" step="0.01" min="0" value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)} disabled={!canEditBilling} className={`w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-400 transition-all hover:border-slate-300 ${!canEditBilling ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-50/50'}`} placeholder="30.00" />
+                  <input type="number" step="0.01" min="0" value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)} disabled={!canEditBilling} className={`w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500 transition-all hover:border-slate-300 ${!canEditBilling ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-50/50'}`} placeholder="30.00" />
                   <p className="text-[11px] text-slate-400 mt-1.5">{canEditBilling ? 'Valor por hora no playground' : 'Digite a senha acima para alterar'}</p>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-2">Tempo Mínimo (min)</label>
-                  <input type="number" min="0" value={minimumTime} onChange={(e) => setMinimumTime(e.target.value)} disabled={!canEditBilling} className={`w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-400 transition-all hover:border-slate-300 ${!canEditBilling ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-50/50'}`} placeholder="30" />
+                  <input type="number" min="0" value={minimumTime} onChange={(e) => setMinimumTime(e.target.value)} disabled={!canEditBilling} className={`w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500 transition-all hover:border-slate-300 ${!canEditBilling ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-50/50'}`} placeholder="30" />
                   <p className="text-[11px] text-slate-400 mt-1.5">{canEditBilling ? 'Cobrança mínima' : 'Digite a senha acima para alterar'}</p>
                 </div>
               </div>
@@ -262,14 +262,14 @@ const Settings: React.FC = () => {
 
 
             {/* Impressora */}
-            <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-white/20 shadow-md p-6">
+            <div className="bg-white rounded-card-lg border border-slate-200/80 shadow-card p-6">
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-2">
                   <svg className="w-4 h-4 text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m10.5 0a48.536 48.536 0 0 0-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18.75 12h.008v.008h-.008V12Zm-2.25 0h.008v.008H16.5V12Z" /></svg>
                   <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Impressora</h2>
                 </div>
                 {enablePrinting && (
-                  <button onClick={handleTestPrinter} disabled={testing} className="text-xs font-semibold text-violet-600 hover:text-violet-700 disabled:opacity-50 flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-violet-50 transition-all">
+                  <button onClick={handleTestPrinter} disabled={testing} className="text-xs font-semibold text-brand-600 hover:text-brand-700 disabled:opacity-50 flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-brand-50 transition-all">
                     {testing ? (
                       <><svg className="w-3.5 h-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> Testando...</>
                     ) : (
@@ -281,7 +281,7 @@ const Settings: React.FC = () => {
               <label className="flex items-center gap-3 cursor-pointer mb-4 p-3 rounded-xl bg-slate-50/50 border border-slate-100 hover:border-violet-200 transition-all">
                 <div className="relative">
                   <input type="checkbox" checked={enablePrinting} onChange={(e) => handleEnablePrintingChange(e.target.checked)} className="sr-only peer" />
-                  <div className="w-10 h-5 bg-slate-300 rounded-full peer-checked:bg-violet-500 transition-colors"></div>
+                  <div className="w-10 h-5 bg-slate-300 rounded-full peer-checked:bg-brand-gradient transition-colors"></div>
                   <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-5"></div>
                 </div>
                 <span className="text-sm text-slate-700 font-medium">Habilitar impressão de comprovante</span>
@@ -289,7 +289,7 @@ const Settings: React.FC = () => {
               {enablePrinting && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-2">Porta</label>
-                  <select value={printerPort} onChange={(e) => handlePrinterPortChange(e.target.value)} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-400 transition-all hover:border-slate-300">
+                  <select value={printerPort} onChange={(e) => handlePrinterPortChange(e.target.value)} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500 transition-all hover:border-slate-300">
                     <option value="AUTO">Detectar Automaticamente</option>
                     <option value="COM1">COM1</option>
                     <option value="COM2">COM2</option>
@@ -301,7 +301,7 @@ const Settings: React.FC = () => {
             </div>
 
             {/* Save */}
-            <button onClick={handleSave} disabled={saving} className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white py-3.5 rounded-xl font-semibold text-sm transition-all duration-200 disabled:opacity-50 shadow-md hover:shadow-lg flex items-center justify-center gap-2">
+            <button onClick={handleSave} disabled={saving} className="w-full bg-brand-gradient hover:brightness-110 shadow-brand-sm text-white py-3.5 rounded-xl font-semibold text-sm transition-all duration-200 disabled:opacity-50 shadow-md hover:shadow-lg flex items-center justify-center gap-2">
               {saving ? (
                 <><svg className="w-4 h-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> Salvando...</>
               ) : (
@@ -413,7 +413,7 @@ const Settings: React.FC = () => {
           {/* Sidebar */}
           <div className="space-y-5">
             {/* Summary */}
-            <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-white/20 shadow-md p-5">
+            <div className="bg-white rounded-card-lg border border-slate-200/80 shadow-card p-5">
               <div className="flex items-center gap-2 mb-4">
                 <svg className="w-4 h-4 text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15a2.25 2.25 0 0 1 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" /></svg>
                 <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Resumo</h2>
@@ -421,11 +421,11 @@ const Settings: React.FC = () => {
               <div className="space-y-1">
                 <div className="flex justify-between items-center py-2.5 px-3 rounded-lg hover:bg-slate-50/80 transition-colors">
                   <span className="text-xs text-slate-500">Valor/Hora</span>
-                  <span className="text-sm font-bold text-slate-800">R$ {parseFloat(hourlyRate || '0').toFixed(2)}</span>
+                  <span className="text-sm font-bold text-slate-900">R$ {parseFloat(hourlyRate || '0').toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center py-2.5 px-3 rounded-lg hover:bg-slate-50/80 transition-colors">
                   <span className="text-xs text-slate-500">Tempo Mínimo</span>
-                  <span className="text-sm font-bold text-slate-800">{minimumTime} min</span>
+                  <span className="text-sm font-bold text-slate-900">{minimumTime} min</span>
                 </div>
                 <div className="flex justify-between items-center py-2.5 px-3 rounded-lg hover:bg-slate-50/80 transition-colors">
                   <span className="text-xs text-slate-500">Impressora</span>
@@ -435,7 +435,7 @@ const Settings: React.FC = () => {
             </div>
 
             {/* Backup & Sync */}
-            <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-white/20 shadow-md p-5">
+            <div className="bg-white rounded-card-lg border border-slate-200/80 shadow-card p-5">
               <div className="flex items-center gap-2 mb-4">
                 <svg className="w-4 h-4 text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" /></svg>
                 <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Backup & Sync</h2>

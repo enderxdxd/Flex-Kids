@@ -8,6 +8,10 @@ import { customersServiceOffline } from '../../../shared/firebase/services/custo
 import { settingsServiceOffline } from '../../../shared/firebase/services/settings.service.offline';
 import { bematechService } from '../../../shared/services/bematech.service';
 import { useUnit } from '../contexts/UnitContext';
+import {
+  Card, Button, IconButton, PageHeader, EmptyState, Skeleton, Badge, Input, cn,
+} from '../components/ui';
+import { RefreshIcon, ClipboardIcon } from '../components/icons/Icons';
 
 const VisitHistory: React.FC = () => {
   const { currentUnit } = useUnit();
@@ -56,7 +60,6 @@ const VisitHistory: React.FC = () => {
   const filteredVisits = useMemo(() => {
     let result = allVisits;
 
-    // Date filter
     if (dateFilter === 'today') {
       result = result.filter(v => {
         const d = v.checkIn instanceof Date ? v.checkIn : new Date(v.checkIn);
@@ -70,7 +73,6 @@ const VisitHistory: React.FC = () => {
       });
     }
 
-    // Search filter — matches child name OR customer name
     const term = searchTerm.trim().toLowerCase();
     if (term) {
       result = result.filter(v => {
@@ -150,11 +152,8 @@ const VisitHistory: React.FC = () => {
       ];
 
       const printed = await bematechService.printNonFiscalReport('COMPROVANTE DE ATENDIMENTO', lines);
-      if (printed) {
-        toast.success('Comprovante reimpresso!');
-      } else {
-        toast.warning('Impressora não respondeu');
-      }
+      if (printed) toast.success('Comprovante reimpresso!');
+      else toast.warning('Impressora não respondeu');
     } catch (error) {
       console.error('Reprint error:', error);
       toast.error('Erro ao reimprimir comprovante');
@@ -165,154 +164,137 @@ const VisitHistory: React.FC = () => {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Histórico de Visitas</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Todas as visitas · busca por criança ou responsável</p>
-        </div>
-        <button
-          onClick={loadAll}
-          disabled={loading}
-          className="flex items-center gap-1.5 text-xs text-violet-600 hover:text-violet-700 font-semibold bg-violet-50 hover:bg-violet-100 px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
-        >
-          <svg className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Atualizar
-        </button>
-      </div>
+      <PageHeader
+        title="Histórico de Visitas"
+        subtitle="Todas as visitas · busca por criança ou responsável"
+        actions={
+          <Button
+            variant="outline"
+            onClick={loadAll}
+            loading={loading}
+            iconLeft={<RefreshIcon size={16} />}
+          >
+            Atualizar
+          </Button>
+        }
+      />
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col gap-3">
-        {/* Search */}
-        <div className="relative">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            placeholder="Buscar por criança ou responsável..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent placeholder:text-slate-400"
-          />
-          {searchTerm && (
-            <button
-              onClick={() => setSearchTerm('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          )}
-        </div>
+      <Card padding="md" className="space-y-3">
+        <Input
+          type="text"
+          placeholder="Buscar por criança ou responsável..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          iconLeft={
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          }
+        />
 
-        {/* Date filter pills + date picker */}
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setDateFilter('all')}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${dateFilter === 'all' ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            className={cn(
+              'px-3 py-1.5 rounded-full text-xs font-semibold transition-all',
+              dateFilter === 'all'
+                ? 'bg-brand-gradient text-white shadow-brand-sm'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+            )}
           >
             Todas as datas
           </button>
           <button
             onClick={() => setDateFilter('today')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${dateFilter === 'today' ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all',
+              dateFilter === 'today'
+                ? 'bg-brand-gradient text-white shadow-brand-sm'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+            )}
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
             Hoje
           </button>
-          <div className="flex items-center gap-1.5">
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => { setSelectedDate(e.target.value); setDateFilter('date'); }}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500 ${dateFilter === 'date' ? 'border-violet-500 text-violet-700 bg-violet-50' : 'border-slate-200 text-slate-600 bg-slate-100'}`}
-            />
-            {dateFilter === 'date' && (
-              <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-violet-100 text-violet-600">
-                {format(new Date(selectedDate + 'T00:00:00'), "dd/MM", { locale: ptBR })}
-              </span>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => { setSelectedDate(e.target.value); setDateFilter('date'); }}
+            className={cn(
+              'h-8 px-3 rounded-full text-xs font-semibold border transition-all focus:outline-none focus:ring-2 focus:ring-brand-100',
+              dateFilter === 'date'
+                ? 'border-brand-400 text-brand-700 bg-brand-gradient-soft'
+                : 'border-slate-200 text-slate-600 bg-white hover:border-brand-300',
             )}
-          </div>
+          />
         </div>
-      </div>
+      </Card>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-violet-100 flex items-center justify-center flex-shrink-0">
-            <svg className="w-5 h-5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card padding="md">
+          <div className="flex items-center gap-3">
+            <span className="w-10 h-10 rounded-lg bg-brand-gradient text-white flex items-center justify-center shadow-sm">
+              <ClipboardIcon size={18} />
+            </span>
+            <div>
+              <p className="text-caption text-slate-500 uppercase">Total Visitas</p>
+              <p className="text-2xl font-bold text-slate-900 tabular-nums">{completedVisits.length}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs text-slate-500 font-medium">Total Visitas</p>
-            <p className="text-2xl font-bold text-slate-800">{completedVisits.length}</p>
+        </Card>
+        <Card padding="md">
+          <div className="flex items-center gap-3">
+            <span className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-400 to-teal-600 text-white flex items-center justify-center shadow-sm">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </span>
+            <div>
+              <p className="text-caption text-slate-500 uppercase">Tempo Total</p>
+              <p className="text-2xl font-bold text-slate-900 tabular-nums">{formatDuration(totalMinutes)}</p>
+            </div>
           </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
-            <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+        </Card>
+        <Card padding="md">
+          <div className="flex items-center gap-3">
+            <span className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow-sm">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </span>
+            <div>
+              <p className="text-caption text-slate-500 uppercase">Em Andamento</p>
+              <p className="text-2xl font-bold text-slate-900 tabular-nums">{activeCount}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs text-slate-500 font-medium">Tempo Total</p>
-            <p className="text-2xl font-bold text-slate-800">{formatDuration(totalMinutes)}</p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
-            <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-xs text-slate-500 font-medium">Em Andamento</p>
-            <p className="text-2xl font-bold text-slate-800">{activeCount}</p>
-          </div>
-        </div>
+        </Card>
       </div>
 
-      {/* Visits List */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+      {/* List */}
+      <Card padding="none">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-gradient-to-r from-brand-50/40 to-transparent">
+          <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">
             {filteredVisits.length} visita{filteredVisits.length !== 1 ? 's' : ''}
             {searchTerm && <span className="ml-1 font-normal normal-case text-slate-400">para "{searchTerm}"</span>}
             {dateFilter === 'today' && <span className="ml-1 font-normal normal-case text-slate-400">· hoje</span>}
-            {dateFilter === 'date' && <span className="ml-1 font-normal normal-case text-slate-400">· {format(new Date(selectedDate + 'T00:00:00'), "dd/MM/yyyy")}</span>}
+            {dateFilter === 'date' && <span className="ml-1 font-normal normal-case text-slate-400">· {format(new Date(selectedDate + 'T00:00:00'), 'dd/MM/yyyy')}</span>}
           </p>
         </div>
 
         {loading ? (
-          <div className="p-5 space-y-4">
-            {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} className="animate-pulse flex items-center gap-3">
-                <div className="w-2 h-2 bg-slate-200 rounded-full flex-shrink-0" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-3 bg-slate-100 rounded w-2/5" />
-                  <div className="h-2 bg-slate-100 rounded w-1/4" />
-                </div>
-                <div className="h-4 bg-slate-100 rounded w-14" />
-              </div>
-            ))}
+          <div className="p-5 space-y-3">
+            {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-14" />)}
           </div>
         ) : filteredVisits.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-            <svg className="w-10 h-10 mb-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            <p className="font-medium text-sm">Nenhuma visita encontrada</p>
-            <p className="text-xs mt-1">Tente ajustar os filtros</p>
-          </div>
+          <EmptyState
+            icon={<ClipboardIcon size={28} />}
+            title="Nenhuma visita encontrada"
+            description="Tente ajustar os filtros"
+          />
         ) : (
           <div className="divide-y divide-slate-100">
             {filteredVisits.map((visit) => {
@@ -332,31 +314,34 @@ const VisitHistory: React.FC = () => {
               const child = getChild(visit.childId);
               const customer = getCustomer(visit.childId);
 
+              const stripe = isActive
+                ? 'bg-gradient-to-b from-emerald-400 to-teal-500'
+                : isCancelled
+                  ? 'bg-gradient-to-b from-red-400 to-rose-500'
+                  : 'bg-slate-200';
+
               return (
                 <div
                   key={visit.id}
-                  className={`flex items-center justify-between px-5 py-3.5 transition-colors ${
-                    isActive ? 'bg-emerald-50/60' : isCancelled ? 'bg-red-50/40' : 'hover:bg-slate-50/60'
-                  }`}
+                  className={cn(
+                    'relative flex items-center justify-between pl-5 pr-5 py-3.5 transition-colors',
+                    isActive ? 'bg-emerald-50/40 hover:bg-emerald-50/60' : isCancelled ? 'bg-red-50/30 hover:bg-red-50/50' : 'hover:bg-slate-50/60',
+                  )}
                 >
-                  {/* Left */}
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${
-                      isActive ? 'bg-emerald-500 ring-2 ring-emerald-200' : isCancelled ? 'bg-red-400' : 'bg-slate-300'
-                    }`} />
+                  <span className={cn('absolute left-0 top-2 bottom-2 w-1 rounded-r-full', stripe)} aria-hidden="true" />
 
+                  <div className="flex items-start gap-3 min-w-0">
                     <div className="min-w-0">
-                      {/* Child + customer */}
                       <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                        <p className="font-semibold text-sm text-violet-700 truncate">
+                        <p className="font-semibold text-sm text-brand-700 truncate">
                           {child?.name || 'Desconhecido'}
                         </p>
                         {(child?.observations || customer?.observations) && (
                           <div className="relative group flex-shrink-0">
-                            <svg className="w-3.5 h-3.5 text-amber-500 cursor-default" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg className="w-3.5 h-3.5 text-amber-500 cursor-default" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                             </svg>
-                            <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-20 w-60 bg-slate-800 text-white text-xs rounded-xl p-3 shadow-2xl pointer-events-none">
+                            <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-20 w-60 bg-slate-900 text-white text-xs rounded-xl p-3 shadow-card-lg pointer-events-none">
                               {child?.observations && (
                                 <div className="mb-1.5 last:mb-0">
                                   <p className="text-slate-400 font-semibold uppercase tracking-wider text-[10px] mb-0.5">Criança</p>
@@ -369,7 +354,6 @@ const VisitHistory: React.FC = () => {
                                   <p className="leading-snug">{customer.observations}</p>
                                 </div>
                               )}
-                              <div className="absolute left-2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800" />
                             </div>
                           </div>
                         )}
@@ -381,8 +365,7 @@ const VisitHistory: React.FC = () => {
                         )}
                       </div>
 
-                      {/* Date + time */}
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 tabular-nums">
                         <p className="text-xs text-slate-600 font-medium capitalize">
                           {format(checkInDate, "EEE, dd/MM", { locale: ptBR })}
                         </p>
@@ -393,52 +376,47 @@ const VisitHistory: React.FC = () => {
                         </p>
                       </div>
 
-                      {/* Badges */}
                       {(isCancelled || usedPackage || paymentLabel) && (
                         <div className="flex items-center gap-1.5 mt-1">
-                          {isCancelled && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600">Cancelado</span>
-                          )}
-                          {usedPackage && !isCancelled && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-600">Pacote</span>
-                          )}
-                          {paymentLabel && (
-                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{paymentLabel}</span>
-                          )}
+                          {isCancelled && <Badge tone="red" size="sm">Cancelado</Badge>}
+                          {usedPackage && !isCancelled && <Badge tone="brand" size="sm">Pacote</Badge>}
+                          {paymentLabel && <Badge tone="slate" size="sm">{paymentLabel}</Badge>}
                         </div>
                       )}
                     </div>
                   </div>
 
-                  {/* Right */}
                   <div className="flex items-center gap-3 flex-shrink-0 ml-4">
                     {isActive ? (
-                      <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700">
-                        Em andamento
-                      </span>
+                      <Badge tone="emerald">Em andamento</Badge>
                     ) : (
                       <>
                         <div className="text-right">
-                          <p className={`font-bold text-sm ${isCancelled ? 'text-red-400 line-through' : 'text-slate-800'}`}>
+                          <p className={cn(
+                            'font-bold text-sm tabular-nums',
+                            isCancelled ? 'text-red-400 line-through' : 'text-slate-900',
+                          )}>
                             {duration !== null ? formatDuration(duration) : '—'}
                           </p>
                           {!isCancelled && visit.value && visit.value > 0 && (
-                            <p className="text-xs text-emerald-600 font-semibold mt-0.5">
+                            <p className="text-xs text-emerald-700 font-semibold tabular-nums mt-0.5">
                               R$ {visit.value.toFixed(2)}
                             </p>
                           )}
                         </div>
                         {!isCancelled && (
-                          <button
+                          <IconButton
+                            variant="ghost"
+                            size="sm"
                             onClick={() => handleReprint(visit)}
                             disabled={reprintingId === visit.id}
+                            aria-label="Reimprimir comprovante"
                             title="Reimprimir comprovante"
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition-colors disabled:opacity-50"
                           >
-                            <svg className={`w-4 h-4 ${reprintingId === visit.id ? 'animate-pulse' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg className={cn('w-4 h-4', reprintingId === visit.id && 'animate-pulse')} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                             </svg>
-                          </button>
+                          </IconButton>
                         )}
                       </>
                     )}
@@ -448,7 +426,7 @@ const VisitHistory: React.FC = () => {
             })}
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 };

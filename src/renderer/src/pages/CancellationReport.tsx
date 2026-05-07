@@ -5,6 +5,10 @@ import { ptBR } from 'date-fns/locale';
 import { Visit } from '../../../shared/types';
 import { visitsServiceOffline } from '../../../shared/firebase/services/visits.service.offline';
 import { useUnit } from '../contexts/UnitContext';
+import {
+  Card, Button, PageHeader, EmptyState, Skeleton, Badge, cn,
+} from '../components/ui';
+import { RefreshIcon, BanIcon } from '../components/icons/Icons';
 
 const CancellationReport: React.FC = () => {
   const { currentUnit } = useUnit();
@@ -48,7 +52,6 @@ const CancellationReport: React.FC = () => {
         return bTime - aTime;
       });
 
-      // Enrich with child data
       const enriched = await visitsServiceOffline.enrichVisitsWithChildData(filtered as Visit[]);
       setCancellations(enriched);
     } catch (error) {
@@ -63,107 +66,119 @@ const CancellationReport: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">Relatório de Cancelamentos</h1>
-        <p className="text-sm text-slate-500">Controle de check-ins cancelados por período</p>
-      </div>
+      <PageHeader
+        title="Relatório de Cancelamentos"
+        subtitle="Controle de check-ins cancelados por período"
+      />
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
+      <Card padding="md">
         <div className="flex flex-wrap items-end gap-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Período</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Período</label>
             <div className="flex gap-1 bg-slate-100 p-1 rounded-lg">
-              <button
-                onClick={() => setFilterType('day')}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${filterType === 'day' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-              >
-                Dia
-              </button>
-              <button
-                onClick={() => setFilterType('month')}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${filterType === 'month' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-              >
-                Mês
-              </button>
+              {(['day', 'month'] as const).map(f => (
+                <button
+                  key={f}
+                  onClick={() => setFilterType(f)}
+                  className={cn(
+                    'px-3 py-1.5 rounded-md text-sm font-semibold transition-all',
+                    filterType === f
+                      ? 'bg-white text-brand-700 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700',
+                  )}
+                >
+                  {f === 'day' ? 'Dia' : 'Mês'}
+                </button>
+              ))}
             </div>
           </div>
 
           {filterType === 'day' ? (
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Data</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Data</label>
               <input
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                className="h-10 px-3 border border-slate-200 rounded-lg text-sm bg-white hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 focus:outline-none transition-all"
               />
             </div>
           ) : (
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Mês</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Mês</label>
               <input
                 type="month"
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                className="h-10 px-3 border border-slate-200 rounded-lg text-sm bg-white hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 focus:outline-none transition-all"
               />
             </div>
           )}
 
-          <button
+          <Button
+            variant="outline"
             onClick={loadCancellations}
-            disabled={loading}
-            className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+            loading={loading}
+            iconLeft={<RefreshIcon size={16} />}
           >
-            {loading ? <svg className="w-4 h-4 animate-spin inline-block" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> : <svg className="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.992 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" /></svg>} Atualizar
-          </button>
+            Atualizar
+          </Button>
         </div>
-      </div>
+      </Card>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <p className="text-xs text-slate-500 font-medium">Total Cancelamentos</p>
-          <p className="text-2xl font-bold text-red-600 mt-1">{cancellations.length}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <p className="text-xs text-slate-500 font-medium">Minutos Registrados</p>
-          <p className="text-2xl font-bold text-slate-800 mt-1">{totalMinutes} min</p>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card padding="md" className="relative overflow-hidden bg-gradient-to-br from-red-50 to-rose-50 border-red-200/60">
+          <div className="flex items-center justify-between mb-2">
+            <span className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 text-white flex items-center justify-center shadow-sm">
+              <BanIcon size={18} />
+            </span>
+          </div>
+          <p className="text-caption text-red-700 uppercase">Total Cancelamentos</p>
+          <p className="text-3xl font-bold text-red-700 tabular-nums mt-1">{cancellations.length}</p>
+        </Card>
+        <Card padding="md">
+          <p className="text-caption text-slate-500 uppercase">Minutos Registrados</p>
+          <p className="text-3xl font-bold text-slate-900 tabular-nums mt-1">{totalMinutes} min</p>
+        </Card>
       </div>
 
       {/* List */}
-      <div className="bg-white rounded-xl border border-slate-200">
-        <div className="p-4 border-b border-slate-100">
-          <h2 className="text-sm font-bold text-slate-600 uppercase tracking-wider">Cancelamentos</h2>
+      <Card padding="none">
+        <div className="px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-red-50/40 to-transparent">
+          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Cancelamentos</h2>
         </div>
 
         {loading ? (
           <div className="p-5 space-y-3">
-            {[1, 2, 3].map(i => <div key={i} className="animate-pulse h-14 bg-slate-100 rounded-lg" />)}
+            {[1, 2, 3].map(i => <Skeleton key={i} className="h-14" />)}
           </div>
         ) : cancellations.length === 0 ? (
-          <div className="text-center py-12 text-slate-400">
-            <svg className="w-10 h-10 mx-auto mb-2 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
-            <p className="font-medium">Nenhum cancelamento no período</p>
-          </div>
+          <EmptyState
+            icon={
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-7 h-7 text-emerald-500" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+            }
+            title="Nenhum cancelamento no período"
+            description="Tudo certo por aqui."
+          />
         ) : (
           <div className="divide-y divide-slate-100">
             {cancellations.map((visit) => {
               const checkInDate = visit.checkIn instanceof Date ? visit.checkIn : new Date(visit.checkIn);
               const checkOutDate = visit.checkOut ? (visit.checkOut instanceof Date ? visit.checkOut : new Date(visit.checkOut)) : null;
               return (
-                <div key={visit.id} className="flex items-center justify-between p-4 hover:bg-red-50/30 transition-colors">
+                <div key={visit.id} className="relative flex items-center justify-between pl-5 pr-5 py-3 hover:bg-red-50/30 transition-colors">
+                  <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-gradient-to-b from-red-500 to-rose-600" aria-hidden="true" />
                   <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-red-400 flex-shrink-0" />
                     <div>
                       <div className="flex items-center gap-2">
-                        <p className="font-medium text-sm text-slate-800">{visit.child?.name || 'Criança'}</p>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600">Cancelado</span>
+                        <p className="font-semibold text-sm text-slate-900">{visit.child?.name || 'Criança'}</p>
+                        <Badge tone="red" size="sm">Cancelado</Badge>
                       </div>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-slate-500 mt-0.5">
                         {format(checkInDate, "EEEE, dd/MM 'às' HH:mm", { locale: ptBR })}
                         {checkOutDate ? ` → ${format(checkOutDate, 'HH:mm')}` : ''}
                         {visit.child?.customer?.name ? ` · ${visit.child.customer.name}` : ''}
@@ -171,7 +186,7 @@ const CancellationReport: React.FC = () => {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-sm text-red-500">{visit.duration || 0} min</p>
+                    <p className="font-bold text-sm text-red-600 tabular-nums">{visit.duration || 0} min</p>
                     <p className="text-[10px] text-slate-400">registrados</p>
                   </div>
                 </div>
@@ -179,7 +194,7 @@ const CancellationReport: React.FC = () => {
             })}
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 };

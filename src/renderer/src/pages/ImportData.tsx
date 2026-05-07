@@ -1256,10 +1256,9 @@ const ImportData: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">📥 Importar Dados</h1>
-        <p className="text-sm text-slate-500">Importação de dados do sistema anterior via planilhas XLSX</p>
+        <h1 className="text-display bg-brand-gradient bg-clip-text text-transparent">Importar Dados</h1>
+        <p className="text-sm text-slate-500 mt-1">Importação de dados do sistema anterior via planilhas XLSX</p>
       </div>
 
       {/* Delete options on upload step */}
@@ -1307,7 +1306,7 @@ const ImportData: React.FC = () => {
       {/* Step: Upload */}
       {step === 'upload' && (
         <div className="space-y-4">
-          <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+          <div className="bg-white rounded-card-lg border border-slate-200/80 shadow-card p-5 space-y-4">
             <h2 className="text-sm font-bold text-slate-600 uppercase tracking-wider">1. Selecione as planilhas</h2>
 
             {/* Responsáveis + Crianças */}
@@ -1319,7 +1318,7 @@ const ImportData: React.FC = () => {
                 type="file"
                 accept=".xlsx,.xls"
                 onChange={(e) => setResponsaveisFile(e.target.files?.[0] || null)}
-                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
+                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-brand-gradient file:text-white file:shadow-brand-sm hover:file:brightness-110"
               />
               {responsaveisFile && <p className="text-xs text-emerald-600 mt-1">✅ {responsaveisFile.name}</p>}
             </div>
@@ -1333,7 +1332,7 @@ const ImportData: React.FC = () => {
                 type="file"
                 accept=".xlsx,.xls"
                 onChange={(e) => setPacotesFile(e.target.files?.[0] || null)}
-                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
+                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-brand-gradient file:text-white file:shadow-brand-sm hover:file:brightness-110"
               />
               {pacotesFile && <p className="text-xs text-emerald-600 mt-1">✅ {pacotesFile.name}</p>}
             </div>
@@ -1347,7 +1346,7 @@ const ImportData: React.FC = () => {
                 type="file"
                 accept=".xlsx,.xls"
                 onChange={(e) => setKidsPlansFile(e.target.files?.[0] || null)}
-                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
+                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-brand-gradient file:text-white file:shadow-brand-sm hover:file:brightness-110"
               />
               {kidsPlansFile && <p className="text-xs text-emerald-600 mt-1">✅ {kidsPlansFile.name}</p>}
             </div>
@@ -1356,7 +1355,7 @@ const ImportData: React.FC = () => {
           <button
             onClick={handleParse}
             disabled={!responsaveisFile && !pacotesFile && !kidsPlansFile}
-            className="px-6 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors disabled:opacity-50"
+            className="px-6 py-2.5 rounded-lg bg-brand-gradient hover:brightness-110 shadow-brand-sm text-white text-sm font-semibold transition-colors disabled:opacity-50"
           >
             Ler Planilhas
           </button>
@@ -1368,15 +1367,15 @@ const ImportData: React.FC = () => {
         <div className="space-y-4">
           {/* Stats preview */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
+            <div className="bg-white rounded-card-lg border border-slate-200/80 shadow-card p-4">
               <p className="text-xs text-slate-500 font-medium">Responsáveis</p>
               <p className="text-2xl font-bold text-violet-600 mt-1">{responsaveis.length}</p>
             </div>
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
+            <div className="bg-white rounded-card-lg border border-slate-200/80 shadow-card p-4">
               <p className="text-xs text-slate-500 font-medium">Crianças</p>
               <p className="text-2xl font-bold text-blue-600 mt-1">{criancas.length}</p>
             </div>
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
+            <div className="bg-white rounded-card-lg border border-slate-200/80 shadow-card p-4">
               <p className="text-xs text-slate-500 font-medium">Pacotes</p>
               <p className="text-2xl font-bold text-emerald-600 mt-1">{pacotes.length}</p>
               {pacotes.length > 0 && (
@@ -1385,7 +1384,7 @@ const ImportData: React.FC = () => {
                 </p>
               )}
             </div>
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
+            <div className="bg-white rounded-card-lg border border-slate-200/80 shadow-card p-4">
               <p className="text-xs text-slate-500 font-medium">Planos Kids</p>
               <p className="text-2xl font-bold text-amber-600 mt-1">{kidsPlansRaw.length}</p>
               {kidsPlansRaw.length > 0 && (
@@ -1423,7 +1422,7 @@ const ImportData: React.FC = () => {
 
           {/* Sample data */}
           {responsaveis.length > 0 && (
-            <div className="bg-white rounded-xl border border-slate-200">
+            <div className="bg-white rounded-card-lg border border-slate-200/80 shadow-card">
               <div className="p-4 border-b border-slate-100">
                 <h3 className="text-sm font-bold text-slate-600">Amostra — Responsáveis (primeiros 5)</h3>
               </div>
@@ -1455,7 +1454,7 @@ const ImportData: React.FC = () => {
           )}
 
           {pacotes.length > 0 && (
-            <div className="bg-white rounded-xl border border-slate-200">
+            <div className="bg-white rounded-card-lg border border-slate-200/80 shadow-card">
               <div className="p-4 border-b border-slate-100">
                 <h3 className="text-sm font-bold text-slate-600">Amostra — Pacotes (primeiros 5)</h3>
               </div>
@@ -1491,7 +1490,7 @@ const ImportData: React.FC = () => {
           )}
 
           {/* Dry run toggle + actions */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+          <div className="bg-white rounded-card-lg border border-slate-200/80 shadow-card p-5 space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold text-slate-700">Modo de importação</h3>
@@ -1545,7 +1544,7 @@ const ImportData: React.FC = () => {
             </button>
             <button
               onClick={handleImport}
-              className={`px-6 py-2.5 rounded-lg text-white text-sm font-semibold transition-colors ${dryRun ? 'bg-violet-600 hover:bg-violet-700' : 'bg-red-600 hover:bg-red-700'}`}
+              className={`px-6 py-2.5 rounded-lg text-white text-sm font-semibold transition-colors ${dryRun ? 'bg-brand-gradient hover:brightness-110 shadow-brand-sm' : 'bg-red-600 hover:bg-red-700'}`}
             >
               {dryRun ? '🔍 Executar Simulação' : '🚀 Importar Agora'}
             </button>
@@ -1583,7 +1582,7 @@ const ImportData: React.FC = () => {
       {/* Step: Importing */}
       {step === 'importing' && (
         <div className="space-y-4">
-          <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <div className="bg-white rounded-card-lg border border-slate-200/80 shadow-card p-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-bold text-slate-700">
                 {dryRun ? '🔍 Simulação em andamento...' : '🚀 Importação em andamento...'}
@@ -1642,7 +1641,7 @@ const ImportData: React.FC = () => {
           <div className="flex gap-3">
             <button
               onClick={handleReset}
-              className="px-6 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors"
+              className="px-6 py-2.5 rounded-lg bg-brand-gradient hover:brightness-110 shadow-brand-sm text-white text-sm font-semibold transition-colors"
             >
               Nova Importação
             </button>
@@ -1672,7 +1671,7 @@ const ImportData: React.FC = () => {
 
       {/* Logs */}
       {logs.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200">
+        <div className="bg-white rounded-card-lg border border-slate-200/80 shadow-card">
           <div className="p-4 border-b border-slate-100 flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-600">Log de Importação ({logs.length})</h3>
             <span className="text-[10px] text-slate-400">

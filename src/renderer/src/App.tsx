@@ -4,6 +4,7 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { UnitProvider } from './contexts/UnitContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { SidebarProvider } from './contexts/SidebarContext';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './pages/DashboardNew';
@@ -31,6 +32,7 @@ function AppRoutes({ initError }: { initError: string | null }) {
 
   return (
     <UnitProvider>
+      <SidebarProvider>
       <OnlineStatusBadge />
       {initError && (
         <div className="fixed top-20 right-4 z-50 bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-lg">
@@ -71,6 +73,7 @@ function AppRoutes({ initError }: { initError: string | null }) {
         draggable
         pauseOnHover
       />
+      </SidebarProvider>
     </UnitProvider>
   );
 }

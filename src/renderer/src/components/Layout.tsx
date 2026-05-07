@@ -9,7 +9,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar />
-      <main className="ml-[240px] p-6 min-h-screen">
+      <main
+        className="p-6 min-h-screen transition-[margin] duration-200"
+        style={{ marginLeft: 'var(--sidebar-w-current)' }}
+      >
         {children}
       </main>
     </div>

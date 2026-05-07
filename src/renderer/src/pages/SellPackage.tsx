@@ -5,6 +5,10 @@ import { customersServiceOffline } from '../../../shared/firebase/services/custo
 import { settingsServiceOffline } from '../../../shared/firebase/services/settings.service.offline';
 import PackagePaymentModal from '../components/modals/PackagePaymentModal';
 import { useUnit } from '../contexts/UnitContext';
+import {
+  Card, PageHeader, EmptyState, Input, Badge, cn,
+} from '../components/ui';
+import { PackageIcon, ShoppingCartIcon } from '../components/icons/Icons';
 
 interface PackageOption {
   name: string;
@@ -75,109 +79,116 @@ const SellPackage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">Vender Pacote</h1>
-        <p className="text-sm text-slate-500">Selecione o responsável e o pacote para realizar a venda</p>
-      </div>
+      <PageHeader
+        title="Vender Pacote"
+        subtitle="Selecione o responsável e o pacote para realizar a venda"
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left - Seleção */}
+        {/* Left */}
         <div className="space-y-5">
-          {/* Busca e Seleção de Responsável */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <h2 className="text-sm font-bold text-slate-600 uppercase tracking-wider mb-3">1. Responsável</h2>
-            <input
+          <Card padding="md" accent>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-7 h-7 rounded-lg bg-brand-gradient text-white text-sm font-bold flex items-center justify-center shadow-brand-sm">1</span>
+              <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Responsável</h2>
+            </div>
+            <Input
               type="text"
               placeholder="Buscar por nome..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm mb-3"
+              className="mb-3"
             />
             <select
               value={selectedCustomerId}
               onChange={(e) => setSelectedCustomerId(e.target.value)}
-              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
+              className="w-full h-10 px-3 text-sm bg-white border border-slate-200 rounded-lg hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 focus:outline-none transition-all"
             >
               <option value="">Selecione...</option>
               {filteredCustomers.map((customer) => (
                 <option key={customer.id} value={customer.id}>
-                  {customer.name} {customer.phone ? `- ${customer.phone}` : ''}
+                  {customer.name}{customer.phone ? ` - ${customer.phone}` : ''}
                 </option>
               ))}
             </select>
 
             {selectedCustomer && (
-              <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+              <div className="mt-3 p-3 bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-lg">
                 <p className="text-sm font-semibold text-emerald-800">{selectedCustomer.name}</p>
-                <p className="text-xs text-emerald-600 mt-0.5">
+                <p className="text-xs text-emerald-700 mt-0.5">
                   Pacote será vinculado a este responsável
                 </p>
               </div>
             )}
-          </div>
+          </Card>
 
-          {/* Info */}
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-            <h3 className="font-semibold text-sm text-slate-700 mb-2">Informações</h3>
-            <ul className="text-xs text-slate-500 space-y-1">
-              <li>- Pacote pertence ao responsável</li>
-              <li>- Pode ser usado por qualquer criança dele</li>
-              <li>- Ativado após confirmação do pagamento</li>
-              <li>- Validade conta a partir da compra</li>
+          <Card padding="md" className="bg-slate-50/60">
+            <h3 className="font-semibold text-sm text-slate-800 mb-2">Informações</h3>
+            <ul className="text-xs text-slate-600 space-y-1.5">
+              <li className="flex gap-1.5"><span className="text-brand-500">•</span>Pacote pertence ao responsável</li>
+              <li className="flex gap-1.5"><span className="text-brand-500">•</span>Pode ser usado por qualquer criança dele</li>
+              <li className="flex gap-1.5"><span className="text-brand-500">•</span>Ativado após confirmação do pagamento</li>
+              <li className="flex gap-1.5"><span className="text-brand-500">•</span>Validade conta a partir da compra</li>
             </ul>
-          </div>
+          </Card>
         </div>
 
         {/* Right - Pacotes */}
         <div className="lg:col-span-2">
-          <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <h2 className="text-sm font-bold text-slate-600 uppercase tracking-wider mb-4">2. Escolha o Pacote</h2>
+          <Card padding="md" accent>
+            <div className="flex items-center gap-2 mb-4">
+              <span className="w-7 h-7 rounded-lg bg-brand-gradient text-white text-sm font-bold flex items-center justify-center shadow-brand-sm">2</span>
+              <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Escolha o Pacote</h2>
+            </div>
 
             {!selectedCustomerId ? (
-              <div className="text-center py-12 text-slate-400">
-                <p className="text-4xl mb-2">�</p>
-                <p className="text-sm">Selecione um responsável primeiro</p>
-              </div>
+              <EmptyState
+                icon={<ShoppingCartIcon size={28} />}
+                title="Selecione um responsável primeiro"
+                description="Use o painel ao lado para escolher quem receberá o pacote"
+              />
             ) : packageOptions.length === 0 ? (
-              <div className="text-center py-12 text-slate-400">
-                <svg className="w-10 h-10 mx-auto mb-2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" /></svg>
-                <p className="text-sm">Nenhum plano configurado</p>
-                <p className="text-xs mt-1">Configure os planos na Gestão de Pacotes</p>
-              </div>
+              <EmptyState
+                icon={<PackageIcon size={28} />}
+                title="Nenhum plano configurado"
+                description="Configure os planos na Gestão de Pacotes"
+              />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {packageOptions.map((pkg) => (
                   <button
                     key={pkg.name}
                     onClick={() => handleSelectPackage(pkg)}
-                    className="text-left border border-slate-200 rounded-xl p-5 hover:border-violet-400 hover:shadow-md transition-all group"
+                    className={cn(
+                      'group text-left border border-slate-200 rounded-card-lg p-5 transition-all duration-200',
+                      'bg-gradient-to-br from-white to-brand-50/30',
+                      'hover:border-brand-400 hover:shadow-card-hover hover:-translate-y-0.5',
+                    )}
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <h3 className="font-bold text-slate-800 group-hover:text-violet-700 transition-colors">{pkg.name}</h3>
+                        <h3 className="font-bold text-slate-900 group-hover:text-brand-700 transition-colors">{pkg.name}</h3>
                         <p className="text-xs text-slate-500 mt-0.5">{pkg.hours}h &middot; {pkg.expiryDays} dias</p>
                       </div>
-                      <div className="w-8 h-8 bg-violet-100 rounded-lg flex items-center justify-center group-hover:bg-violet-200 transition-colors">
-                        <svg className="w-4 h-4 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" /></svg>
+                      <div className="w-9 h-9 bg-brand-gradient rounded-lg flex items-center justify-center text-white shadow-brand-sm group-hover:scale-110 transition-transform">
+                        <PackageIcon size={18} />
                       </div>
                     </div>
                     <div className="flex items-end justify-between">
                       <div>
-                        <p className="text-2xl font-bold text-violet-600">R$ {pkg.price.toFixed(2)}</p>
-                        <p className="text-[11px] text-slate-400">R$ {(pkg.price / pkg.hours).toFixed(2)}/hora</p>
+                        <p className="text-2xl font-bold bg-brand-gradient bg-clip-text text-transparent tabular-nums">R$ {pkg.price.toFixed(2)}</p>
+                        <p className="text-[11px] text-slate-500">R$ {(pkg.price / pkg.hours).toFixed(2)}/hora</p>
                       </div>
-                      <span className="text-xs font-medium text-violet-500 bg-violet-50 px-2 py-1 rounded">Selecionar</span>
+                      <Badge tone="brand">Selecionar</Badge>
                     </div>
                   </button>
                 ))}
               </div>
             )}
-          </div>
+          </Card>
         </div>
       </div>
 
-      {/* Modal de Pagamento */}
       {showPaymentModal && selectedPackage && selectedCustomer && (
         <PackagePaymentModal
           isOpen={showPaymentModal}

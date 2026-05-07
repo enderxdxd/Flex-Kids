@@ -42,6 +42,14 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSucces
   const [newChild, setNewChild] = useState<ChildFormData>({ name: '', birthDate: '' });
   const [loading, setLoading] = useState(false);
   const [loadingChildren, setLoadingChildren] = useState(false);
+  const [allCustomers, setAllCustomers] = useState<Customer[]>([]);
+  const [cpfError, setCpfError] = useState<string>('');
+
+  useEffect(() => {
+    if (isOpen) {
+      customersServiceOffline.getAllCustomers(currentUnit).then(setAllCustomers).catch(() => {});
+    }
+  }, [isOpen, currentUnit]);
 
   useEffect(() => {
     if (customer?.id) {
@@ -83,6 +91,22 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSucces
       toast.error('Nome e telefone são obrigatórios');
       return;
     }
+
+    // Verificar CPF duplicado
+    if (formData.cpf && formData.cpf.trim()) {
+      const cpfClean = formData.cpf.replace(/\D/g, '');
+      const duplicate = allCustomers.find(c => {
+        if (customer && c.id === customer.id) return false; // ignorar o próprio registro ao editar
+        const existingCpf = (c.cpf || '').replace(/\D/g, '');
+        return existingCpf && existingCpf === cpfClean;
+      });
+      if (duplicate) {
+        toast.error(`CPF já cadastrado para: ${duplicate.name}`);
+        setCpfError(`CPF já cadastrado para: ${duplicate.name}`);
+        return;
+      }
+    }
+    setCpfError('');
 
     try {
       setLoading(true);
@@ -161,7 +185,8 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSucces
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1.5">CPF</label>
-              <input type="text" value={formData.cpf} onChange={(e) => setFormData({ ...formData, cpf: e.target.value })} placeholder="000.000.000-00" className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+              <input type="text" value={formData.cpf} onChange={(e) => { setFormData({ ...formData, cpf: e.target.value }); setCpfError(''); }} placeholder="000.000.000-00" className={`w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 ${cpfError ? 'border-red-400 focus:ring-red-400' : 'border-slate-300 focus:ring-violet-500'}`} />
+              {cpfError && <p className="text-[11px] text-red-500 mt-1 font-medium">{cpfError}</p>}
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1.5">Endereço</label>

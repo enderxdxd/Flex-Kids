@@ -5,6 +5,10 @@ import { KidsPlan, Child, Customer } from '../../../shared/types';
 import { kidsPlansServiceOffline } from '../../../shared/firebase/services/kidsPlans.service.offline';
 import { customersServiceOffline } from '../../../shared/firebase/services/customers.service.offline';
 import { useUnit } from '../contexts/UnitContext';
+import {
+  Card, Button, PageHeader, EmptyState, Skeleton, Badge, Input, cn,
+} from '../components/ui';
+import { RefreshIcon, GraduationCapIcon } from '../components/icons/Icons';
 
 const KidsPlans: React.FC = () => {
   const { currentUnit } = useUnit();
@@ -30,20 +34,15 @@ const KidsPlans: React.FC = () => {
         customersServiceOffline.getAllCustomers(currentUnit),
       ]);
 
-      // Auto-update status based on dates
       const now = new Date();
       const updatedPlans = allPlans.map(p => {
         const endDate = p.endDate instanceof Date ? p.endDate : new Date(p.endDate);
         const daysLeft = differenceInDays(endDate, now);
         let status = p.status;
         if (status !== 'cancelled') {
-          if (daysLeft < 0) {
-            status = 'expired';
-          } else if (daysLeft <= 30) {
-            status = 'expiring';
-          } else {
-            status = 'active';
-          }
+          if (daysLeft < 0) status = 'expired';
+          else if (daysLeft <= 30) status = 'expiring';
+          else status = 'active';
         }
         return { ...p, status } as KidsPlan;
       });
@@ -97,27 +96,19 @@ const KidsPlans: React.FC = () => {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'active':
-        return <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-gradient-to-r from-emerald-100 to-emerald-50 text-emerald-700 border border-emerald-200">✓ Ativo</span>;
-      case 'expiring':
-        return <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-gradient-to-r from-amber-100 to-amber-50 text-amber-700 border border-amber-200">⚠ A vencer</span>;
-      case 'expired':
-        return <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-gradient-to-r from-red-100 to-red-50 text-red-700 border border-red-200">✕ Expirado</span>;
-      case 'cancelled':
-        return <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-gradient-to-r from-slate-100 to-slate-50 text-slate-500 border border-slate-200">⊘ Cancelado</span>;
-      default:
-        return null;
+      case 'active': return <Badge tone="emerald" size="sm">✓ Ativo</Badge>;
+      case 'expiring': return <Badge tone="amber" size="sm">⚠ A vencer</Badge>;
+      case 'expired': return <Badge tone="red" size="sm">✕ Expirado</Badge>;
+      case 'cancelled': return <Badge tone="slate" size="sm">⊘ Cancelado</Badge>;
+      default: return null;
     }
   };
 
   const getPlanTypeBadge = (type: string) => {
     switch (type) {
-      case 'KIDS_2X':
-        return <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-gradient-to-r from-blue-100 to-blue-50 text-blue-700 border border-blue-200">2X</span>;
-      case 'KIDS_FULL':
-        return <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-gradient-to-r from-violet-100 to-violet-50 text-violet-700 border border-violet-200">FULL</span>;
-      default:
-        return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">{type}</span>;
+      case 'KIDS_2X': return <Badge tone="blue" size="sm">2X</Badge>;
+      case 'KIDS_FULL': return <Badge tone="brand" size="sm">FULL</Badge>;
+      default: return <Badge tone="slate" size="sm">{type}</Badge>;
     }
   };
 
@@ -126,68 +117,78 @@ const KidsPlans: React.FC = () => {
     return differenceInDays(end, new Date());
   };
 
+  const statCard = (label: string, value: number, tone: 'slate' | 'emerald' | 'amber' | 'red' | 'blue' | 'brand', onClick?: () => void, active?: boolean) => {
+    const toneMap: Record<string, { ring: string; text: string; bg: string }> = {
+      slate: { ring: 'border-slate-200', text: 'text-slate-900', bg: 'bg-white' },
+      emerald: { ring: 'border-emerald-200', text: 'text-emerald-700', bg: 'bg-gradient-to-br from-emerald-50 to-teal-50/40' },
+      amber: { ring: 'border-amber-200', text: 'text-amber-700', bg: 'bg-gradient-to-br from-amber-50 to-orange-50/40' },
+      red: { ring: 'border-red-200', text: 'text-red-700', bg: 'bg-gradient-to-br from-red-50 to-rose-50/40' },
+      blue: { ring: 'border-blue-200', text: 'text-blue-700', bg: 'bg-gradient-to-br from-sky-50 to-blue-50/40' },
+      brand: { ring: 'border-brand-200', text: 'text-brand-700', bg: 'bg-gradient-to-br from-brand-50 to-fuchsia-50/40' },
+    };
+    const t = toneMap[tone];
+    const Comp = onClick ? 'button' : 'div';
+    return (
+      <Comp
+        onClick={onClick}
+        className={cn(
+          'rounded-card-lg border p-4 transition-all duration-200 text-left',
+          t.ring, t.bg,
+          onClick && 'hover:shadow-card-hover hover:-translate-y-0.5 cursor-pointer',
+          active && 'ring-2 ring-brand-400 shadow-brand-sm',
+        )}
+      >
+        <p className={cn('text-caption uppercase', t.text)}>{label}</p>
+        <p className={cn('text-2xl font-bold tabular-nums mt-1', t.text)}>{value}</p>
+      </Comp>
+    );
+  };
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Plano Kids</h1>
-          <p className="text-sm text-slate-500">{plans.length} planos cadastrados</p>
-        </div>
-        <button onClick={loadData} disabled={loading} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors">
-          {loading ? (
-            <svg className="inline w-4 h-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
-          ) : (
-            <svg className="inline w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.992 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" /></svg>
-          )}{' '}Atualizar
-        </button>
-      </div>
+      <PageHeader
+        title="Plano Kids"
+        subtitle={`${plans.length} planos cadastrados`}
+        actions={
+          <Button
+            variant="outline"
+            onClick={loadData}
+            loading={loading}
+            iconLeft={<RefreshIcon size={16} />}
+          >
+            Atualizar
+          </Button>
+        }
+      />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
-        <div className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md transition-shadow">
-          <p className="text-xs text-slate-500 font-medium">Total</p>
-          <p className="text-2xl font-bold text-slate-800 mt-1">{plans.length}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-emerald-200 p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={() => setFilterStatus(filterStatus === 'active' ? 'all' : 'active')}>
-          <p className="text-xs text-emerald-600 font-medium">Ativos</p>
-          <p className="text-2xl font-bold text-emerald-700 mt-1">{statsActive}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-amber-200 p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={() => setFilterStatus(filterStatus === 'expiring' ? 'all' : 'expiring')}>
-          <p className="text-xs text-amber-600 font-medium">A Vencer</p>
-          <p className="text-2xl font-bold text-amber-700 mt-1">{statsExpiring}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-red-200 p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={() => setFilterStatus(filterStatus === 'expired' ? 'all' : 'expired')}>
-          <p className="text-xs text-red-600 font-medium">Expirados</p>
-          <p className="text-2xl font-bold text-red-700 mt-1">{statsExpired}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-blue-200 p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={() => setFilterType(filterType === 'KIDS_2X' ? 'all' : 'KIDS_2X')}>
-          <p className="text-xs text-blue-600 font-medium">2X Semana</p>
-          <p className="text-2xl font-bold text-blue-700 mt-1">{stats2x}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-violet-200 p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={() => setFilterType(filterType === 'KIDS_FULL' ? 'all' : 'KIDS_FULL')}>
-          <p className="text-xs text-violet-600 font-medium">Full</p>
-          <p className="text-2xl font-bold text-violet-700 mt-1">{statsFull}</p>
-        </div>
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+        {statCard('Total', plans.length, 'slate')}
+        {statCard('Ativos', statsActive, 'emerald', () => setFilterStatus(filterStatus === 'active' ? 'all' : 'active'), filterStatus === 'active')}
+        {statCard('A Vencer', statsExpiring, 'amber', () => setFilterStatus(filterStatus === 'expiring' ? 'all' : 'expiring'), filterStatus === 'expiring')}
+        {statCard('Expirados', statsExpired, 'red', () => setFilterStatus(filterStatus === 'expired' ? 'all' : 'expired'), filterStatus === 'expired')}
+        {statCard('2X Semana', stats2x, 'blue', () => setFilterType(filterType === 'KIDS_2X' ? 'all' : 'KIDS_2X'), filterType === 'KIDS_2X')}
+        {statCard('Full', statsFull, 'brand', () => setFilterType(filterType === 'KIDS_FULL' ? 'all' : 'KIDS_FULL'), filterType === 'KIDS_FULL')}
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
+      <Card padding="md">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <div className="relative">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar por nome, matrícula ou contrato..."
-              className="w-full pl-9 pr-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 placeholder:text-slate-400"
-            />
-          </div>
+          <Input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Buscar por nome, matrícula ou contrato..."
+            iconLeft={
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+              </svg>
+            }
+          />
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value as any)}
-            className="px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+            className="h-10 px-3 border border-slate-200 rounded-lg text-sm bg-white hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 focus:outline-none transition-all"
           >
             <option value="all">Todos os planos</option>
             <option value="KIDS_2X">Plano Kids 2X</option>
@@ -196,7 +197,7 @@ const KidsPlans: React.FC = () => {
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value as any)}
-            className="px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+            className="h-10 px-3 border border-slate-200 rounded-lg text-sm bg-white hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 focus:outline-none transition-all"
           >
             <option value="all">Todas as situações</option>
             <option value="active">Ativos</option>
@@ -207,7 +208,7 @@ const KidsPlans: React.FC = () => {
             <select
               value={filterCoach}
               onChange={(e) => setFilterCoach(e.target.value)}
-              className="px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+              className="h-10 px-3 border border-slate-200 rounded-lg text-sm bg-white hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 focus:outline-none transition-all"
             >
               <option value="all">Todos os coaches</option>
               {coaches.map(c => (
@@ -216,47 +217,70 @@ const KidsPlans: React.FC = () => {
             </select>
           )}
         </div>
-      </div>
+      </Card>
 
       {/* Plans List */}
-      <div className="bg-white rounded-xl border border-slate-200">
-        <div className="flex items-center justify-between p-4 border-b border-slate-100">
-          <h2 className="text-sm font-bold text-slate-600 uppercase tracking-wider">
+      <Card padding="none">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-brand-50/40 to-transparent">
+          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">
             Planos ({filteredPlans.length})
           </h2>
         </div>
 
         {loading ? (
           <div className="p-5 space-y-3">
-            {[1, 2, 3].map(i => <div key={i} className="animate-pulse h-16 bg-slate-100 rounded-lg" />)}
+            {[1, 2, 3].map(i => <Skeleton key={i} className="h-16" />)}
           </div>
         ) : filteredPlans.length === 0 ? (
-          <div className="text-center py-12 text-slate-400">
-            <svg className="w-10 h-10 mx-auto mb-2 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15a2.25 2.25 0 0 1 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25Z" /></svg>
-            <p className="font-medium">Nenhum plano encontrado</p>
-            {plans.length === 0 && <p className="text-xs mt-1">Importe os dados na página de Importação</p>}
-          </div>
+          <EmptyState
+            icon={<GraduationCapIcon size={28} />}
+            title="Nenhum plano encontrado"
+            description={plans.length === 0 ? 'Importe os dados na página de Importação' : 'Tente ajustar os filtros'}
+          />
         ) : (
           <div className="divide-y divide-slate-100">
             {filteredPlans.map((plan) => {
               const daysLeft = getDaysLeft(plan.endDate);
               const startDate = plan.startDate instanceof Date ? plan.startDate : new Date(plan.startDate);
               const endDate = plan.endDate instanceof Date ? plan.endDate : new Date(plan.endDate);
+              const stripe = plan.status === 'expired' || plan.status === 'cancelled'
+                ? 'bg-gradient-to-b from-slate-300 to-slate-400'
+                : plan.status === 'expiring'
+                  ? 'bg-gradient-to-b from-amber-400 to-orange-400'
+                  : plan.planType === 'KIDS_FULL'
+                    ? 'bg-brand-gradient'
+                    : 'bg-gradient-to-b from-sky-400 to-blue-600';
 
               return (
-                <div key={plan.id} className={`p-4 hover:bg-slate-50 transition-colors ${plan.status === 'expired' || plan.status === 'cancelled' ? 'opacity-60' : ''}`}>
+                <div
+                  key={plan.id}
+                  className={cn(
+                    'relative pl-5 pr-4 py-4 hover:bg-slate-50 transition-colors',
+                    (plan.status === 'expired' || plan.status === 'cancelled') && 'opacity-70',
+                  )}
+                >
+                  <span className={cn('absolute left-0 top-3 bottom-3 w-1 rounded-r-full', stripe)} aria-hidden="true" />
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4 flex-1 min-w-0">
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${plan.planType === 'KIDS_FULL' ? 'bg-violet-100' : 'bg-blue-100'}`}>
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className={cn(
+                        'w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 text-white shadow-sm',
+                        plan.planType === 'KIDS_FULL'
+                          ? 'bg-brand-gradient'
+                          : 'bg-gradient-to-br from-sky-400 to-blue-600',
+                      )}>
                         {plan.planType === 'KIDS_FULL' ? (
-                          <svg className="w-5 h-5 text-violet-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" /></svg>
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
+                          </svg>
                         ) : (
-                          <svg className="w-5 h-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /></svg>
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+                          </svg>
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-semibold text-slate-800 text-sm">{getChildName(plan)}</p>
+                          <p className="font-semibold text-slate-900 text-sm">{getChildName(plan)}</p>
                           {getPlanTypeBadge(plan.planType)}
                           {getStatusBadge(plan.status)}
                         </div>
@@ -270,25 +294,25 @@ const KidsPlans: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-6 flex-shrink-0 ml-4">
-                      {/* Period */}
                       <div className="hidden md:block text-right">
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-slate-500 tabular-nums">
                           {format(startDate, 'dd/MM/yy')} → {format(endDate, 'dd/MM/yy')}
                         </p>
-                        <p className={`text-[11px] font-semibold ${daysLeft < 0 ? 'text-red-500' : daysLeft <= 30 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                        <p className={cn(
+                          'text-[11px] font-semibold',
+                          daysLeft < 0 ? 'text-red-600' : daysLeft <= 30 ? 'text-amber-700' : 'text-emerald-700',
+                        )}>
                           {daysLeft < 0 ? `Expirado há ${Math.abs(daysLeft)} dias` : `${daysLeft} dias restantes`}
                         </p>
                       </div>
 
-                      {/* Value */}
                       <div className="text-right hidden lg:block">
-                        <p className="text-sm font-bold text-slate-800">R$ {plan.monthlyValue.toFixed(2)}/mês</p>
+                        <p className="text-sm font-bold text-slate-900 tabular-nums">R$ {plan.monthlyValue.toFixed(2)}/mês</p>
                         {plan.totalValue > 0 && (
-                          <p className="text-[10px] text-slate-400">Total: R$ {plan.totalValue.toFixed(2)}</p>
+                          <p className="text-[10px] text-slate-400 tabular-nums">Total: R$ {plan.totalValue.toFixed(2)}</p>
                         )}
                       </div>
 
-                      {/* Duration */}
                       <div className="text-right hidden lg:block">
                         <p className="text-xs text-slate-500">{plan.durationMonths} {plan.durationMonths === 1 ? 'mês' : 'meses'}</p>
                       </div>
@@ -299,7 +323,7 @@ const KidsPlans: React.FC = () => {
             })}
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 };

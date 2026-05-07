@@ -7,6 +7,10 @@ import { visitsServiceOffline } from '../../../shared/firebase/services/visits.s
 import { customersServiceOffline } from '../../../shared/firebase/services/customers.service.offline';
 import { settingsServiceOffline } from '../../../shared/firebase/services/settings.service.offline';
 import { getChildAge } from '../../../shared/utils/age';
+import {
+  Card, Button, PageHeader, EmptyState, Skeleton, Badge, cn,
+} from '../components/ui';
+import { RefreshIcon, PlusIcon, GamepadIcon } from '../components/icons/Icons';
 
 const CheckInOut: React.FC = () => {
   const { currentUnit } = useUnit();
@@ -22,7 +26,6 @@ const CheckInOut: React.FC = () => {
     loadData();
     const interval = setInterval(loadData, 60000);
 
-    // Listen for background Firebase fetch completing with fresh visit data
     const handleVisitsUpdated = (e: Event) => {
       const detail = (e as CustomEvent).detail;
       if (detail?.visits && (!detail.unitId || detail.unitId === currentUnit)) {
@@ -85,9 +88,7 @@ const CheckInOut: React.FC = () => {
   };
 
   const handleCheckOut = async (visitId: string, childName: string) => {
-    if (!confirm(`Confirmar check-out de ${childName}?`)) {
-      return;
-    }
+    if (!confirm(`Confirmar check-out de ${childName}?`)) return;
 
     try {
       await visitsServiceOffline.checkOut({ visitId });
@@ -114,40 +115,30 @@ const CheckInOut: React.FC = () => {
   };
 
   const filteredChildren = children.filter(child =>
-    child.name.toLowerCase().includes(searchTerm.toLowerCase())
+    child.name.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">Check-In / Check-Out</h1>
-          <p className="text-gray-500">Gerenciar entradas e saídas - {activeVisits.length} visitas ativas</p>
-        </div>
-        <button
-          onClick={loadData}
-          disabled={loading}
-          className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 flex items-center gap-2 focus:ring-2 focus:ring-violet-500 focus:ring-offset-1"
-          aria-label="Atualizar dados"
-        >
-          {loading ? (
-            <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6l4 2" /><circle cx="12" cy="12" r="10" strokeWidth={2} fill="none" /></svg>
-          ) : (
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.992 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" /></svg>
-          )}
-          Atualizar
-        </button>
-      </div>
+      <PageHeader
+        title="Check-In / Check-Out"
+        subtitle={`Gerenciar entradas e saídas · ${activeVisits.length} visitas ativas`}
+        actions={
+          <Button variant="outline" onClick={loadData} loading={loading} iconLeft={<RefreshIcon size={16} />}>
+            Atualizar
+          </Button>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 space-y-6">
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.5v15m7.5-7.5h-15" /></svg> Novo Check-In
+          <Card padding="lg" className="relative overflow-hidden bg-brand-gradient text-white border-0 shadow-brand">
+            <h2 className="text-2xl font-bold mb-5 flex items-center gap-2">
+              <PlusIcon size={20} /> Novo Check-In
             </h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2 text-blue-100">
+                <label className="block text-xs font-semibold mb-1.5 text-white/80 uppercase tracking-wider">
                   Buscar Criança
                 </label>
                 <input
@@ -155,17 +146,17 @@ const CheckInOut: React.FC = () => {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Digite o nome..."
-                  className="w-full px-4 py-3 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-1"
+                  className="w-full h-11 px-3 rounded-lg text-slate-900 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-white/60"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2 text-blue-100">
+                <label className="block text-xs font-semibold mb-1.5 text-white/80 uppercase tracking-wider">
                   Selecione a Criança
                 </label>
                 <select
                   value={selectedChild}
                   onChange={(e) => setSelectedChild(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-1"
+                  className="w-full h-11 px-3 rounded-lg text-slate-900 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-white/60"
                 >
                   <option value="">Selecione...</option>
                   {filteredChildren.map((child) => (
@@ -178,118 +169,112 @@ const CheckInOut: React.FC = () => {
               <button
                 onClick={handleCheckIn}
                 disabled={!selectedChild || loading}
-                className="w-full bg-white text-blue-600 py-4 rounded-lg font-bold hover:bg-blue-50 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed transition-all transform hover:scale-105 shadow-lg focus:ring-2 focus:ring-violet-500 focus:ring-offset-1 flex items-center justify-center gap-2"
+                className="w-full h-12 bg-white text-brand-700 rounded-lg font-bold hover:bg-brand-50 disabled:bg-white/40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg active:scale-[0.98]"
               >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
                 Realizar Check-In
               </button>
             </div>
-          </div>
+          </Card>
 
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">Estatísticas</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                <span className="text-gray-700">Visitas Ativas</span>
-                <span className="text-2xl font-bold text-blue-600">{activeVisits.length}</span>
+          <Card padding="md">
+            <h3 className="text-heading text-slate-900 mb-3">Estatísticas</h3>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center p-3 rounded-lg bg-gradient-to-br from-blue-50 to-sky-50">
+                <span className="text-sm text-slate-700">Visitas Ativas</span>
+                <span className="text-2xl font-bold text-blue-700 tabular-nums">{activeVisits.length}</span>
               </div>
-              <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                <span className="text-gray-700">Crianças Cadastradas</span>
-                <span className="text-2xl font-bold text-green-600">{children.length}</span>
+              <div className="flex justify-between items-center p-3 rounded-lg bg-gradient-to-br from-emerald-50 to-teal-50">
+                <span className="text-sm text-slate-700">Crianças Cadastradas</span>
+                <span className="text-2xl font-bold text-emerald-700 tabular-nums">{children.length}</span>
               </div>
             </div>
-          </div>
+          </Card>
         </div>
 
         <div className="lg:col-span-2">
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">
-                Visitas Ativas
-              </h2>
-              <span className="bg-blue-100 text-blue-800 px-4 py-2 rounded-full font-bold">
-                {activeVisits.length}
-              </span>
+          <Card padding="none" accent>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-brand-50/50 to-transparent">
+              <h2 className="text-heading bg-brand-gradient bg-clip-text text-transparent">Visitas Ativas</h2>
+              <Badge tone="brand">{activeVisits.length}</Badge>
             </div>
-            
+
             {loading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="animate-pulse p-6 border border-gray-200 rounded-xl">
-                    <div className="h-6 bg-gray-200 rounded w-1/3 mb-3"></div>
-                    <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                  </div>
-                ))}
+              <div className="p-5 space-y-3">
+                {[1, 2, 3].map((i) => <Skeleton key={i} className="h-24" />)}
               </div>
             ) : activeVisits.length === 0 ? (
-              <div className="text-center py-16 text-slate-500">
-                <div className="flex justify-center mb-4">
-                  <svg className="w-16 h-16 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
-                </div>
-                <p className="text-xl font-medium">Nenhuma visita ativa</p>
-                <p className="text-sm mt-2">Faça o primeiro check-in do dia!</p>
-              </div>
+              <EmptyState
+                icon={<GamepadIcon size={28} />}
+                title="Nenhuma visita ativa"
+                description="Faça o primeiro check-in do dia!"
+              />
             ) : (
-              <div className="space-y-4">
+              <div className="p-5 space-y-3">
                 {activeVisits.map((visit) => {
                   const child = children.find((c) => c.id === visit.childId);
                   const duration = calculateDuration(visit.checkIn);
                   const estimatedCost = calculateEstimatedCost(visit.checkIn);
-                  
+
                   return (
                     <div
                       key={visit.id}
-                      className="border-2 border-gray-200 rounded-xl p-6 hover:border-blue-300 hover:shadow-lg transition-all"
+                      className={cn(
+                        'border border-slate-200 rounded-card p-4 transition-all duration-200',
+                        'hover:border-brand-300 hover:shadow-card-hover hover:-translate-y-0.5',
+                      )}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-3">
-                            <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white text-xl font-bold">
+                            <div className="w-12 h-12 bg-brand-gradient rounded-full flex items-center justify-center text-white text-xl font-bold shadow-brand-sm">
                               {child?.name.charAt(0).toUpperCase()}
                             </div>
                             <div>
-                              <h3 className="font-bold text-xl text-gray-800">
+                              <h3 className="font-bold text-lg text-slate-900">
                                 {child?.name || 'Criança não encontrada'}
                               </h3>
-                              <p className="text-sm text-gray-500">
+                              <p className="text-sm text-slate-500">
                                 {child ? getChildAge(child) : 0} anos
                               </p>
                             </div>
                           </div>
-                          
-                          <div className="grid grid-cols-3 gap-4 mt-4">
-                            <div className="bg-blue-50 p-3 rounded-lg">
-                              <p className="text-xs text-gray-600 mb-1">Check-in</p>
-                              <p className="font-bold text-blue-600">
+
+                          <div className="grid grid-cols-3 gap-3 mt-3">
+                            <div className="bg-gradient-to-br from-blue-50 to-sky-50 p-3 rounded-lg border border-blue-100">
+                              <p className="text-[10px] text-blue-700/70 mb-0.5 font-semibold uppercase">Check-in</p>
+                              <p className="font-bold text-blue-700 tabular-nums">
                                 {format(new Date(visit.checkIn), 'HH:mm')}
                               </p>
                             </div>
-                            <div className="bg-purple-50 p-3 rounded-lg">
-                              <p className="text-xs text-gray-600 mb-1">Duração</p>
-                              <p className="font-bold text-purple-600">{duration}</p>
+                            <div className="bg-gradient-to-br from-brand-50 to-fuchsia-50 p-3 rounded-lg border border-brand-100">
+                              <p className="text-[10px] text-brand-700/70 mb-0.5 font-semibold uppercase">Duração</p>
+                              <p className="font-bold text-brand-700 tabular-nums">{duration}</p>
                             </div>
-                            <div className="bg-green-50 p-3 rounded-lg">
-                              <p className="text-xs text-gray-600 mb-1">Estimativa</p>
-                              <p className="font-bold text-green-600">R$ {estimatedCost}</p>
+                            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-3 rounded-lg border border-emerald-100">
+                              <p className="text-[10px] text-emerald-700/70 mb-0.5 font-semibold uppercase">Estimativa</p>
+                              <p className="font-bold text-emerald-700 tabular-nums">R$ {estimatedCost}</p>
                             </div>
                           </div>
                         </div>
-                        
-                        <button
+
+                        <Button
+                          variant="danger"
                           onClick={() => handleCheckOut(visit.id, child?.name || 'Criança')}
-                          className="ml-4 bg-gradient-to-r from-red-500 to-red-600 text-white px-6 py-3 rounded-lg font-bold hover:opacity-90 transition-all transform hover:scale-105 shadow-lg focus:ring-2 focus:ring-violet-500 focus:ring-offset-1 flex items-center gap-2"
                           aria-label={`Check-out de ${child?.name || 'Criança'}`}
+                          className="ml-4"
                         >
-                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
                           Check-Out
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   );
                 })}
               </div>
             )}
-          </div>
+          </Card>
         </div>
       </div>
     </div>
