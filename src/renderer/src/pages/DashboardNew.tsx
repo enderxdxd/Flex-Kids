@@ -8,12 +8,11 @@ import { toast } from 'react-toastify';
 import Navbar from '../components/Navbar';
 import CheckInModal from '../components/modals/CheckInModal';
 import CustomerModal from '../components/modals/CustomerModal';
-import PackageModal from '../components/modals/PackageModal';
 import CheckOutModal from '../components/modals/CheckOutModal';
 import CancelCheckInModal from '../components/modals/CancelCheckInModal';
 import {
   TargetIcon, MoneyIcon, ChartIcon, PackageIcon, GamepadIcon,
-  PlusIcon, UserPlusIcon, CreditCardIcon, ShoppingCartIcon,
+  PlusIcon, UserPlusIcon, CreditCardIcon,
 } from '../components/icons/Icons';
 import {
   Card, Button, IconButton, StatCard, PageHeader, EmptyState,
@@ -78,7 +77,6 @@ const DashboardNew: React.FC = () => {
   const [showCheckOutModal, setShowCheckOutModal] = useState(false);
   const [showCheckInModal, setShowCheckInModal] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
-  const [showPackageModal, setShowPackageModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
   const loadingRef = useRef(false);
@@ -355,13 +353,6 @@ const DashboardNew: React.FC = () => {
                   tone="blue"
                   onClick={() => setShowCustomerModal(true)}
                 />
-                <QuickAction
-                  icon={<ShoppingCartIcon size={18} />}
-                  label="Vender Pacote"
-                  description="Pacote de horas"
-                  tone="amber"
-                  onClick={() => setShowPackageModal(true)}
-                />
               </div>
             </Card>
 
@@ -427,11 +418,6 @@ const DashboardNew: React.FC = () => {
         onSuccess={() => loadStats(true)}
       />
 
-      <PackageModal
-        isOpen={showPackageModal}
-        onClose={() => setShowPackageModal(false)}
-        onSuccess={() => loadStats(true)}
-      />
 
       {selectedVisit && (
         <CheckOutModal
