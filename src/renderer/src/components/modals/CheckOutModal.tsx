@@ -29,7 +29,7 @@ interface CheckOutModalProps {
 const ADMIN_PASSWORD = 'pactoflex123';
 const KIDS_PLAN_FREE_MINUTES = 180; // 3 horas gratuitas por dia
 
-const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSuccess, visit, activeVisits = [] }) => {
+const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSuccess, visit }) => {
   const { currentUnit } = useUnit();
   const [child, setChild] = useState<Child | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -136,14 +136,24 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
       setMinimumTime(minTime);
 
       // Detectar visitas de irmãos (mesmo responsável, crianças diferentes)
-      if (childData && activeVisits.length > 0) {
-        const siblingActiveVisits = activeVisits.filter(
-          v => v.id !== visit.id && v.child?.customer?.id === childData.customerId
-        );
+      // IMPORTANTE: re-buscar visitas ativas do storage (não confiar no prop, que pode estar stale)
+      if (childData) {
+        const freshActiveVisits = await visitsServiceOffline.getActiveVisits(currentUnit);
+        const customerChildren = await customersServiceOffline.getAllChildren(currentUnit);
+
+        const siblingActiveVisits = freshActiveVisits.filter(v => {
+          if (v.id === visit.id) return false;
+          // garantir que realmente está sem check-out
+          if (v.checkOut) return false;
+          // resolver customerId mesmo se child não estiver enriquecido
+          const sibChild = v.child ?? customerChildren.find(c => c.id === v.childId);
+          if (!sibChild) return false;
+          return sibChild.customerId === childData.customerId;
+        });
 
         if (siblingActiveVisits.length > 0) {
           const siblings: SiblingVisit[] = siblingActiveVisits.map(sv => {
-            const sibChild = sv.child!;
+            const sibChild = (sv.child ?? customerChildren.find(c => c.id === sv.childId))!;
             const checkInTime = sv.checkIn instanceof Date ? sv.checkIn : new Date(sv.checkIn);
             const dur = Math.max(0, Math.ceil((Date.now() - checkInTime.getTime()) / (1000 * 60)));
             return {
@@ -151,11 +161,11 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
               child: sibChild,
               duration: dur,
               value: 0, // recalculado dinamicamente em calculateValue
-              included: true,
+              included: false, // padrão: NÃO incluir; usuário precisa habilitar conscientemente
             };
           });
           setSiblingVisits(siblings);
-          console.log(`[CHECKOUT] Encontrados ${siblings.length} irmão(s) com visitas ativas`);
+          console.log(`[CHECKOUT] Encontrados ${siblings.length} irmão(s) com visitas ativas (não incluídos por padrão)`);
         } else {
           setSiblingVisits([]);
         }
@@ -617,13 +627,16 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
           {/* Visitas de Irmãos */}
           {siblingVisits.length > 0 && (
             <div className="border border-violet-200 rounded-lg p-4 bg-violet-50/50">
-              <p className="text-xs font-bold text-violet-800 mb-2 flex items-center gap-1.5">
+              <p className="text-xs font-bold text-violet-800 mb-1 flex items-center gap-1.5">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" /></svg>
                 Irmãos com visita ativa ({siblingVisits.length})
               </p>
+              <p className="text-[11px] text-violet-700/70 mb-2.5">
+                Marque apenas os irmãos que você quer fechar junto neste check-out.
+              </p>
               <div className="space-y-1.5">
                 {siblingVisits.map((sibling) => (
-                  <label key={sibling.visit.id} className="flex items-center gap-3 cursor-pointer p-2.5 rounded-lg bg-white border border-slate-200 hover:border-violet-300 transition-all">
+                  <label key={sibling.visit.id} className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg border transition-all ${sibling.included ? 'bg-white border-violet-300' : 'bg-white/60 border-slate-200 hover:border-violet-300'}`}>
                     <input
                       type="checkbox"
                       checked={sibling.included}
@@ -631,10 +644,11 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
                       className="w-4 h-4 text-violet-600 rounded focus:ring-violet-500"
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-slate-800 truncate">{sibling.child.name}</p>
+                      <p className={`text-sm font-semibold truncate ${sibling.included ? 'text-slate-800' : 'text-slate-500'}`}>{sibling.child.name}</p>
                       <p className="text-xs text-slate-500">
                         {formatTime(sibling.duration)}
-                        {sibling.value > 0 ? ` · R$ ${sibling.value.toFixed(2)}` : sibling.visit.kidsPlanId ? ' · Plano Kids' : ' · Pacote'}
+                        {sibling.included && (sibling.value > 0 ? ` · R$ ${sibling.value.toFixed(2)}` : sibling.visit.kidsPlanId ? ' · Plano Kids' : ' · Pacote')}
+                        {!sibling.included && ' · não será cobrado'}
                       </p>
                     </div>
                     {sibling.included && (
