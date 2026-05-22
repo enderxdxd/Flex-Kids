@@ -76,6 +76,8 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
       
       setCustomers(allCustomers);
 
+      const relatedCustomerIds = new Set<string>();
+
       if (childData) {
         setChild(childData);
         const customerData = await customersServiceOffline.getCustomerById(childData.customerId);
@@ -86,19 +88,18 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
 
         // Buscar todos os IDs de customer que pertencem ao mesmo responsável (por nome)
         // Isso resolve inconsistência de dados onde child.customerId != package.customerId
-        const customerIds = new Set<string>();
-        customerIds.add(childData.customerId);
+        relatedCustomerIds.add(childData.customerId);
         if (customerData?.name) {
           const normalizedName = customerData.name.toLowerCase().trim();
           allCustomers.forEach((c: any) => {
             if (c.name && c.name.toLowerCase().trim() === normalizedName) {
-              customerIds.add(c.id);
+              relatedCustomerIds.add(c.id);
             }
           });
         }
 
         const activePackages = unitPackages.filter(
-          p => customerIds.has(p.customerId)
+          p => relatedCustomerIds.has(p.customerId)
         );
         setPackages(activePackages);
 
@@ -112,7 +113,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
         
         // Guardar pacotes de outros clientes da mesma unidade para opção de admin
         const otherActivePackages = unitPackages.filter(
-          p => !customerIds.has(p.customerId)
+          p => !relatedCustomerIds.has(p.customerId)
         );
         setAllPackages(otherActivePackages);
       } else {
@@ -148,7 +149,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
           // resolver customerId mesmo se child não estiver enriquecido
           const sibChild = v.child ?? customerChildren.find(c => c.id === v.childId);
           if (!sibChild) return false;
-          return sibChild.customerId === childData.customerId;
+          return relatedCustomerIds.has(sibChild.customerId);
         });
 
         if (siblingActiveVisits.length > 0) {
@@ -339,6 +340,10 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
     ));
   };
 
+  const setAllSiblingsIncluded = (included: boolean) => {
+    setSiblingVisits(prev => prev.map(s => ({ ...s, included })));
+  };
+
   const handleCheckOut = async () => {
     if (!isKidsPlan && !(usePackages || selectedAdminPackage) && paymentMethod === 'package') {
       toast.error('Selecione um pacote ou escolha outra forma de pagamento');
@@ -354,14 +359,9 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
         // --- Fluxo Plano Kids ---
         const kidsCoverage = getKidsPlanCoverage();
 
-        // 1. Realizar checkout
-        await visitsServiceOffline.checkOut({
-          visitId: visit.id,
-          duration,
-          value: totalValue,
-        });
+        let paymentId: string | undefined;
 
-        // 2. Se houver excedente, registrar pagamento
+        // 1. Se houver excedente, registrar pagamento
         if (totalValue > 0 && paymentMethod !== 'package' && customer && child) {
           const description = `Pagamento excedente Plano Kids - ${child.name} - ${kidsCoverage.excessMin}min excedente (${kidsCoverage.coveredMin}min grátis)`;
 
@@ -384,7 +384,18 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
             description,
           });
           console.log('[CHECKOUT] Pagamento Plano Kids criado:', payment.id);
+          paymentId = payment.id;
         }
+
+        // 2. Realizar checkout com os metadados de quitação
+        await visitsServiceOffline.checkOut({
+          visitId: visit.id,
+          duration,
+          value: totalValue,
+          paymentMethod: totalValue > 0 ? paymentMethod : 'kids_plan',
+          paid: true,
+          paymentId,
+        });
       } else {
         // --- Fluxo normal (pacotes / avulso) ---
         // Calcular cobertura incluindo irmãos para descontar corretamente do pacote
@@ -393,20 +404,14 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
         const coverage = getMultiPackageCoverage(sibsBillable);
         const firstPkgId = coverage.breakdown.length > 0 ? coverage.breakdown[0].pkg.id : undefined;
 
-        // 1. Realizar checkout principal
-        await visitsServiceOffline.checkOut({
-          visitId: visit.id,
-          duration,
-          value: totalValue,
-          packageId: firstPkgId,
-        });
-
         // 2. Descontar horas de cada pacote usado (inclui principal + irmãos)
         for (const { pkg, coveredMin } of coverage.breakdown) {
           const hoursToDeduct = coveredMin / 60;
           await packagesServiceOffline.usePackage(pkg.id, hoursToDeduct);
           console.log(`[CHECKOUT] Pacote ${pkg.type} (${pkg.id}): -${coveredMin}min (principal+irmãos)`);
         }
+
+        let paymentId: string | undefined;
 
         // 3. Se houver pagamento (excedente ou avulso), registrar para o principal
         if (totalValue > 0 && paymentMethod !== 'package' && customer && child) {
@@ -435,45 +440,56 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
             description,
           });
           console.log('[CHECKOUT] Pagamento criado:', payment.id);
+          paymentId = payment.id;
         }
+
+        await visitsServiceOffline.checkOut({
+          visitId: visit.id,
+          duration,
+          value: totalValue,
+          paymentMethod: totalValue > 0 ? paymentMethod : 'package',
+          paid: true,
+          paymentId,
+          packageId: firstPkgId,
+        });
       }
 
       // 4. Processar checkout dos irmãos incluídos
       // Horas do pacote já foram descontadas acima (cobertura combinada)
       const includedSiblings = siblingVisits.filter(s => s.included);
       for (const sibling of includedSiblings) {
-        try {
-          const sibPkgId = (usePackages || selectedAdminPackage) && sibling.value === 0
-            ? (getMultiPackageCoverage().breakdown[0]?.pkg.id)
-            : undefined;
+        const sibPkgId = (usePackages || selectedAdminPackage) && sibling.value === 0 && !sibling.visit.kidsPlanId
+          ? (getMultiPackageCoverage().breakdown[0]?.pkg.id)
+          : undefined;
+        let siblingPaymentId: string | undefined;
 
-          await visitsServiceOffline.checkOut({
-            visitId: sibling.visit.id,
-            duration: sibling.duration,
-            value: sibling.value,
-            packageId: sibPkgId,
+        // Registrar pagamento do irmão somente se houver valor a pagar
+        if (sibling.value > 0 && customer) {
+          const sibDescription = `Pagamento visita - ${sibling.child.name} - ${sibling.duration} min`;
+          const siblingPayment = await paymentsServiceOffline.createPayment({
+            customerId: customer.id,
+            childId: sibling.child.id,
+            childName: sibling.child.name,
+            amount: sibling.value,
+            method: paymentMethod,
+            status: 'paid',
+            type: 'visit',
+            unitId: visit.unitId,
+            description: sibDescription,
           });
-          console.log(`[CHECKOUT] Irmão ${sibling.child.name} checkout: ${sibling.duration}min, R$${sibling.value.toFixed(2)}${sibPkgId ? ' (pacote)' : ''}`);
-
-          // Registrar pagamento do irmão somente se houver valor a pagar
-          if (sibling.value > 0 && customer) {
-            const sibDescription = `Pagamento visita - ${sibling.child.name} - ${sibling.duration} min`;
-            await paymentsServiceOffline.createPayment({
-              customerId: customer.id,
-              childId: sibling.child.id,
-              childName: sibling.child.name,
-              amount: sibling.value,
-              method: paymentMethod,
-              status: 'paid',
-              type: 'visit',
-              unitId: visit.unitId,
-              description: sibDescription,
-            });
-            console.log(`[CHECKOUT] Pagamento irmão ${sibling.child.name} criado: R$${sibling.value.toFixed(2)}`);
-          }
-        } catch (sibError) {
-          console.error(`[CHECKOUT] Erro no checkout do irmão ${sibling.child.name}:`, sibError);
+          siblingPaymentId = siblingPayment.id;
+          console.log(`[CHECKOUT] Pagamento irmão ${sibling.child.name} criado: R$${sibling.value.toFixed(2)}`);
         }
+        await visitsServiceOffline.checkOut({
+          visitId: sibling.visit.id,
+          duration: sibling.duration,
+          value: sibling.value,
+          paymentMethod: sibling.value > 0 ? paymentMethod : sibling.visit.kidsPlanId ? 'kids_plan' : 'package',
+          paid: true,
+          paymentId: siblingPaymentId,
+          packageId: sibPkgId,
+        });
+        console.log(`[CHECKOUT] Irmão ${sibling.child.name} checkout: ${sibling.duration}min, R$${sibling.value.toFixed(2)}${sibPkgId ? ' (pacote)' : ''}`);
       }
 
       // 5. Emitir nota fiscal se habilitado
@@ -634,6 +650,22 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
               <p className="text-[11px] text-violet-700/70 mb-2.5">
                 Marque apenas os irmãos que você quer fechar junto neste check-out.
               </p>
+              <div className="flex gap-2 mb-2.5">
+                <button
+                  type="button"
+                  onClick={() => setAllSiblingsIncluded(true)}
+                  className="px-2.5 py-1 rounded-md border border-violet-200 bg-white text-[11px] font-semibold text-violet-700 hover:bg-violet-100 transition-colors"
+                >
+                  Selecionar todos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAllSiblingsIncluded(false)}
+                  className="px-2.5 py-1 rounded-md border border-slate-200 bg-white text-[11px] font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+                >
+                  Limpar seleção
+                </button>
+              </div>
               <div className="space-y-1.5">
                 {siblingVisits.map((sibling) => (
                   <label key={sibling.visit.id} className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg border transition-all ${sibling.included ? 'bg-white border-violet-300' : 'bg-white/60 border-slate-200 hover:border-violet-300'}`}>

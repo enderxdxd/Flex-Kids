@@ -6,19 +6,35 @@ import { syncService } from '../../database/syncService';
 
 const COLLECTION = 'payments';
 
-let _createPaymentLock = false;
+const _createPaymentLocks = new Set<string>();
+
+function getPaymentLockKey(data: Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>): string {
+  return [
+    data.customerId,
+    data.childId || '',
+    data.childName || '',
+    data.amount.toFixed(2),
+    data.method,
+    data.status,
+    data.type,
+    data.packageId || '',
+    data.unitId || '',
+    data.description || '',
+  ].join('|');
+}
 
 export const paymentsServiceOffline = {
   async createPayment(data: Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>): Promise<Payment> {
-    if (_createPaymentLock) {
+    const lockKey = getPaymentLockKey(data);
+    if (_createPaymentLocks.has(lockKey)) {
       throw new Error('Criação de pagamento já em andamento, aguarde.');
     }
-    _createPaymentLock = true;
+    _createPaymentLocks.add(lockKey);
 
     try {
       return await this._doCreatePayment(data);
     } finally {
-      setTimeout(() => { _createPaymentLock = false; }, 2000);
+      setTimeout(() => { _createPaymentLocks.delete(lockKey); }, 2000);
     }
   },
 

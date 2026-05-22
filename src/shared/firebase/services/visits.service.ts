@@ -16,6 +16,7 @@ export const visitsService = {
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     };
+    if (data.kidsPlanId) (visitData as any).kidsPlanId = data.kidsPlanId;
 
     await setDoc(visitRef, visitData);
     return {
@@ -24,6 +25,7 @@ export const visitsService = {
       unitId: data.unitId,
       checkIn: new Date(),
       paid: false,
+      kidsPlanId: data.kidsPlanId,
       createdAt: new Date(),
       updatedAt: new Date(),
     } as Visit;
@@ -34,10 +36,18 @@ export const visitsService = {
     const visitRef = doc(db, COLLECTION, data.visitId);
     
     const checkOutTime = Timestamp.now();
-    await updateDoc(visitRef, {
+    const updateData: any = {
       checkOut: checkOutTime,
       updatedAt: Timestamp.now(),
-    });
+    };
+    if (data.duration !== undefined) updateData.duration = data.duration;
+    if (data.value !== undefined) updateData.value = data.value;
+    if (data.paymentMethod) updateData.paymentMethod = data.paymentMethod;
+    if (data.paid !== undefined) updateData.paid = data.paid;
+    if (data.paymentId) updateData.paymentId = data.paymentId;
+    if (data.packageId) updateData.packageId = data.packageId;
+
+    await updateDoc(visitRef, updateData);
 
     return { id: data.visitId } as Visit;
   },

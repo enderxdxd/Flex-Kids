@@ -8,6 +8,28 @@ const COLLECTION = 'kidsPlans';
 
 let _createLock = false;
 
+function toDate(value: any): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value.toDate === 'function') return value.toDate();
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function isPlanCurrentlyActive(plan: KidsPlan): boolean {
+  if (plan.status !== 'active' && plan.status !== 'expiring') return false;
+  const startDate = toDate(plan.startDate);
+  const endDate = toDate(plan.endDate);
+  const now = new Date();
+  if (startDate && startDate > now) return false;
+  if (endDate) {
+    const endOfDay = new Date(endDate);
+    endOfDay.setHours(23, 59, 59, 999);
+    if (endOfDay < now) return false;
+  }
+  return true;
+}
+
 export const kidsPlansServiceOffline = {
   async createPlan(data: Omit<KidsPlan, 'id' | 'createdAt' | 'updatedAt'>): Promise<KidsPlan> {
     if (_createLock) {
@@ -158,7 +180,7 @@ export const kidsPlansServiceOffline = {
 
   async getActivePlans(unitId?: string): Promise<KidsPlan[]> {
     const all = await this.getAllPlans(unitId);
-    return all.filter(p => p.status === 'active' || p.status === 'expiring');
+    return all.filter(isPlanCurrentlyActive);
   },
 
   async getPlansByChild(childId: string, unitId?: string): Promise<KidsPlan[]> {

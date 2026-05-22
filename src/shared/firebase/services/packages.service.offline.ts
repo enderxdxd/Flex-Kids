@@ -8,6 +8,32 @@ const COLLECTION = 'packages';
 
 let _createLock = false;
 
+function toDate(value: any): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value.toDate === 'function') return value.toDate();
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function getPackageExpiryDate(pkg: Package): Date | null {
+  const explicitExpiry = toDate(pkg.expiresAt);
+  if (explicitExpiry) return explicitExpiry;
+
+  if (!pkg.expiryDays || pkg.expiryDays <= 0) return null;
+  const createdAt = toDate(pkg.createdAt);
+  if (!createdAt) return null;
+  const expiry = new Date(createdAt);
+  expiry.setDate(expiry.getDate() + pkg.expiryDays);
+  expiry.setHours(23, 59, 59, 999);
+  return expiry;
+}
+
+function isPackageUsable(pkg: Package): boolean {
+  const expiry = getPackageExpiryDate(pkg);
+  return pkg.active && pkg.usedHours < pkg.hours && (!expiry || expiry >= new Date());
+}
+
 export const packagesServiceOffline = {
   async createPackage(data: Omit<Package, 'id' | 'createdAt' | 'updatedAt'>): Promise<Package> {
     if (_createLock) {
@@ -247,7 +273,12 @@ export const packagesServiceOffline = {
         throw new Error('Package not found');
       }
 
-      const newUsedHours = (pkg.usedHours || 0) + hoursUsed;
+      const availableHours = Math.max(0, (pkg.hours || 0) - (pkg.usedHours || 0));
+      if (hoursUsed - availableHours > 0.001) {
+        throw new Error('Package does not have enough remaining hours');
+      }
+
+      const newUsedHours = Math.min(pkg.hours, (pkg.usedHours || 0) + hoursUsed);
       const isActive = newUsedHours < pkg.hours;
 
       await this.updatePackage(packageId, {
@@ -268,7 +299,7 @@ export const packagesServiceOffline = {
       const cachedPackages = localPackages
         .filter((pkg: Package) => {
           const matchesCustomer = !customerId || pkg.customerId === customerId;
-          return matchesCustomer && pkg.active && pkg.usedHours < pkg.hours;
+          return matchesCustomer && isPackageUsable(pkg);
         })
         .sort((a: Package, b: Package) => {
           const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime();
@@ -355,7 +386,7 @@ export const packagesServiceOffline = {
           };
         }
 
-        if (pkg.usedHours < pkg.hours) {
+        if (isPackageUsable(pkg)) {
           packages.push(pkg);
         }
       }

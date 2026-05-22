@@ -35,9 +35,6 @@ export const visitsServiceOffline = {
       );
       if (localActive) return true;
 
-      const unitVisits = (localVisits as Visit[]).filter(v => v.unitId === unitId);
-      if (unitVisits.length > 0) return false;
-
       if (syncService.isOnline()) {
         try {
           const db = getDb();
@@ -132,6 +129,8 @@ export const visitsServiceOffline = {
     if (data.duration !== undefined) updateData.duration = data.duration;
     if (data.value !== undefined) updateData.value = data.value;
     if (data.paymentMethod) updateData.paymentMethod = data.paymentMethod;
+    if (data.paid !== undefined) updateData.paid = data.paid;
+    if (data.paymentId) updateData.paymentId = data.paymentId;
     if (data.packageId) updateData.packageId = data.packageId;
 
     if (syncService.isOnline()) {
@@ -146,6 +145,8 @@ export const visitsServiceOffline = {
         if (data.duration !== undefined) firestoreData.duration = data.duration;
         if (data.value !== undefined) firestoreData.value = data.value;
         if (data.paymentMethod) firestoreData.paymentMethod = data.paymentMethod;
+        if (data.paid !== undefined) firestoreData.paid = data.paid;
+        if (data.paymentId) firestoreData.paymentId = data.paymentId;
         if (data.packageId) firestoreData.packageId = data.packageId;
 
         await updateDocSafe(visitRef, firestoreData);
@@ -282,6 +283,9 @@ export const visitsServiceOffline = {
           value: data.value,
           paid: data.paid || false,
           paymentId: data.paymentId,
+          paymentMethod: data.paymentMethod,
+          packageId: data.packageId,
+          kidsPlanId: data.kidsPlanId,
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
         };

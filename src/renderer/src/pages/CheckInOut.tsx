@@ -1,16 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { useUnit } from '../contexts/UnitContext';
-import { Visit, Child } from '../../../shared/types';
+import { Visit, Child, KidsPlan } from '../../../shared/types';
 import { format, differenceInMinutes } from 'date-fns';
 import { visitsServiceOffline } from '../../../shared/firebase/services/visits.service.offline';
 import { customersServiceOffline } from '../../../shared/firebase/services/customers.service.offline';
 import { settingsServiceOffline } from '../../../shared/firebase/services/settings.service.offline';
+import { kidsPlansServiceOffline } from '../../../shared/firebase/services/kidsPlans.service.offline';
 import { getChildAge } from '../../../shared/utils/age';
 import {
   Card, Button, PageHeader, EmptyState, Skeleton, Badge, cn,
 } from '../components/ui';
 import { RefreshIcon, PlusIcon, GamepadIcon } from '../components/icons/Icons';
+import CheckOutModal from '../components/modals/CheckOutModal';
 
 const CheckInOut: React.FC = () => {
   const { currentUnit } = useUnit();
@@ -21,6 +23,9 @@ const CheckInOut: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [hourlyRate, setHourlyRate] = useState(30);
   const [minimumTime, setMinimumTime] = useState(30);
+  const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
+  const [showCheckOutModal, setShowCheckOutModal] = useState(false);
+  const [kidsPlans, setKidsPlans] = useState<KidsPlan[]>([]);
 
   useEffect(() => {
     loadData();
@@ -43,15 +48,17 @@ const CheckInOut: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [visits, allChildren, settings] = await Promise.all([
+      const [visits, allChildren, settings, activePlans] = await Promise.all([
         visitsServiceOffline.getActiveVisits(currentUnit),
         customersServiceOffline.getAllChildren(currentUnit),
         settingsServiceOffline.getSettings(currentUnit),
+        kidsPlansServiceOffline.getActivePlans(currentUnit),
       ]);
       setActiveVisits(visits);
       setChildren(allChildren);
       setHourlyRate(settings.hourlyRate || 30);
       setMinimumTime(settings.minimumTime || 30);
+      setKidsPlans(activePlans);
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Erro ao carregar dados');
@@ -73,11 +80,18 @@ const CheckInOut: React.FC = () => {
     }
 
     try {
+      const child = children.find(c => c.id === selectedChild);
+      const plan = kidsPlans.find(p =>
+        p.childId === selectedChild ||
+        (!!child?.enrollmentCode && p.enrollmentCode === child.enrollmentCode)
+      );
+
       await visitsServiceOffline.checkIn({
         childId: selectedChild,
         unitId: currentUnit,
+        kidsPlanId: plan?.id,
       });
-      toast.success('Check-in realizado com sucesso!');
+      toast.success(plan ? 'Check-in realizado (Plano Kids)!' : 'Check-in realizado com sucesso!');
       setSelectedChild('');
       setSearchTerm('');
       loadData();
@@ -87,17 +101,9 @@ const CheckInOut: React.FC = () => {
     }
   };
 
-  const handleCheckOut = async (visitId: string, childName: string) => {
-    if (!confirm(`Confirmar check-out de ${childName}?`)) return;
-
-    try {
-      await visitsServiceOffline.checkOut({ visitId });
-      toast.success('Check-out realizado com sucesso!');
-      loadData();
-    } catch (error) {
-      console.error('Error during check-out:', error);
-      toast.error('Erro ao realizar check-out');
-    }
+  const handleCheckOut = (visit: Visit) => {
+    setSelectedVisit(visit);
+    setShowCheckOutModal(true);
   };
 
   const calculateDuration = (checkIn: Date) => {
@@ -262,7 +268,7 @@ const CheckInOut: React.FC = () => {
 
                         <Button
                           variant="danger"
-                          onClick={() => handleCheckOut(visit.id, child?.name || 'Criança')}
+                          onClick={() => handleCheckOut(visit)}
                           aria-label={`Check-out de ${child?.name || 'Criança'}`}
                           className="ml-4"
                         >
@@ -277,6 +283,22 @@ const CheckInOut: React.FC = () => {
           </Card>
         </div>
       </div>
+      {selectedVisit && (
+        <CheckOutModal
+          isOpen={showCheckOutModal}
+          onClose={() => {
+            setShowCheckOutModal(false);
+            setSelectedVisit(null);
+          }}
+          onSuccess={() => {
+            setShowCheckOutModal(false);
+            setSelectedVisit(null);
+            loadData();
+          }}
+          visit={selectedVisit}
+          activeVisits={activeVisits}
+        />
+      )}
     </div>
   );
 };

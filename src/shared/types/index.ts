@@ -39,6 +39,7 @@ export interface Visit {
   value?: number;
   paid: boolean;
   paymentId?: string;
+  paymentMethod?: string;
   packageId?: string; // ID do pacote usado (se aplicável)
   kidsPlanId?: string; // ID do plano Kids usado (se aplicável)
   unitId: string;
@@ -121,6 +122,8 @@ export interface CheckOutData {
   duration?: number;
   value?: number;
   paymentMethod?: string;
+  paid?: boolean;
+  paymentId?: string;
   packageId?: string;
 }
 
