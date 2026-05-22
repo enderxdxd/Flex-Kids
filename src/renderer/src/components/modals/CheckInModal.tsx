@@ -21,6 +21,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
   const [children, setChildren] = useState<Child[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<string>('');
   const [selectedChild, setSelectedChild] = useState<string>('');
+  const [selectedChildren, setSelectedChildren] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [searchMode, setSearchMode] = useState<'client' | 'child'>('client');
@@ -73,6 +74,21 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
     return undefined;
   };
 
+  const toggleChildSelection = (childId: string) => {
+    setSelectedChildren(prev => {
+      const next = prev.includes(childId)
+        ? prev.filter(id => id !== childId)
+        : [...prev, childId];
+      setSelectedChild(next[next.length - 1] || '');
+      return next;
+    });
+  };
+
+  const clearChildSelection = () => {
+    setSelectedChild('');
+    setSelectedChildren([]);
+  };
+
   const duplicateWarning = useMemo(() => {
     if (!selectedChild) return null;
     const child = children.find(c => c.id === selectedChild);
@@ -104,7 +120,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedChild) {
+    if (selectedChildren.length === 0) {
       toast.error('Selecione uma criança');
       return;
     }
@@ -113,6 +129,36 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
 
     try {
       setLoading(true);
+      let success = 0;
+      let skipped = 0;
+      let kidsPlanCount = 0;
+
+      for (const childId of selectedChildren) {
+        const hasActiveCheckIn = await visitsServiceOffline.hasActiveVisit(childId, currentUnit);
+        if (hasActiveCheckIn) {
+          skipped++;
+          continue;
+        }
+
+        const plan = getChildPlan(childId);
+        await visitsServiceOffline.checkIn({
+          childId,
+          unitId: currentUnit,
+          kidsPlanId: plan?.id,
+        });
+        success++;
+        if (plan) kidsPlanCount++;
+      }
+
+      if (success > 0) {
+        toast.success(`Check-in realizado para ${success} crianca(s)!${kidsPlanCount > 0 ? ` (${kidsPlanCount} Plano Kids)` : ''}`);
+      }
+      if (skipped > 0) {
+        toast.info(`${skipped} crianca(s) ja tinham check-in ativo`);
+      }
+      onSuccess();
+      handleClose();
+      return;
       
       const hasActiveCheckIn = await visitsServiceOffline.hasActiveVisit(selectedChild, currentUnit);
       if (hasActiveCheckIn) {
@@ -183,6 +229,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
   const handleClose = () => {
     setSelectedCustomer('');
     setSelectedChild('');
+    setSelectedChildren([]);
     setSearchTerm('');
     setSearchMode('client');
     processingRef.current = false;
@@ -202,11 +249,11 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           <div className="flex rounded-2xl bg-gradient-to-br from-slate-100 to-slate-50 p-1 shadow-inner">
-            <button type="button" onClick={() => { setSearchMode('client'); setSearchTerm(''); setSelectedCustomer(''); setSelectedChild(''); }}
+            <button type="button" onClick={() => { setSearchMode('client'); setSearchTerm(''); setSelectedCustomer(''); clearChildSelection(); }}
               className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-2 focus:ring-2 focus:ring-violet-500 focus:outline-none ${searchMode === 'client' ? 'bg-white text-violet-700 shadow-lg shadow-violet-500/20' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}>
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg> Por Cliente
             </button>
-            <button type="button" onClick={() => { setSearchMode('child'); setSearchTerm(''); setSelectedCustomer(''); setSelectedChild(''); }}
+            <button type="button" onClick={() => { setSearchMode('child'); setSearchTerm(''); setSelectedCustomer(''); clearChildSelection(); }}
               className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-2 focus:ring-2 focus:ring-violet-500 focus:outline-none ${searchMode === 'child' ? 'bg-white text-violet-700 shadow-lg shadow-violet-500/20' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}>
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg> Por Criança
             </button>
@@ -229,7 +276,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
                   {filteredCustomers.length === 0 ? (
                     <p className="text-center text-slate-400 py-4 text-sm">Nenhum cliente encontrado</p>
                   ) : filteredCustomers.map(customer => (
-                    <button key={customer.id} type="button" onClick={() => { setSelectedCustomer(customer.id); setSelectedChild(''); }}
+                    <button key={customer.id} type="button" onClick={() => { setSelectedCustomer(customer.id); clearChildSelection(); }}
                       className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-all duration-200 ${selectedCustomer === customer.id ? 'bg-gradient-to-r from-violet-50 to-purple-50 border-2 border-violet-300 shadow-md' : 'hover:bg-white border-2 border-transparent hover:shadow-sm'}`}>
                       <p className="font-bold text-slate-800">{customer.name}</p>
                       <p className="text-xs text-slate-500 mt-0.5 inline-flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg> {customer.phone}</p>
@@ -254,8 +301,8 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
                     ) : customerChildren.map(child => {
                       const plan = getChildPlan(child.id);
                       return (
-                        <button key={child.id} type="button" onClick={() => setSelectedChild(child.id)}
-                          className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-all duration-200 ${selectedChild === child.id ? 'bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-300 shadow-md' : 'hover:bg-white border-2 border-transparent hover:shadow-sm'}`}>
+                        <button key={child.id} type="button" onClick={() => toggleChildSelection(child.id)}
+                          className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-all duration-200 ${selectedChildren.includes(child.id) ? 'bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-300 shadow-md' : 'hover:bg-white border-2 border-transparent hover:shadow-sm'}`}>
                           <div className="flex justify-between items-center">
                             <div>
                               <p className="font-bold text-slate-800">{child.name}</p>
@@ -286,8 +333,8 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
                   const parent = customers.find(c => c.id === child.customerId);
                   const plan = getChildPlan(child.id);
                   return (
-                    <button key={child.id} type="button" onClick={() => setSelectedChild(child.id)}
-                      className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-all duration-200 ${selectedChild === child.id ? 'bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-300 shadow-md' : 'hover:bg-white border-2 border-transparent hover:shadow-sm'}`}>
+                    <button key={child.id} type="button" onClick={() => toggleChildSelection(child.id)}
+                      className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-all duration-200 ${selectedChildren.includes(child.id) ? 'bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-300 shadow-md' : 'hover:bg-white border-2 border-transparent hover:shadow-sm'}`}>
                       <div className="flex justify-between items-center">
                         <div>
                           <p className="font-bold text-slate-800">{child.name}</p>
@@ -375,8 +422,8 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
 
           <div className="flex gap-3 pt-3">
             <button type="button" onClick={handleClose} className="flex-1 py-3 rounded-xl border-2 border-slate-300 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:border-slate-400 transition-all duration-200 shadow-sm hover:shadow-md focus:ring-2 focus:ring-violet-500 focus:outline-none">Cancelar</button>
-            <button type="submit" disabled={!selectedChild || loading} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-sm font-bold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed focus:ring-2 focus:ring-violet-500 focus:outline-none">
-              {loading ? (<span className="inline-flex items-center gap-1.5"><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> Processando...</span>) : (<span className="inline-flex items-center gap-1.5"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> {selectedChild && getChildPlan(selectedChild) ? 'Check-In (Plano Kids)' : 'Confirmar Check-In'}</span>)}
+            <button type="submit" disabled={selectedChildren.length === 0 || loading} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-sm font-bold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed focus:ring-2 focus:ring-violet-500 focus:outline-none">
+              {loading ? (<span className="inline-flex items-center gap-1.5"><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> Processando...</span>) : (<span className="inline-flex items-center gap-1.5"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> {selectedChildren.length > 1 ? `Confirmar ${selectedChildren.length} Check-Ins` : selectedChild && getChildPlan(selectedChild) ? 'Check-In (Plano Kids)' : 'Confirmar Check-In'}</span>)}
             </button>
           </div>
         </form>
