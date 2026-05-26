@@ -9,6 +9,15 @@ import { customersServiceOffline } from '../../../../shared/firebase/services/cu
 import { settingsServiceOffline } from '../../../../shared/firebase/services/settings.service.offline';
 import { bematechService } from '../../../../shared/services/bematech.service';
 import { useUnit } from '../../contexts/UnitContext';
+import {
+  KIDS_PLAN_FREE_MINUTES,
+  calculateKidsPlanCoverage,
+  calculateMultiPackageCoverage,
+  calculatePrincipalValue,
+  calculateSiblingAvulsoValue,
+  distributeSiblingCoverageOverPackage,
+  recalcDurationMinutes,
+} from '../../../../shared/utils/billing';
 
 interface SiblingVisit {
   visit: Visit;
@@ -27,7 +36,6 @@ interface CheckOutModalProps {
 }
 
 const ADMIN_PASSWORD = 'pactoflex123';
-const KIDS_PLAN_FREE_MINUTES = 180; // 3 horas gratuitas por dia
 
 const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSuccess, visit }) => {
   const { currentUnit } = useUnit();
@@ -196,62 +204,36 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
     }
   };
 
-  // Calcula cobertura de múltiplos pacotes (menor -> maior)
-  // extraMinutes: minutos adicionais dos irmãos incluídos
-  const getMultiPackageCoverage = (extraMinutes = 0) => {
-    // Determinar quais pacotes usar
-    let pkgsToUse: Package[] = [];
+  // Determina quais pacotes estão ativos para este checkout (admin escolhido OU pacotes do cliente)
+  const selectedPackages = (): Package[] => {
     if (selectedAdminPackage) {
       const adminPkg = allPackages.find(p => p.id === selectedAdminPackage);
-      if (adminPkg) pkgsToUse = [adminPkg];
-    } else if (usePackages) {
-      pkgsToUse = packages
-        .filter(p => (p.hours - p.usedHours) > 0)
-        .sort((a, b) => (a.hours - a.usedHours) - (b.hours - b.usedHours)); // menor primeiro
+      return adminPkg ? [adminPkg] : [];
     }
-
-    const principalBillable = Math.max(duration, minimumTime);
-    const totalBillableMinutes = principalBillable + extraMinutes;
-    let remainingToCover = totalBillableMinutes;
-    const breakdown: { pkg: Package; coveredMin: number }[] = [];
-
-    for (const pkg of pkgsToUse) {
-      if (remainingToCover <= 0) break;
-      const pkgRemainingMin = Math.round((pkg.hours - pkg.usedHours) * 60);
-      const covered = Math.min(pkgRemainingMin, remainingToCover);
-      if (covered > 0) {
-        breakdown.push({ pkg, coveredMin: covered });
-        remainingToCover -= covered;
-      }
-    }
-
-    const totalCoveredMin = breakdown.reduce((sum, b) => sum + b.coveredMin, 0);
-    const excessMin = Math.max(0, totalBillableMinutes - totalCoveredMin);
-    // Aplica tempo mínimo ao excedente (ex: 2min excedente → cobra 30min)
-    const billableExcessMin = excessMin > 0 ? Math.max(excessMin, minimumTime) : 0;
-
-    return {
-      breakdown,
-      totalCoveredMin,
-      excessMin,
-      billableExcessMin,
-      principalBillable,
-      totalBillableMinutes,
-      isPartial: excessMin > 0 && totalCoveredMin > 0,
-      isFullyCovered: excessMin === 0 && totalCoveredMin > 0,
-      hasPackages: pkgsToUse.length > 0,
-    };
+    if (usePackages) return packages;
+    return [];
   };
 
-  // Calcula cobertura do Plano Kids (3h grátis/dia)
-  const getKidsPlanCoverage = () => {
-    const freeMin = KIDS_PLAN_FREE_MINUTES;
-    const excessMin = Math.max(0, duration - freeMin);
-    const coveredMin = Math.min(duration, freeMin);
-    // Aplica tempo mínimo ao excedente (ex: 2min excedente → cobra 30min)
-    const billableExcessMin = excessMin > 0 ? Math.max(excessMin, minimumTime) : 0;
-    return { coveredMin, excessMin, billableExcessMin, isPartial: excessMin > 0, isFullyCovered: excessMin === 0 };
-  };
+  // Wrappers thin que fecham sobre o estado e delegam para src/shared/utils/billing.ts
+  const getMultiPackageCoverage = (extraMinutes = 0, durationOverride?: number) =>
+    calculateMultiPackageCoverage(
+      selectedPackages(),
+      durationOverride ?? duration,
+      minimumTime,
+      extraMinutes,
+    );
+
+  const getKidsPlanCoverage = (durationOverride?: number) =>
+    calculateKidsPlanCoverage(durationOverride ?? duration, minimumTime, KIDS_PLAN_FREE_MINUTES);
+
+  // Reexport para callsites antigos (mantém compatibilidade do nome)
+  const recalcDurationFromCheckIn = (checkIn: Date | string | undefined): number =>
+    recalcDurationMinutes(checkIn);
+
+  // Quantidade de pacotes do cliente com saldo positivo (para aviso de "avulso com pacote disponível")
+  const customerPackagesWithBalance = packages.filter(p => (p.hours - p.usedHours) > 0);
+  const customerHasAvailablePackage = !isKidsPlan && customerPackagesWithBalance.length > 0;
+  const isPayingAvulsoDespitePackage = customerHasAvailablePackage && !usePackages && !selectedAdminPackage;
 
   const calculateValue = () => {
     // Calcular minutos faturáveis dos irmãos incluídos (exceto Kids Plan)
@@ -355,28 +337,44 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
     try {
       setLoading(true);
 
+      // === Recalcular durações no momento do checkout para evitar drift se modal ficou aberto ===
+      const actualDuration = recalcDurationFromCheckIn(visit.checkIn);
+      const freshSiblings: SiblingVisit[] = siblingVisits.map(s => ({
+        ...s,
+        duration: recalcDurationFromCheckIn(s.visit.checkIn),
+      }));
+
       if (isKidsPlan) {
         // --- Fluxo Plano Kids ---
-        const kidsCoverage = getKidsPlanCoverage();
+        const kidsCoverage = getKidsPlanCoverage(actualDuration);
+        const actualValue = calculatePrincipalValue({
+          isKidsPlan: true,
+          usePackages: false,
+          durationMin: actualDuration,
+          minimumTime,
+          hourlyRate,
+          kidsCoverage,
+        });
 
         let paymentId: string | undefined;
 
         // 1. Se houver excedente, registrar pagamento
-        if (totalValue > 0 && paymentMethod !== 'package' && customer && child) {
+        if (actualValue > 0 && paymentMethod !== 'package' && customer && child) {
           const description = `Pagamento excedente Plano Kids - ${child.name} - ${kidsCoverage.excessMin}min excedente (${kidsCoverage.coveredMin}min grátis)`;
 
           console.log('[CHECKOUT] Criando pagamento Plano Kids:', {
             customerId: customer.id,
             childId: child.id,
-            amount: totalValue,
+            amount: actualValue,
             excessMin: kidsCoverage.excessMin,
+            actualDuration,
           });
 
           const payment = await paymentsServiceOffline.createPayment({
             customerId: customer.id,
             childId: child.id,
             childName: child.name,
-            amount: totalValue,
+            amount: actualValue,
             method: paymentMethod,
             status: 'paid',
             type: 'visit',
@@ -390,19 +388,30 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
         // 2. Realizar checkout com os metadados de quitação
         await visitsServiceOffline.checkOut({
           visitId: visit.id,
-          duration,
-          value: totalValue,
-          paymentMethod: totalValue > 0 ? paymentMethod : 'kids_plan',
+          duration: actualDuration,
+          value: actualValue,
+          paymentMethod: actualValue > 0 ? paymentMethod : 'kids_plan',
           paid: true,
           paymentId,
         });
       } else {
         // --- Fluxo normal (pacotes / avulso) ---
         // Calcular cobertura incluindo irmãos para descontar corretamente do pacote
-        const includedSibs = siblingVisits.filter(s => s.included && !s.visit.kidsPlanId);
-        const sibsBillable = includedSibs.reduce((sum, s) => sum + Math.max(s.duration, minimumTime), 0);
-        const coverage = getMultiPackageCoverage(sibsBillable);
+        const includedSibsFresh = freshSiblings.filter(s => s.included && !s.visit.kidsPlanId);
+        const sibsBillable = includedSibsFresh.reduce((sum, s) => sum + Math.max(s.duration, minimumTime), 0);
+        const coverage = getMultiPackageCoverage(sibsBillable, actualDuration);
         const firstPkgId = coverage.breakdown.length > 0 ? coverage.breakdown[0].pkg.id : undefined;
+
+        // Recomputar valor principal com duração atual (delegado para billing.ts)
+        const actualValue = calculatePrincipalValue({
+          isKidsPlan: false,
+          usePackages: usePackages || !!selectedAdminPackage,
+          durationMin: actualDuration,
+          minimumTime,
+          hourlyRate,
+          employeeDiscount,
+          multiCoverage: coverage,
+        });
 
         // 2. Descontar horas de cada pacote usado (inclui principal + irmãos)
         for (const { pkg, coveredMin } of coverage.breakdown) {
@@ -414,25 +423,26 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
         let paymentId: string | undefined;
 
         // 3. Se houver pagamento (excedente ou avulso), registrar para o principal
-        if (totalValue > 0 && paymentMethod !== 'package' && customer && child) {
+        if (actualValue > 0 && paymentMethod !== 'package' && customer && child) {
           const pkgDesc = coverage.breakdown.map(b => `${b.coveredMin}min de ${b.pkg.type}`).join(', ');
           const description = coverage.isPartial
             ? `Pagamento excedente visita - ${child.name} - ${coverage.excessMin}min excedente (${pkgDesc})`
-            : `Pagamento visita - ${child.name} - ${duration} min${employeeDiscount ? ' (desconto colaborador 50%)' : ''}`;
+            : `Pagamento visita - ${child.name} - ${actualDuration} min${employeeDiscount ? ' (desconto colaborador 50%)' : ''}`;
 
           console.log('[CHECKOUT] Criando pagamento:', {
             customerId: customer.id,
             childId: child.id,
             childName: child.name,
-            amount: totalValue,
+            amount: actualValue,
             partial: coverage.isPartial,
+            actualDuration,
           });
 
           const payment = await paymentsServiceOffline.createPayment({
             customerId: customer.id,
             childId: child.id,
             childName: child.name,
-            amount: totalValue,
+            amount: actualValue,
             method: paymentMethod,
             status: 'paid',
             type: 'visit',
@@ -445,32 +455,73 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
 
         await visitsServiceOffline.checkOut({
           visitId: visit.id,
-          duration,
-          value: totalValue,
-          paymentMethod: totalValue > 0 ? paymentMethod : 'package',
+          duration: actualDuration,
+          value: actualValue,
+          paymentMethod: actualValue > 0 ? paymentMethod : 'package',
           paid: true,
           paymentId,
           packageId: firstPkgId,
         });
       }
 
-      // 4. Processar checkout dos irmãos incluídos
-      // Horas do pacote já foram descontadas acima (cobertura combinada)
-      const includedSiblings = siblingVisits.filter(s => s.included);
-      for (const sibling of includedSiblings) {
-        const sibPkgId = (usePackages || selectedAdminPackage) && sibling.value === 0 && !sibling.visit.kidsPlanId
-          ? (getMultiPackageCoverage().breakdown[0]?.pkg.id)
-          : undefined;
+      // 4. Processar checkout dos irmãos incluídos com durações ATUALIZADAS (via billing.ts)
+      const includedSiblings = freshSiblings.filter(s => s.included);
+
+      // Pré-calcular valores e flag de pacote por irmão (distribui sobra do pacote, trata Kids Plan)
+      const sibCalcs: { sibValue: number; sibUsedPackage: boolean }[] = (() => {
+        if (isKidsPlan || !(usePackages || selectedAdminPackage)) {
+          // Sem pacote do principal → cada irmão calculado individualmente
+          return includedSiblings.map(s => {
+            if (s.visit.kidsPlanId) {
+              const kc = getKidsPlanCoverage(s.duration);
+              return {
+                sibValue: kc.billableExcessMin > 0
+                  ? Math.round((kc.billableExcessMin / 60) * hourlyRate * 100) / 100
+                  : 0,
+                sibUsedPackage: false,
+              };
+            }
+            return {
+              sibValue: calculateSiblingAvulsoValue(s.duration, minimumTime, hourlyRate, employeeDiscount),
+              sibUsedPackage: false,
+            };
+          });
+        }
+
+        // Com pacote ativo: precisa recalcular cobertura para distribuir sobra entre irmãos
+        const includedSibsNonKids = includedSiblings.filter(s => !s.visit.kidsPlanId);
+        const sibsBill = includedSibsNonKids.reduce((sum, s) => sum + Math.max(s.duration, minimumTime), 0);
+        const cov = getMultiPackageCoverage(sibsBill, actualDuration);
+        return distributeSiblingCoverageOverPackage(
+          cov,
+          includedSiblings.map(s => ({ durationMin: s.duration, isKidsPlan: !!s.visit.kidsPlanId })),
+          minimumTime,
+          hourlyRate,
+          employeeDiscount,
+        );
+      })();
+
+      const pkgFirstId: string | undefined = (() => {
+        if (isKidsPlan || !(usePackages || selectedAdminPackage) || includedSiblings.length === 0) return undefined;
+        const includedSibsNonKids = includedSiblings.filter(s => !s.visit.kidsPlanId);
+        const sibsBill = includedSibsNonKids.reduce((sum, s) => sum + Math.max(s.duration, minimumTime), 0);
+        return getMultiPackageCoverage(sibsBill, actualDuration).breakdown[0]?.pkg.id;
+      })();
+
+      for (let i = 0; i < includedSiblings.length; i++) {
+        const sibling = includedSiblings[i];
+        const { sibValue, sibUsedPackage } = sibCalcs[i];
+        const sibPkgId = sibUsedPackage ? pkgFirstId : undefined;
         let siblingPaymentId: string | undefined;
 
         // Registrar pagamento do irmão somente se houver valor a pagar
-        if (sibling.value > 0 && customer) {
+        if (sibValue > 0 && customer) {
           const sibDescription = `Pagamento visita - ${sibling.child.name} - ${sibling.duration} min`;
           const siblingPayment = await paymentsServiceOffline.createPayment({
             customerId: customer.id,
             childId: sibling.child.id,
             childName: sibling.child.name,
-            amount: sibling.value,
+            amount: sibValue,
             method: paymentMethod,
             status: 'paid',
             type: 'visit',
@@ -478,31 +529,47 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
             description: sibDescription,
           });
           siblingPaymentId = siblingPayment.id;
-          console.log(`[CHECKOUT] Pagamento irmão ${sibling.child.name} criado: R$${sibling.value.toFixed(2)}`);
+          console.log(`[CHECKOUT] Pagamento irmão ${sibling.child.name} criado: R$${sibValue.toFixed(2)}`);
         }
         await visitsServiceOffline.checkOut({
           visitId: sibling.visit.id,
           duration: sibling.duration,
-          value: sibling.value,
-          paymentMethod: sibling.value > 0 ? paymentMethod : sibling.visit.kidsPlanId ? 'kids_plan' : 'package',
+          value: sibValue,
+          paymentMethod: sibValue > 0 ? paymentMethod : sibling.visit.kidsPlanId ? 'kids_plan' : 'package',
           paid: true,
           paymentId: siblingPaymentId,
           packageId: sibPkgId,
         });
-        console.log(`[CHECKOUT] Irmão ${sibling.child.name} checkout: ${sibling.duration}min, R$${sibling.value.toFixed(2)}${sibPkgId ? ' (pacote)' : ''}`);
+        console.log(`[CHECKOUT] Irmão ${sibling.child.name} checkout: ${sibling.duration}min, R$${sibValue.toFixed(2)}${sibPkgId ? ' (pacote)' : ''}`);
       }
 
-      // 5. Emitir nota fiscal se habilitado
+      // 5. Emitir nota fiscal se habilitado — usar duração/valor recalculados (via billing.ts)
+      const fiscalDuration = actualDuration;
+      const fiscalValue = (() => {
+        const includedSibsNonKids = freshSiblings.filter(s => s.included && !s.visit.kidsPlanId);
+        const sibsBill = includedSibsNonKids.reduce((sum, s) => sum + Math.max(s.duration, minimumTime), 0);
+        return calculatePrincipalValue({
+          isKidsPlan,
+          usePackages: usePackages || !!selectedAdminPackage,
+          durationMin: actualDuration,
+          minimumTime,
+          hourlyRate,
+          employeeDiscount,
+          multiCoverage: !isKidsPlan ? getMultiPackageCoverage(sibsBill, actualDuration) : undefined,
+          kidsCoverage: isKidsPlan ? getKidsPlanCoverage(actualDuration) : undefined,
+        });
+      })();
+
       let printSuccess = true;
       console.log('[CHECKOUT] Verificando impressão fiscal:');
       console.log('[CHECKOUT] - printFiscalNote:', printFiscalNote);
       console.log('[CHECKOUT] - enableFiscalPrint:', fiscalConfig?.enableFiscalPrint);
       console.log('[CHECKOUT] - child:', !!child);
-      
+
       // Só precisa de child para imprimir, customer é opcional
       if (printFiscalNote && fiscalConfig?.enableFiscalPrint && child) {
         console.log('[CHECKOUT] Condições atendidas, chamando handleFiscalNote...');
-        printSuccess = await handleFiscalNote();
+        printSuccess = await handleFiscalNote(fiscalDuration, fiscalValue);
       } else {
         console.log('[CHECKOUT] Impressão fiscal DESABILITADA - condições não atendidas');
       }
@@ -523,26 +590,32 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
     }
   };
 
-  const handleFiscalNote = async (): Promise<boolean> => {
+  const handleFiscalNote = async (
+    durationOverride?: number,
+    totalValueOverride?: number,
+  ): Promise<boolean> => {
     if (!child || !fiscalConfig) return false;
+
+    const printDuration = durationOverride ?? duration;
+    const printValue = totalValueOverride ?? totalValue;
 
     try {
       // Formatar horários
       const checkInTime = visit.checkIn instanceof Date ? visit.checkIn : new Date(visit.checkIn);
       const checkOutTime = new Date();
       const formatTime = (date: Date) => date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-      
+
       console.log('[CHECKOUT] Inicializando impressora...');
-      
+
       // Inicializar impressora
       const initialized = await bematechService.initialize(fiscalConfig);
       console.log('[CHECKOUT] Impressora inicializada:', initialized);
-      
+
       if (!initialized) {
         console.warn('[CHECKOUT] Impressora não inicializada - modo simulação');
         return false;
       }
-      
+
       // Imprimir cupom não-fiscal simplificado
       const lines = [
         '================================',
@@ -552,9 +625,9 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
         '',
         `ENTRADA: ${formatTime(checkInTime)}`,
         `SAIDA: ${formatTime(checkOutTime)}`,
-        `DURACAO: ${Math.floor(duration / 60)}h ${duration % 60}min`,
+        `DURACAO: ${Math.floor(printDuration / 60)}h ${printDuration % 60}min`,
         '',
-        `VALOR TOTAL: R$ ${totalValue.toFixed(2)}`,
+        `VALOR TOTAL: R$ ${printValue.toFixed(2)}`,
         `PAGAMENTO: ${isKidsPlan ? 'PLANO KIDS' : (usePackages || selectedAdminPackage) ? 'PACOTE' : paymentMethod.toUpperCase()}`,
         '================================',
         'Obrigado pela preferencia!',
@@ -702,6 +775,17 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
           {!isKidsPlan && packages.length > 0 && (
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-2">Usar Pacotes</label>
+              {isPayingAvulsoDespitePackage && (
+                <div className="mb-2 border-2 border-orange-300 bg-orange-50 rounded-lg p-3 flex items-start gap-2">
+                  <svg className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-orange-800">Atenção: cliente tem pacote com saldo</p>
+                    <p className="text-xs text-orange-700 mt-0.5">
+                      {customerPackagesWithBalance.length} pacote(s) disponível(is) — total {Math.round(customerPackagesWithBalance.reduce((s, p) => s + (p.hours - p.usedHours) * 60, 0))}min. Confirme se realmente deseja cobrar avulso.
+                    </p>
+                  </div>
+                </div>
+              )}
               <div className="space-y-1">
                 <button type="button" onClick={() => { setUsePackages(false); setSelectedAdminPackage(''); }}
                   className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all ${!usePackages && !selectedAdminPackage ? 'bg-violet-50 border border-violet-300' : 'hover:bg-slate-50 border border-transparent'}`}>
@@ -953,6 +1037,17 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
           ) : (
             <div className="border-2 border-amber-400 bg-amber-50 rounded-lg p-4 space-y-3">
               <p className="text-sm font-bold text-amber-800 text-center">Confirme os dados do check-out:</p>
+              {isPayingAvulsoDespitePackage && (
+                <div className="border-2 border-orange-400 bg-orange-100 rounded-lg p-3 flex items-start gap-2">
+                  <svg className="w-5 h-5 text-orange-700 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+                  <div className="flex-1">
+                    <p className="text-xs font-bold text-orange-900">Você está cobrando AVULSO com pacote disponível!</p>
+                    <p className="text-[11px] text-orange-800 mt-0.5">
+                      Cliente tem {Math.round(customerPackagesWithBalance.reduce((s, p) => s + (p.hours - p.usedHours) * 60, 0))}min em {customerPackagesWithBalance.length} pacote(s). Volte e selecione "Usar Pacotes do Cliente" se for engano.
+                    </p>
+                  </div>
+                </div>
+              )}
               <div className="text-xs text-slate-700 space-y-1">
                 <p><span className="font-semibold">Criança:</span> {child?.name}</p>
                 <p><span className="font-semibold">Duração:</span> {Math.floor(duration / 60)}h {duration % 60}min</p>

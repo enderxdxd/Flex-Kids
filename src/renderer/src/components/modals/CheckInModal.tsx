@@ -158,26 +158,6 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
       }
       onSuccess();
       handleClose();
-      return;
-      
-      const hasActiveCheckIn = await visitsServiceOffline.hasActiveVisit(selectedChild, currentUnit);
-      if (hasActiveCheckIn) {
-        toast.error('Esta criança já possui um check-in ativo!');
-        setLoading(false);
-        processingRef.current = false;
-        return;
-      }
-
-      const plan = getChildPlan(selectedChild);
-      await visitsServiceOffline.checkIn({
-        childId: selectedChild,
-        unitId: currentUnit,
-        kidsPlanId: plan?.id,
-      });
-
-      toast.success(plan ? 'Check-in realizado (Plano Kids)!' : 'Check-in realizado com sucesso!');
-      onSuccess();
-      handleClose();
     } catch (error) {
       console.error('Error during check-in:', error);
       toast.error('Erro ao realizar check-in');
