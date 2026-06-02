@@ -132,18 +132,19 @@ export const kidsPlansServiceOffline = {
           deletedAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
         });
+        const existing = await syncService.getFromLocal(COLLECTION, id);
+        if (existing) {
+          await syncService.saveToCacheOnly(COLLECTION, { ...existing, ...softDeleteData });
+        }
+        return;
       } catch (error) {
-        console.error('Failed to soft-delete plan from Firebase:', error);
+        console.error('Failed to soft-delete plan in Firebase, queuing for sync:', error);
       }
     }
 
-    try {
-      const existing = await syncService.getFromLocal(COLLECTION, id);
-      if (existing) {
-        await syncService.saveToCacheOnly(COLLECTION, { ...existing, ...softDeleteData });
-      }
-    } catch (error) {
-      console.error('Failed to soft-delete plan from local cache:', error);
+    const existing = await syncService.getFromLocal(COLLECTION, id);
+    if (existing) {
+      await syncService.saveLocally(COLLECTION, 'update', { ...existing, ...softDeleteData });
     }
   },
 

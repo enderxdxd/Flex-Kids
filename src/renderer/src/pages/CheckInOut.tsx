@@ -1,13 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { useUnit } from '../contexts/UnitContext';
-import { Visit, Child, KidsPlan } from '../../../shared/types';
+import { Visit, Child, KidsPlan, Package } from '../../../shared/types';
 import { format, differenceInMinutes } from 'date-fns';
 import { visitsServiceOffline } from '../../../shared/firebase/services/visits.service.offline';
 import { customersServiceOffline } from '../../../shared/firebase/services/customers.service.offline';
 import { settingsServiceOffline } from '../../../shared/firebase/services/settings.service.offline';
 import { kidsPlansServiceOffline } from '../../../shared/firebase/services/kidsPlans.service.offline';
+import { packagesServiceOffline } from '../../../shared/firebase/services/packages.service.offline';
 import { getChildAge } from '../../../shared/utils/age';
+import {
+  calculateKidsPlanCoverage,
+  calculateMultiPackageCoverage,
+  calculatePrincipalValue,
+} from '../../../shared/utils/billing';
 import {
   Card, Button, PageHeader, EmptyState, Skeleton, Badge, cn,
 } from '../components/ui';
@@ -26,6 +32,7 @@ const CheckInOut: React.FC = () => {
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
   const [showCheckOutModal, setShowCheckOutModal] = useState(false);
   const [kidsPlans, setKidsPlans] = useState<KidsPlan[]>([]);
+  const [activePackages, setActivePackages] = useState<Package[]>([]);
 
   useEffect(() => {
     loadData();
@@ -48,17 +55,19 @@ const CheckInOut: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [visits, allChildren, settings, activePlans] = await Promise.all([
+      const [visits, allChildren, settings, activePlans, pkgs] = await Promise.all([
         visitsServiceOffline.getActiveVisits(currentUnit),
         customersServiceOffline.getAllChildren(currentUnit),
         settingsServiceOffline.getSettings(currentUnit),
         kidsPlansServiceOffline.getActivePlans(currentUnit),
+        packagesServiceOffline.getActivePackages(undefined, currentUnit),
       ]);
       setActiveVisits(visits);
       setChildren(allChildren);
       setHourlyRate(settings.hourlyRate || 30);
       setMinimumTime(settings.minimumTime || 30);
       setKidsPlans(activePlans);
+      setActivePackages(pkgs);
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Erro ao carregar dados');
@@ -113,11 +122,46 @@ const CheckInOut: React.FC = () => {
     return `${hours}h ${mins}m`;
   };
 
-  const calculateEstimatedCost = (checkIn: Date) => {
-    const minutes = Math.max(0, differenceInMinutes(new Date(), new Date(checkIn)));
+  // Estimativa coerente com o cálculo real do checkout (billing.ts).
+  // Não conhece desconto colaborador nem inclusão de irmãos — esses ajustes
+  // acontecem no CheckOutModal.
+  const estimateVisitCost = (visit: Visit): { value: number; mode: 'kids' | 'package' | 'avulso' } => {
+    const minutes = Math.max(0, differenceInMinutes(new Date(), new Date(visit.checkIn)));
+
+    if (visit.kidsPlanId) {
+      const cov = calculateKidsPlanCoverage(minutes, minimumTime);
+      const value = cov.billableExcessMin > 0
+        ? Math.round((cov.billableExcessMin / 60) * hourlyRate * 100) / 100
+        : 0;
+      return { value, mode: 'kids' };
+    }
+
+    const child = children.find(c => c.id === visit.childId);
+    const customerId = child?.customerId;
+    const customerPackages = customerId
+      ? activePackages.filter(p => p.customerId === customerId && (p.hours - p.usedHours) > 0)
+      : [];
+
+    if (customerPackages.length > 0) {
+      const cov = calculateMultiPackageCoverage(
+        customerPackages.map(p => ({ id: p.id, type: p.type, hours: p.hours, usedHours: p.usedHours })),
+        minutes,
+        minimumTime,
+      );
+      const value = calculatePrincipalValue({
+        isKidsPlan: false,
+        usePackages: true,
+        durationMin: minutes,
+        minimumTime,
+        hourlyRate,
+        multiCoverage: cov,
+      });
+      return { value, mode: 'package' };
+    }
+
     const billableMinutes = Math.max(minutes, minimumTime);
-    const hours = billableMinutes / 60;
-    return (hours * hourlyRate).toFixed(2);
+    const value = Math.round((billableMinutes / 60) * hourlyRate * 100) / 100;
+    return { value, mode: 'avulso' };
   };
 
   const filteredChildren = children.filter(child =>
@@ -222,7 +266,12 @@ const CheckInOut: React.FC = () => {
                 {activeVisits.map((visit) => {
                   const child = children.find((c) => c.id === visit.childId);
                   const duration = calculateDuration(visit.checkIn);
-                  const estimatedCost = calculateEstimatedCost(visit.checkIn);
+                  const estimate = estimateVisitCost(visit);
+                  const estimateLabel = estimate.mode === 'kids'
+                    ? (estimate.value > 0 ? 'Plano Kids (excedente)' : 'Plano Kids')
+                    : estimate.mode === 'package'
+                      ? (estimate.value > 0 ? 'Pacote (excedente)' : 'Coberto pelo pacote')
+                      : 'Estimativa';
 
                   return (
                     <div
@@ -260,8 +309,8 @@ const CheckInOut: React.FC = () => {
                               <p className="font-bold text-brand-700 tabular-nums">{duration}</p>
                             </div>
                             <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-3 rounded-lg border border-emerald-100">
-                              <p className="text-[10px] text-emerald-700/70 mb-0.5 font-semibold uppercase">Estimativa</p>
-                              <p className="font-bold text-emerald-700 tabular-nums">R$ {estimatedCost}</p>
+                              <p className="text-[10px] text-emerald-700/70 mb-0.5 font-semibold uppercase">{estimateLabel}</p>
+                              <p className="font-bold text-emerald-700 tabular-nums">R$ {estimate.value.toFixed(2)}</p>
                             </div>
                           </div>
                         </div>

@@ -84,6 +84,8 @@ const Packages: React.FC = () => {
   const [renewalPackageId, setRenewalPackageId] = useState<string | null>(null);
   const [renewalRemainingHours, setRenewalRemainingHours] = useState(0);
   const [editExpiresAt, setEditExpiresAt] = useState<string>('');
+  const [initialEditExpiresAt, setInitialEditExpiresAt] = useState<string>('');
+  const [initialEditExpiryDays, setInitialEditExpiryDays] = useState<number | undefined>(undefined);
 
   const [formData, setFormData] = useState<PackageFormData>({
     customerId: '',
@@ -185,7 +187,10 @@ const Packages: React.FC = () => {
       });
       // Calcular data de expiração para o input date
       const expDate = getExpirationDate(pkg);
-      setEditExpiresAt(expDate ? format(expDate, 'yyyy-MM-dd') : '');
+      const initialDateStr = expDate ? format(expDate, 'yyyy-MM-dd') : '';
+      setEditExpiresAt(initialDateStr);
+      setInitialEditExpiresAt(initialDateStr);
+      setInitialEditExpiryDays(pkg.expiryDays);
     } else {
       setEditingPackage(null);
       setFormData({
@@ -196,6 +201,9 @@ const Packages: React.FC = () => {
         expiryDays: plans[0]?.expiryDays || 30,
         unitId: currentUnit,
       });
+      setEditExpiresAt('');
+      setInitialEditExpiresAt('');
+      setInitialEditExpiryDays(undefined);
     }
     setShowModal(true);
   };
@@ -214,12 +222,37 @@ const Packages: React.FC = () => {
           type: formData.type,
           hours: formData.hours,
           price: formData.price,
-          expiryDays: formData.expiryDays || 30,
           unitId: currentUnit,
         };
-        if (editExpiresAt) {
-          updatePayload.expiresAt = new Date(editExpiresAt + 'T23:59:59');
+
+        const created = editingPackage.createdAt instanceof Date
+          ? editingPackage.createdAt
+          : new Date(editingPackage.createdAt);
+        const createdValid = !Number.isNaN(created.getTime());
+
+        const dateChanged = editExpiresAt && editExpiresAt !== initialEditExpiresAt;
+        const daysChanged = formData.expiryDays !== undefined
+          && formData.expiryDays !== initialEditExpiryDays;
+
+        // Manter expiryDays e expiresAt em sincronia (ambos derivam da mesma intenção)
+        if (dateChanged && createdValid) {
+          // Admin alterou a data: derivar expiryDays da diferença
+          const newExp = new Date(editExpiresAt + 'T23:59:59');
+          updatePayload.expiresAt = newExp;
+          const diffDays = Math.ceil((newExp.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
+          if (diffDays > 0) updatePayload.expiryDays = diffDays;
+        } else if (daysChanged && createdValid && formData.expiryDays) {
+          // Admin alterou só o dropdown: derivar expiresAt
+          updatePayload.expiryDays = formData.expiryDays;
+          const newExp = new Date(created);
+          newExp.setDate(newExp.getDate() + formData.expiryDays);
+          newExp.setHours(23, 59, 59, 999);
+          updatePayload.expiresAt = newExp;
+        } else if (formData.expiryDays !== undefined) {
+          // Nada mudou em expiração, preservar valores existentes
+          updatePayload.expiryDays = formData.expiryDays;
         }
+
         await packagesServiceOffline.updatePackage(editingPackage.id, updatePayload);
         toast.success('Pacote atualizado!');
         setShowModal(false);

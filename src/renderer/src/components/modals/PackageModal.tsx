@@ -85,6 +85,7 @@ const PackageModal: React.FC<PackageModalProps> = ({ isOpen, onClose, onSuccess 
         usedHours: 0,
         price,
         expiresAt,
+        expiryDays: expiresInDays,
         active: true,
         sharedAcrossUnits,
         unitId: currentUnit,

@@ -131,19 +131,20 @@ export const customersServiceOffline = {
           deletedAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
         });
+        const existing = await syncService.getFromLocal(CUSTOMERS_COLLECTION, id);
+        if (existing) {
+          await syncService.saveToCacheOnly(CUSTOMERS_COLLECTION, { ...existing, ...softDeleteData });
+        }
+        return;
       } catch (error) {
-        console.error('Failed to soft-delete from Firebase:', error);
+        console.error('Failed to soft-delete customer in Firebase, queuing for sync:', error);
       }
     }
 
-    // Mark as deleted locally (keep data for recovery)
-    try {
-      const existing = await syncService.getFromLocal(CUSTOMERS_COLLECTION, id);
-      if (existing) {
-        await syncService.saveToCacheOnly(CUSTOMERS_COLLECTION, { ...existing, ...softDeleteData });
-      }
-    } catch (error) {
-      console.error('Failed to soft-delete from local cache:', error);
+    // Offline ou Firebase falhou → enfileira para sincronizar quando voltar
+    const existing = await syncService.getFromLocal(CUSTOMERS_COLLECTION, id);
+    if (existing) {
+      await syncService.saveLocally(CUSTOMERS_COLLECTION, 'update', { ...existing, ...softDeleteData });
     }
   },
 
@@ -157,18 +158,19 @@ export const customersServiceOffline = {
           deletedAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
         });
+        const existing = await syncService.getFromLocal(CHILDREN_COLLECTION, id);
+        if (existing) {
+          await syncService.saveToCacheOnly(CHILDREN_COLLECTION, { ...existing, ...softDeleteData });
+        }
+        return;
       } catch (error) {
-        console.error('Failed to soft-delete child from Firebase:', error);
+        console.error('Failed to soft-delete child in Firebase, queuing for sync:', error);
       }
     }
 
-    try {
-      const existing = await syncService.getFromLocal(CHILDREN_COLLECTION, id);
-      if (existing) {
-        await syncService.saveToCacheOnly(CHILDREN_COLLECTION, { ...existing, ...softDeleteData });
-      }
-    } catch (error) {
-      console.error('Failed to soft-delete child from local cache:', error);
+    const existing = await syncService.getFromLocal(CHILDREN_COLLECTION, id);
+    if (existing) {
+      await syncService.saveLocally(CHILDREN_COLLECTION, 'update', { ...existing, ...softDeleteData });
     }
   },
 
@@ -184,18 +186,19 @@ export const customersServiceOffline = {
         }
         Object.keys(firestoreData).forEach(k => firestoreData[k] === undefined && delete firestoreData[k]);
         await updateDocSafe(doc(db, CHILDREN_COLLECTION, id), firestoreData);
+        const existing = await syncService.getFromLocal(CHILDREN_COLLECTION, id);
+        if (existing) {
+          await syncService.saveToCacheOnly(CHILDREN_COLLECTION, { ...existing, ...updateData });
+        }
+        return;
       } catch (error) {
-        console.error('Failed to update child in Firebase:', error);
+        console.error('Failed to update child in Firebase, queuing for sync:', error);
       }
     }
 
-    try {
-      const existing = await syncService.getFromLocal(CHILDREN_COLLECTION, id);
-      if (existing) {
-        await syncService.saveToCacheOnly(CHILDREN_COLLECTION, { ...existing, ...updateData });
-      }
-    } catch (error) {
-      console.error('Failed to update child in local cache:', error);
+    const existing = await syncService.getFromLocal(CHILDREN_COLLECTION, id);
+    if (existing) {
+      await syncService.saveLocally(CHILDREN_COLLECTION, 'update', { ...existing, ...updateData });
     }
   },
 

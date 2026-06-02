@@ -142,18 +142,19 @@ export const packagesServiceOffline = {
           deletedAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
         });
+        const existing = await syncService.getFromLocal(COLLECTION, id);
+        if (existing) {
+          await syncService.saveToCacheOnly(COLLECTION, { ...existing, ...softDeleteData });
+        }
+        return;
       } catch (error) {
-        console.error('Failed to soft-delete package from Firebase:', error);
+        console.error('Failed to soft-delete package in Firebase, queuing for sync:', error);
       }
     }
 
-    try {
-      const existing = await syncService.getFromLocal(COLLECTION, id);
-      if (existing) {
-        await syncService.saveToCacheOnly(COLLECTION, { ...existing, ...softDeleteData });
-      }
-    } catch (error) {
-      console.error('Failed to soft-delete package from local cache:', error);
+    const existing = await syncService.getFromLocal(COLLECTION, id);
+    if (existing) {
+      await syncService.saveLocally(COLLECTION, 'update', { ...existing, ...softDeleteData });
     }
   },
 

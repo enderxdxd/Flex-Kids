@@ -4,6 +4,29 @@ import { Package } from '../../types';
 
 const COLLECTION = 'packages';
 
+function toDate(value: any): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value.toDate === 'function') return value.toDate();
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function getPackageExpiryDate(pkg: Package): Date | null {
+  if (pkg.expiryDays && pkg.expiryDays > 0) {
+    const createdAt = toDate(pkg.createdAt);
+    if (createdAt) {
+      const expiry = new Date(createdAt);
+      expiry.setDate(expiry.getDate() + pkg.expiryDays);
+      expiry.setHours(23, 59, 59, 999);
+      return expiry;
+    }
+  }
+  const explicitExpiry = toDate(pkg.expiresAt);
+  if (explicitExpiry) return explicitExpiry;
+  return null;
+}
+
 export const packagesService = {
   async createPackage(data: Omit<Package, 'id' | 'createdAt' | 'updatedAt'>): Promise<Package> {
     const db = getDb();
@@ -98,7 +121,7 @@ export const packagesService = {
 
     const snapshot = await getDocs(q);
     const now = new Date();
-    
+
     return snapshot.docs
       .map(doc => ({
         id: doc.id,
@@ -108,8 +131,8 @@ export const packagesService = {
         expiresAt: doc.data().expiresAt?.toDate(),
       }))
       .filter(pkg => {
-        if (!pkg.expiresAt) return true;
-        return pkg.expiresAt > now;
+        const expiry = getPackageExpiryDate(pkg as Package);
+        return !expiry || expiry >= now;
       }) as Package[];
   },
 };

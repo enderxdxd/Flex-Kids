@@ -140,6 +140,7 @@ const PackagePaymentModal: React.FC<PackagePaymentModalProps> = ({
           paymentId: payment.id,
           employeeDiscount: employeeDiscount || undefined,
           originalPrice: employeeDiscount ? packageData.price : undefined,
+          expiresAt: expirationDate,
         });
       }
 

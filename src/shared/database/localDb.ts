@@ -438,11 +438,19 @@ class LocalDatabase {
       for (const queueItem of pending) {
         let changed = false;
         if (queueItem.data) {
+          // Repair foreign-key references
           for (const { field } of refStores) {
             if (queueItem.data[field] === oldId) {
               queueItem.data[field] = newId;
               changed = true;
             }
+          }
+          // Repair the entity's own id (e.g. update/delete enqueued offline against a record
+          // that was later assigned a Firebase id). Without this, queued updates/deletes against
+          // the old local_ id are silently skipped by syncItem when it sees the local_ prefix.
+          if (queueItem.data.id === oldId) {
+            queueItem.data.id = newId;
+            changed = true;
           }
         }
         if (changed) {

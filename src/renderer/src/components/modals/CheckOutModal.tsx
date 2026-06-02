@@ -235,76 +235,91 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
   const customerHasAvailablePackage = !isKidsPlan && customerPackagesWithBalance.length > 0;
   const isPayingAvulsoDespitePackage = customerHasAvailablePackage && !usePackages && !selectedAdminPackage;
 
+  // Preview de valor — DELEGA para billing.ts (mesma fonte do checkout real)
+  // para garantir que preview e cobrança nunca divirjam.
   const calculateValue = () => {
-    // Calcular minutos faturáveis dos irmãos incluídos (exceto Kids Plan)
     const includedSiblings = siblingVisits.filter(s => s.included && !s.visit.kidsPlanId);
     const siblingsBillableMin = includedSiblings.reduce(
       (sum, s) => sum + Math.max(s.duration, minimumTime), 0
     );
 
     if (isKidsPlan) {
-      const { billableExcessMin, isFullyCovered } = getKidsPlanCoverage();
-      if (isFullyCovered) {
-        setTotalValue(0);
+      const kc = getKidsPlanCoverage();
+      const principalValue = calculatePrincipalValue({
+        isKidsPlan: true,
+        usePackages: false,
+        durationMin: duration,
+        minimumTime,
+        hourlyRate,
+        kidsCoverage: kc,
+      });
+      setTotalValue(principalValue);
+      if (kc.isFullyCovered) {
         setPaymentMethod('package');
-      } else {
-        const excessHours = billableExcessMin / 60;
-        const value = excessHours * hourlyRate;
-        setTotalValue(Math.round(value * 100) / 100);
-        if (paymentMethod === 'package') setPaymentMethod('pix');
+      } else if (paymentMethod === 'package') {
+        setPaymentMethod('pix');
       }
-      // Irmãos do Kids Plan: cobrar avulso (não usam o plano kids do irmão)
-      setSiblingVisits(prev => prev.map(s => ({
-        ...s,
-        value: s.visit.kidsPlanId ? 0 : Math.round((Math.max(s.duration, minimumTime) / 60) * hourlyRate * 100) / 100,
-      })));
+      // Irmãos: kids do irmão = grátis até 180min; senão avulso (com desconto se aplicável)
+      setSiblingVisits(prev => prev.map(s => {
+        if (s.visit.kidsPlanId) {
+          const sibKc = calculateKidsPlanCoverage(s.duration, minimumTime, KIDS_PLAN_FREE_MINUTES);
+          return {
+            ...s,
+            value: sibKc.billableExcessMin > 0
+              ? Math.round((sibKc.billableExcessMin / 60) * hourlyRate * 100) / 100
+              : 0,
+          };
+        }
+        return {
+          ...s,
+          value: calculateSiblingAvulsoValue(s.duration, minimumTime, hourlyRate, employeeDiscount),
+        };
+      }));
     } else if (usePackages || selectedAdminPackage) {
-      // Pacote cobre principal + irmãos incluídos
       const coverage = getMultiPackageCoverage(siblingsBillableMin);
+      const principalValue = calculatePrincipalValue({
+        isKidsPlan: false,
+        usePackages: true,
+        durationMin: duration,
+        minimumTime,
+        hourlyRate,
+        employeeDiscount,
+        multiCoverage: coverage,
+      });
+      setTotalValue(principalValue);
       if (coverage.isFullyCovered) {
-        setTotalValue(0);
         setPaymentMethod('package');
-        // Todos cobertos pelo pacote → valor 0
         setSiblingVisits(prev => prev.map(s => ({ ...s, value: 0 })));
-      } else if (coverage.excessMin > 0) {
-        // Pacote cobriu parte. Distribuir: principal primeiro, depois irmãos
-        const principalCovered = Math.min(coverage.totalCoveredMin, coverage.principalBillable);
-        const principalExcess = coverage.principalBillable - principalCovered;
-        const principalValue = principalExcess > 0
-          ? Math.round((Math.max(principalExcess, minimumTime) / 60) * hourlyRate * 100) / 100
-          : 0;
-        setTotalValue(principalValue);
-        if (principalValue > 0 && paymentMethod === 'package') setPaymentMethod('pix');
-
-        // Restante do pacote para irmãos
-        let remainingPkgMin = Math.max(0, coverage.totalCoveredMin - principalCovered);
-        setSiblingVisits(prev => prev.map(s => {
-          if (!s.included || s.visit.kidsPlanId) return { ...s, value: s.visit.kidsPlanId ? 0 : s.value };
-          const sibBillable = Math.max(s.duration, minimumTime);
-          const sibCovered = Math.min(remainingPkgMin, sibBillable);
-          remainingPkgMin -= sibCovered;
-          const sibExcess = sibBillable - sibCovered;
-          const sibVal = sibExcess > 0
-            ? Math.round((Math.max(sibExcess, minimumTime) / 60) * hourlyRate * 100) / 100
-            : 0;
-          return { ...s, value: sibVal };
-        }));
       } else {
-        setTotalValue(0);
-        setPaymentMethod('package');
-        setSiblingVisits(prev => prev.map(s => ({ ...s, value: 0 })));
+        if (principalValue > 0 && paymentMethod === 'package') setPaymentMethod('pix');
+        const sibCalcs = distributeSiblingCoverageOverPackage(
+          coverage,
+          siblingVisits.map(s => ({ durationMin: s.duration, isKidsPlan: !!s.visit.kidsPlanId })),
+          minimumTime,
+          hourlyRate,
+          employeeDiscount,
+        );
+        setSiblingVisits(prev => prev.map((s, i) => ({
+          ...s,
+          value: s.included ? sibCalcs[i].sibValue : 0,
+        })));
       }
     } else {
-      // Cobrança por hora — primeiros N min (tempo mínimo) cobram cheio, depois por minuto
-      const billableMinutes = Math.max(duration, minimumTime);
-      const hours = billableMinutes / 60;
-      let value = hours * hourlyRate;
-      if (employeeDiscount) value *= 0.5;
-      setTotalValue(Math.round(value * 100) / 100);
-      // Irmãos avulso
+      // Avulso
+      const principalValue = calculatePrincipalValue({
+        isKidsPlan: false,
+        usePackages: false,
+        durationMin: duration,
+        minimumTime,
+        hourlyRate,
+        employeeDiscount,
+      });
+      setTotalValue(principalValue);
       setSiblingVisits(prev => prev.map(s => ({
         ...s,
-        value: s.visit.kidsPlanId ? 0 : Math.round((Math.max(s.duration, minimumTime) / 60) * hourlyRate * (employeeDiscount ? 0.5 : 1) * 100) / 100,
+        value: s.visit.kidsPlanId
+          ? 0
+          : calculateSiblingAvulsoValue(s.duration, minimumTime, hourlyRate, employeeDiscount),
       })));
     }
   };
@@ -315,6 +330,13 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
     .reduce((sum, s) => sum + s.value, 0);
 
   const combinedTotal = Math.round((totalValue + includedSiblingsTotal) * 100) / 100;
+
+  // Minutos faturáveis dos irmãos incluídos (exceto Kids Plan) — usado para a
+  // pré-visualização da cobertura do pacote. Garante que o UI mostre o desconto
+  // real (principal + irmãos), idêntico ao que será debitado no checkout.
+  const previewSiblingsBillableMin = siblingVisits
+    .filter(s => s.included && !s.visit.kidsPlanId)
+    .reduce((sum, s) => sum + Math.max(s.duration, minimumTime), 0);
 
   const toggleSibling = (visitId: string) => {
     setSiblingVisits(prev => prev.map(s =>
@@ -828,7 +850,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
                         const remainingHours = pkg.hours - pkg.usedHours;
                         const remainingMin = Math.round(remainingHours * 60);
                         const hasTime = remainingHours > 0;
-                        const coverage = getMultiPackageCoverage();
+                        const coverage = getMultiPackageCoverage(previewSiblingsBillableMin);
                         const pkgCoverage = coverage.breakdown.find(b => b.pkg.id === pkg.id);
                         return (
                           <div key={pkg.id} className={`px-3 py-2 rounded-lg text-sm ${hasTime ? 'bg-white border border-slate-200' : 'bg-slate-50 border border-slate-100 opacity-50'}`}>
@@ -942,7 +964,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
               );
             }
 
-            const coverage = (usePackages || selectedAdminPackage) ? getMultiPackageCoverage() : null;
+            const coverage = (usePackages || selectedAdminPackage) ? getMultiPackageCoverage(previewSiblingsBillableMin) : null;
             return (
               <div className={`rounded-lg p-4 border ${coverage?.isPartial ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'}`}>
                 {coverage && coverage.hasPackages && (coverage.isPartial || coverage.isFullyCovered) ? (
@@ -1088,7 +1110,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
                       );
                     }
                   }
-                  const coverage = (usePackages || selectedAdminPackage) ? getMultiPackageCoverage() : null;
+                  const coverage = (usePackages || selectedAdminPackage) ? getMultiPackageCoverage(previewSiblingsBillableMin) : null;
                   if (coverage?.isFullyCovered) {
                     return (
                       <>

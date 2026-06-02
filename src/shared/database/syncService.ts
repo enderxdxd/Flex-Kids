@@ -1,6 +1,7 @@
 import { localDb } from './localDb';
 import { getDb, initFirebase, getFirebaseAuth, isFirebaseReady } from '../firebase/config';
 import { collection, doc, query, where, limit, getDocsFromServer } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { getDocsSafe, addDocSafe, updateDocSafe, setDocSafe, deleteDocSafe, isFirebaseConnectivityError, registerSyncService, markFirebaseWarmedUp } from '../firebase/firebaseHelpers';
 
 const MAX_RETRY_COUNT = 3;
@@ -184,6 +185,22 @@ class SyncService {
 
       this.initialized = true;
       console.log('SyncService initialized successfully');
+
+      // Listen to Firebase Auth state changes: when the session is restored from
+      // IndexedDB after init() resolves, isOnline() will start returning true,
+      // so re-notify all listeners (UI badge, status hooks) so they refresh.
+      try {
+        const auth = getFirebaseAuth();
+        onAuthStateChanged(auth, () => {
+          const nowOnline = this.isOnline();
+          this.notifyListeners(nowOnline);
+          if (nowOnline) {
+            void this.syncAll();
+          }
+        });
+      } catch (err) {
+        console.warn('[SyncService] Failed to attach auth state listener:', err);
+      }
 
       // Purge soft-deleted items older than 30 days
       this.purgeSoftDeleted(30).catch(err => 
