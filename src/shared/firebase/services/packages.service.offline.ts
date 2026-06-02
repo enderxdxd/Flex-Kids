@@ -17,16 +17,22 @@ function toDate(value: any): Date | null {
 }
 
 function getPackageExpiryDate(pkg: Package): Date | null {
+  // Priorizar createdAt + expiryDays (createdAt é sempre atualizado na renovação)
+  if (pkg.expiryDays && pkg.expiryDays > 0) {
+    const createdAt = toDate(pkg.createdAt);
+    if (createdAt) {
+      const expiry = new Date(createdAt);
+      expiry.setDate(expiry.getDate() + pkg.expiryDays);
+      expiry.setHours(23, 59, 59, 999);
+      return expiry;
+    }
+  }
+
+  // Fallback: expiresAt explícito (pacotes legados sem expiryDays)
   const explicitExpiry = toDate(pkg.expiresAt);
   if (explicitExpiry) return explicitExpiry;
 
-  if (!pkg.expiryDays || pkg.expiryDays <= 0) return null;
-  const createdAt = toDate(pkg.createdAt);
-  if (!createdAt) return null;
-  const expiry = new Date(createdAt);
-  expiry.setDate(expiry.getDate() + pkg.expiryDays);
-  expiry.setHours(23, 59, 59, 999);
-  return expiry;
+  return null;
 }
 
 function isPackageUsable(pkg: Package): boolean {

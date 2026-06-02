@@ -569,7 +569,12 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
       // Só precisa de child para imprimir, customer é opcional
       if (printFiscalNote && fiscalConfig?.enableFiscalPrint && child) {
         console.log('[CHECKOUT] Condições atendidas, chamando handleFiscalNote...');
-        printSuccess = await handleFiscalNote(fiscalDuration, fiscalValue);
+        const printSiblings = includedSiblings.map((s, i) => ({
+          childName: s.child.name,
+          duration: s.duration,
+          value: sibCalcs[i].sibValue,
+        }));
+        printSuccess = await handleFiscalNote(fiscalDuration, fiscalValue, printSiblings);
       } else {
         console.log('[CHECKOUT] Impressão fiscal DESABILITADA - condições não atendidas');
       }
@@ -593,11 +598,14 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
   const handleFiscalNote = async (
     durationOverride?: number,
     totalValueOverride?: number,
+    siblings?: { childName: string; duration: number; value: number }[],
   ): Promise<boolean> => {
     if (!child || !fiscalConfig) return false;
 
     const printDuration = durationOverride ?? duration;
     const printValue = totalValueOverride ?? totalValue;
+    const includedSibs = siblings?.filter(s => s.duration > 0) || [];
+    const combinedTotal = printValue + includedSibs.reduce((sum, s) => sum + s.value, 0);
 
     try {
       // Formatar horários
@@ -616,7 +624,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
         return false;
       }
 
-      // Imprimir cupom não-fiscal simplificado
+      // Imprimir cupom não-fiscal com irmãos incluídos
       const lines = [
         '================================',
         `CRIANCA: ${child.name}`,
@@ -626,8 +634,22 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
         `ENTRADA: ${formatTime(checkInTime)}`,
         `SAIDA: ${formatTime(checkOutTime)}`,
         `DURACAO: ${Math.floor(printDuration / 60)}h ${printDuration % 60}min`,
-        '',
-        `VALOR TOTAL: R$ ${printValue.toFixed(2)}`,
+        `VALOR: R$ ${printValue.toFixed(2)}`,
+        ...(includedSibs.length > 0 ? [
+          '',
+          '--- IRMAOS INCLUIDOS ---',
+          ...includedSibs.flatMap(s => [
+            `CRIANCA: ${s.childName}`,
+            `DURACAO: ${Math.floor(s.duration / 60)}h ${s.duration % 60}min`,
+            `VALOR: R$ ${s.value.toFixed(2)}`,
+            '',
+          ]),
+          '--------------------------------',
+          `TOTAL GERAL: R$ ${combinedTotal.toFixed(2)}`,
+        ] : [
+          '',
+          `VALOR TOTAL: R$ ${printValue.toFixed(2)}`,
+        ]),
         `PAGAMENTO: ${isKidsPlan ? 'PLANO KIDS' : (usePackages || selectedAdminPackage) ? 'PACOTE' : paymentMethod.toUpperCase()}`,
         '================================',
         'Obrigado pela preferencia!',

@@ -505,17 +505,21 @@ const Packages: React.FC = () => {
   const getPackageProgress = (pkg: Package) => Math.min((pkg.usedHours / pkg.hours) * 100, 100);
   const getRemainingHours = (pkg: Package) => Math.max(pkg.hours - pkg.usedHours, 0);
   const getExpirationDate = (pkg: Package): Date | null => {
-    if (pkg.expiresAt) return pkg.expiresAt instanceof Date ? pkg.expiresAt : new Date(pkg.expiresAt);
-    const d = pkg.createdAt instanceof Date ? pkg.createdAt : new Date(pkg.createdAt);
+    // Priorizar createdAt + expiryDays (createdAt é sempre atualizado na renovação)
+    const createdAt = pkg.createdAt instanceof Date ? pkg.createdAt : new Date(pkg.createdAt);
     let days = pkg.expiryDays;
     if (!days) {
-      // Fallback: match by hours from configured plans
       const matchedPlan = plans.find(p => p.hours === pkg.hours);
-      days = matchedPlan?.expiryDays || 90; // default 90 days
+      days = matchedPlan?.expiryDays;
     }
-    const exp = new Date(d);
-    exp.setDate(exp.getDate() + days);
-    return exp;
+    if (days && days > 0 && createdAt && !isNaN(createdAt.getTime())) {
+      const exp = new Date(createdAt);
+      exp.setDate(exp.getDate() + days);
+      return exp;
+    }
+    // Fallback: expiresAt explícito (pacotes legados sem expiryDays)
+    if (pkg.expiresAt) return pkg.expiresAt instanceof Date ? pkg.expiresAt : new Date(pkg.expiresAt);
+    return null;
   };
   const getDisplayPrice = (pkg: Package): number => {
     if (pkg.price > 0) return pkg.price;
