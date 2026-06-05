@@ -68,6 +68,22 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
     }
   }, [isOpen, visit]);
 
+  // Mantém o duration vivo enquanto o modal está aberto, para que o preview
+  // de valor reflita o que será cobrado no momento do clique em "Confirmar".
+  // Sem isso, se o modal fica aberto > 1 min, o preview mostra valor antigo
+  // e o cliente vê R$ X mas é cobrado R$ X + alguns centavos.
+  useEffect(() => {
+    if (!isOpen || !visit) return;
+    const interval = setInterval(() => {
+      calculateDuration();
+      setSiblingVisits(prev => prev.map(s => ({
+        ...s,
+        duration: recalcDurationFromCheckIn(s.visit.checkIn),
+      })));
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [isOpen, visit]);
+
   const isKidsPlan = !!visit.kidsPlanId;
 
   useEffect(() => {
@@ -530,8 +546,10 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
         return getMultiPackageCoverage(sibsBill, actualDuration).breakdown[0]?.pkg.id;
       })();
 
-      for (let i = 0; i < includedSiblings.length; i++) {
-        const sibling = includedSiblings[i];
+      // Cada irmão é independente — paraleliza as operações entre irmãos para
+      // cortar o tempo total. Dentro de um mesmo irmão, createPayment e checkOut
+      // continuam sequenciais (checkOut precisa do paymentId).
+      await Promise.all(includedSiblings.map(async (sibling, i) => {
         const { sibValue, sibUsedPackage } = sibCalcs[i];
         const sibPkgId = sibUsedPackage ? pkgFirstId : undefined;
         let siblingPaymentId: string | undefined;
@@ -563,7 +581,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
           packageId: sibPkgId,
         });
         console.log(`[CHECKOUT] Irmão ${sibling.child.name} checkout: ${sibling.duration}min, R$${sibValue.toFixed(2)}${sibPkgId ? ' (pacote)' : ''}`);
-      }
+      }));
 
       // 5. Emitir nota fiscal se habilitado — usar duração/valor recalculados (via billing.ts)
       const fiscalDuration = actualDuration;

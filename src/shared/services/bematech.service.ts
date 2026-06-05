@@ -93,7 +93,6 @@ export class BematechService {
    */
   async initialize(config: FiscalConfig): Promise<boolean> {
     console.log('[BEMATECH] ========== INITIALIZE ==========');
-    console.log('[BEMATECH] Config recebida:', JSON.stringify(config, null, 2));
     this.config = config;
 
     if (!config.enableFiscalPrint) {
@@ -107,6 +106,24 @@ export class BematechService {
       this.isConnected = false;
       this.isSimulationMode = true;
       return false;
+    }
+
+    // Fast-path: se já está conectada de uma chamada anterior, só verifica que a
+    // porta segue aberta. Pula o circo de baud rates (que custa ~10s se a impressora
+    // estiver com problema). Se o getStatus falhar OU a porta estiver fechada,
+    // limpamos isConnected e seguimos o fluxo normal de reconexão.
+    if (this.isConnected && !this.isSimulationMode) {
+      try {
+        const status = await api.getStatus();
+        if (status.serialportAvailable && status.connected && status.portOpen) {
+          console.log('[BEMATECH] ✅ Conexão já ativa, pulando reinicialização');
+          return true;
+        }
+        console.log('[BEMATECH] Conexão anterior caiu — reinicializando');
+        this.isConnected = false;
+      } catch {
+        this.isConnected = false;
+      }
     }
 
     try {
