@@ -10,6 +10,7 @@ import { bematechService } from '../../../shared/services/bematech.service';
 import PackagePaymentModal from '../components/modals/PackagePaymentModal';
 import { useUnit } from '../contexts/UnitContext';
 import { getChildAge } from '../../../shared/utils/age';
+import { getPackageExpiryDate } from '../../../shared/utils/packageExpiry';
 import {
   Card, Button, PageHeader, EmptyState, Skeleton, Input, cn,
 } from '../components/ui';
@@ -537,23 +538,9 @@ const Packages: React.FC = () => {
 
   const getPackageProgress = (pkg: Package) => Math.min((pkg.usedHours / pkg.hours) * 100, 100);
   const getRemainingHours = (pkg: Package) => Math.max(pkg.hours - pkg.usedHours, 0);
-  const getExpirationDate = (pkg: Package): Date | null => {
-    // Priorizar createdAt + expiryDays (createdAt é sempre atualizado na renovação)
-    const createdAt = pkg.createdAt instanceof Date ? pkg.createdAt : new Date(pkg.createdAt);
-    let days = pkg.expiryDays;
-    if (!days) {
-      const matchedPlan = plans.find(p => p.hours === pkg.hours);
-      days = matchedPlan?.expiryDays;
-    }
-    if (days && days > 0 && createdAt && !isNaN(createdAt.getTime())) {
-      const exp = new Date(createdAt);
-      exp.setDate(exp.getDate() + days);
-      return exp;
-    }
-    // Fallback: expiresAt explícito (pacotes legados sem expiryDays)
-    if (pkg.expiresAt) return pkg.expiresAt instanceof Date ? pkg.expiresAt : new Date(pkg.expiresAt);
-    return null;
-  };
+  // Mesma lógica de validade usada no serviço (Gestão de Clientes / Checkout),
+  // com fallback de expiryDays por plano para pacotes legados sem expiryDays.
+  const getExpirationDate = (pkg: Package): Date | null => getPackageExpiryDate(pkg, plans);
   const getDisplayPrice = (pkg: Package): number => {
     if (pkg.price > 0) return pkg.price;
     // Match by hours from configured plans

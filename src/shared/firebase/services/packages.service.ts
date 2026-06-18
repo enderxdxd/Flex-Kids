@@ -1,31 +1,9 @@
 import { collection, updateDoc, doc, getDocs, query, where, orderBy, Timestamp, setDoc } from 'firebase/firestore';
 import { getDb } from '../config';
 import { Package } from '../../types';
+import { getPackageExpiryDate } from '../../utils/packageExpiry';
 
 const COLLECTION = 'packages';
-
-function toDate(value: any): Date | null {
-  if (!value) return null;
-  if (value instanceof Date) return value;
-  if (typeof value.toDate === 'function') return value.toDate();
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function getPackageExpiryDate(pkg: Package): Date | null {
-  if (pkg.expiryDays && pkg.expiryDays > 0) {
-    const createdAt = toDate(pkg.createdAt);
-    if (createdAt) {
-      const expiry = new Date(createdAt);
-      expiry.setDate(expiry.getDate() + pkg.expiryDays);
-      expiry.setHours(23, 59, 59, 999);
-      return expiry;
-    }
-  }
-  const explicitExpiry = toDate(pkg.expiresAt);
-  if (explicitExpiry) return explicitExpiry;
-  return null;
-}
 
 export const packagesService = {
   async createPackage(data: Omit<Package, 'id' | 'createdAt' | 'updatedAt'>): Promise<Package> {

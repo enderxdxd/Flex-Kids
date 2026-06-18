@@ -3,41 +3,24 @@ import { getDb } from '../config';
 import { getDocsSafe, setDocSafe, updateDocSafe, isFirebaseConnectivityError } from '../firebaseHelpers';
 import { Package } from '../../types';
 import { syncService } from '../../database/syncService';
+import { settingsServiceOffline } from './settings.service.offline';
+import { isPackageUsable as isPackageUsableShared, PackagePlanLike } from '../../utils/packageExpiry';
 
 const COLLECTION = 'packages';
 
 let _createLock = false;
 
-function toDate(value: any): Date | null {
-  if (!value) return null;
-  if (value instanceof Date) return value;
-  if (typeof value.toDate === 'function') return value.toDate();
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function getPackageExpiryDate(pkg: Package): Date | null {
-  // Priorizar createdAt + expiryDays (createdAt é sempre atualizado na renovação)
-  if (pkg.expiryDays && pkg.expiryDays > 0) {
-    const createdAt = toDate(pkg.createdAt);
-    if (createdAt) {
-      const expiry = new Date(createdAt);
-      expiry.setDate(expiry.getDate() + pkg.expiryDays);
-      expiry.setHours(23, 59, 59, 999);
-      return expiry;
-    }
+/**
+ * Carrega os planos da unidade para resolver a validade de pacotes legados
+ * (sem expiryDays) por correspondência de horas. Nunca lança — em caso de
+ * falha retorna [] e o cálculo de validade cai no expiresAt/null.
+ */
+async function loadPlans(unitId?: string): Promise<PackagePlanLike[]> {
+  try {
+    return await settingsServiceOffline.getPackagePlans(unitId);
+  } catch {
+    return [];
   }
-
-  // Fallback: expiresAt explícito (pacotes legados sem expiryDays)
-  const explicitExpiry = toDate(pkg.expiresAt);
-  if (explicitExpiry) return explicitExpiry;
-
-  return null;
-}
-
-function isPackageUsable(pkg: Package): boolean {
-  const expiry = getPackageExpiryDate(pkg);
-  return pkg.active && pkg.usedHours < pkg.hours && (!expiry || expiry >= new Date());
 }
 
 export const packagesServiceOffline = {
@@ -300,13 +283,16 @@ export const packagesServiceOffline = {
 
   async getActivePackages(customerId?: string, unitId?: string): Promise<Package[]> {
     try {
-      const localPackages = unitId
-        ? await syncService.getAllFromLocalByUnit(COLLECTION, unitId) as Package[]
-        : await syncService.getAllFromLocal(COLLECTION) as Package[];
+      const [localPackages, plans] = await Promise.all([
+        unitId
+          ? syncService.getAllFromLocalByUnit(COLLECTION, unitId) as Promise<Package[]>
+          : syncService.getAllFromLocal(COLLECTION) as Promise<Package[]>,
+        loadPlans(unitId),
+      ]);
       const cachedPackages = localPackages
         .filter((pkg: Package) => {
           const matchesCustomer = !customerId || pkg.customerId === customerId;
-          return matchesCustomer && isPackageUsable(pkg);
+          return matchesCustomer && isPackageUsableShared(pkg, plans);
         })
         .sort((a: Package, b: Package) => {
           const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime();
@@ -348,6 +334,7 @@ export const packagesServiceOffline = {
   async fetchActivePackagesFromFirebase(customerId?: string, unitId?: string): Promise<Package[]> {
     try {
       const db = getDb();
+      const plans = await loadPlans(unitId);
       const constraints: any[] = [where('active', '==', true)];
       if (unitId) {
         constraints.push(where('unitId', '==', unitId));
@@ -393,7 +380,7 @@ export const packagesServiceOffline = {
           };
         }
 
-        if (isPackageUsable(pkg)) {
+        if (isPackageUsableShared(pkg, plans)) {
           packages.push(pkg);
         }
       }
