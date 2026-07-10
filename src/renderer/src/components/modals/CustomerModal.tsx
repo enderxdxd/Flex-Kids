@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ModalWrapper from './ModalWrapper';
 import { toast } from 'react-toastify';
 import { Customer } from '../../../../shared/types';
@@ -42,6 +42,8 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSucces
   const [newChild, setNewChild] = useState<ChildFormData>({ name: '', birthDate: '' });
   const [loading, setLoading] = useState(false);
   const [loadingChildren, setLoadingChildren] = useState(false);
+  // Guarda síncrona contra duplo-submit no mesmo tick (antes do re-render de `loading`)
+  const submittingRef = useRef(false);
   const [allCustomers, setAllCustomers] = useState<Customer[]>([]);
   const [cpfError, setCpfError] = useState<string>('');
 
@@ -86,6 +88,7 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSucces
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading || submittingRef.current) return;
 
     if (!formData.name || !formData.phone) {
       toast.error('Nome e telefone são obrigatórios');
@@ -95,10 +98,14 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSucces
     // Verificar CPF duplicado
     if (formData.cpf && formData.cpf.trim()) {
       const cpfClean = formData.cpf.replace(/\D/g, '');
+      const editingPhone = customer ? (customer.phone || '').replace(/\D/g, '') : '';
       const duplicate = allCustomers.find(c => {
         if (customer && c.id === customer.id) return false; // ignorar o próprio registro ao editar
         const existingCpf = (c.cpf || '').replace(/\D/g, '');
-        return existingCpf && existingCpf === cpfClean;
+        if (!existingCpf || existingCpf !== cpfClean) return false;
+        // Ao editar, não bloquear por uma duplicata acidental do próprio contato (mesmo telefone)
+        if (customer && editingPhone && (c.phone || '').replace(/\D/g, '') === editingPhone) return false;
+        return true;
       });
       if (duplicate) {
         toast.error(`CPF já cadastrado para: ${duplicate.name}`);
@@ -109,6 +116,7 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSucces
     setCpfError('');
 
     try {
+      submittingRef.current = true;
       setLoading(true);
       console.log('🟢 CustomerModal: Starting save...');
       
@@ -147,6 +155,7 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, onSucces
     } finally {
       console.log('🏁 CustomerModal: Setting loading to false');
       setLoading(false);
+      submittingRef.current = false;
     }
   };
 

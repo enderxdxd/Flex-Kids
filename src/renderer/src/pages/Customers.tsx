@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { Customer, Child, Package } from '../../../shared/types';
 import { customersServiceOffline } from '../../../shared/firebase/services/customers.service.offline';
@@ -37,6 +37,8 @@ const Customers: React.FC = () => {
   const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Guarda síncrona contra duplo-submit no mesmo tick (antes do re-render de `saving`)
+  const submittingRef = useRef(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [showChildModal, setShowChildModal] = useState(false);
@@ -122,8 +124,8 @@ const Customers: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (saving) return;
-    
+    if (saving || submittingRef.current) return;
+
     if (!formData.name || !formData.phone) {
       toast.error('Nome e telefone são obrigatórios');
       return;
@@ -132,11 +134,16 @@ const Customers: React.FC = () => {
     // Verificar CPF duplicado
     if (formData.cpf && formData.cpf.trim()) {
       const cpfClean = formData.cpf.replace(/\D/g, '');
+      const editingPhone = editingCustomer ? (editingCustomer.phone || '').replace(/\D/g, '') : '';
       if (cpfClean) {
         const duplicate = customers.find(c => {
           if (editingCustomer && c.id === editingCustomer.id) return false;
           const existingCpf = (c.cpf || '').replace(/\D/g, '');
-          return existingCpf && existingCpf === cpfClean;
+          if (!existingCpf || existingCpf !== cpfClean) return false;
+          // Ao editar, não bloquear por causa de uma duplicata acidental do
+          // próprio contato (mesmo telefone) — permite corrigir/limpar duplicados.
+          if (editingCustomer && editingPhone && (c.phone || '').replace(/\D/g, '') === editingPhone) return false;
+          return true;
         });
         if (duplicate) {
           toast.error(`CPF já cadastrado para: ${duplicate.name}`);
@@ -147,6 +154,7 @@ const Customers: React.FC = () => {
     }
     setCpfError('');
 
+    submittingRef.current = true;
     setSaving(true);
     try {
       if (editingCustomer) {
@@ -163,6 +171,7 @@ const Customers: React.FC = () => {
       toast.error('Erro ao salvar cliente');
     } finally {
       setSaving(false);
+      submittingRef.current = false;
     }
   };
 
@@ -183,13 +192,14 @@ const Customers: React.FC = () => {
 
   const handleChildSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (saving) return;
-    
+    if (saving || submittingRef.current) return;
+
     if (!childFormData.name || !childFormData.birthDate) {
       toast.error('Nome e data de nascimento são obrigatórios');
       return;
     }
 
+    submittingRef.current = true;
     setSaving(true);
     const birthDateObj = new Date(childFormData.birthDate + 'T00:00:00');
     const age = getChildAge({ age: 0, birthDate: birthDateObj });
@@ -226,6 +236,7 @@ const Customers: React.FC = () => {
       toast.error('Erro ao salvar criança');
     } finally {
       setSaving(false);
+      submittingRef.current = false;
     }
   };
 

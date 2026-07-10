@@ -11,7 +11,44 @@ let _createCustomerLock = false;
 let _addChildLock = false;
 
 
+const onlyDigits = (v?: string) => (v || '').replace(/\D/g, '');
+const normalizeName = (v?: string) => (v || '').trim().toLowerCase();
+
 export const customersServiceOffline = {
+  /**
+   * Procura no cache local um cliente equivalente ao informado (mesma unidade,
+   * não deletado). Usado para tornar a criação idempotente e evitar duplicatas
+   * causadas por duplo-clique / retry após um erro percebido.
+   *  - Mesmo CPF (quando informado) => mesma pessoa.
+   *  - Mesmo telefone + mesmo nome => mesma pessoa.
+   */
+  async findDuplicateCustomer(
+    data: { name?: string; phone?: string; cpf?: string; unitId?: string },
+  ): Promise<Customer | null> {
+    const cpfClean = onlyDigits(data.cpf);
+    const phoneClean = onlyDigits(data.phone);
+    if (!cpfClean && !phoneClean) return null;
+
+    try {
+      const locals = (data.unitId
+        ? await syncService.getAllFromLocalByUnit(CUSTOMERS_COLLECTION, data.unitId)
+        : await syncService.getAllFromLocal(CUSTOMERS_COLLECTION)) as Customer[];
+
+      const nameClean = normalizeName(data.name);
+      const match = locals.find((c: any) => {
+        if (c.deletedAt) return false;
+        const cCpf = onlyDigits(c.cpf);
+        if (cpfClean && cCpf && cCpf === cpfClean) return true;
+        const cPhone = onlyDigits(c.phone);
+        if (phoneClean && cPhone && cPhone === phoneClean && normalizeName(c.name) === nameClean) return true;
+        return false;
+      });
+      return (match as Customer) || null;
+    } catch {
+      return null;
+    }
+  },
+
   async createCustomer(data: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>): Promise<Customer> {
     if (_createCustomerLock) {
       throw new Error('Criação de cliente já em andamento, aguarde.');
@@ -19,9 +56,18 @@ export const customersServiceOffline = {
     _createCustomerLock = true;
 
     try {
+      // Idempotência: se já existe um cliente equivalente (mesmo CPF, ou mesmo
+      // telefone+nome) na unidade, retorna o existente em vez de duplicar.
+      const existing = await this.findDuplicateCustomer(data);
+      if (existing) {
+        console.warn('⚠️ createCustomer: cliente equivalente já existe, retornando existente:', existing.id);
+        return existing;
+      }
       return await this._doCreateCustomer(data);
     } finally {
-      setTimeout(() => { _createCustomerLock = false; }, 2000);
+      // Libera o lock assim que a operação termina (o guard de UI evita duplo
+      // clique; a deduplicação acima cobre retries após erro percebido).
+      _createCustomerLock = false;
     }
   },
 
@@ -288,9 +334,25 @@ export const customersServiceOffline = {
     _addChildLock = true;
 
     try {
+      // Idempotência: evita criança duplicada (mesmo responsável + mesmo nome)
+      // em duplo-clique ou retry após erro percebido.
+      const nameClean = normalizeName(data.name);
+      if (nameClean) {
+        try {
+          const siblings = (await syncService.getAllFromLocal(CHILDREN_COLLECTION)) as Child[];
+          const dup = siblings.find((c: any) =>
+            !c.deletedAt && c.customerId === customerId && normalizeName(c.name) === nameClean);
+          if (dup) {
+            console.warn('⚠️ addChild: criança equivalente já existe, retornando existente:', dup.id);
+            return dup as Child;
+          }
+        } catch {
+          // Se a checagem falhar, segue com a criação normal.
+        }
+      }
       return await this._doAddChild(customerId, data);
     } finally {
-      setTimeout(() => { _addChildLock = false; }, 2000);
+      _addChildLock = false;
     }
   },
 
