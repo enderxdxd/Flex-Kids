@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { settingsServiceOffline } from '../../../shared/firebase/services/settings.service.offline';
 import { bematechService } from '../../../shared/services/bematech.service';
+import { webSerialPrinter } from '../../../shared/services/webSerialPrinter';
 import { syncService } from '../../../shared/database/syncService';
 import { localDb } from '../../../shared/database/localDb';
 import { useUnit } from '../contexts/UnitContext';
@@ -20,6 +21,11 @@ const Settings: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [connectingPrinter, setConnectingPrinter] = useState(false);
+  const [printerConnected, setPrinterConnected] = useState(false);
+  // No navegador (site) a impressão usa Web Serial (Chrome/Edge + HTTPS), que
+  // exige o usuário autorizar a porta uma vez via clique.
+  const isBrowserPrinting = typeof window !== 'undefined' && !window.electronAPI && webSerialPrinter.isSupported();
   const [exporting, setExporting] = useState(false);
   const [exportingSales, setExportingSales] = useState(false);
   const [pendingSync, setPendingSync] = useState(0);
@@ -204,6 +210,38 @@ const Settings: React.FC = () => {
     }
   };
 
+  // Autoriza/conecta a impressora no navegador (Web Serial). DEVE rodar dentro
+  // do clique para o popup de seleção de porta aparecer.
+  const handleConnectPrinterBrowser = async () => {
+    try {
+      setConnectingPrinter(true);
+      const ok = await webSerialPrinter.requestPort(115200);
+      if (ok) {
+        setPrinterConnected(true);
+        toast.success('Impressora conectada! A autorização fica salva neste navegador.');
+      } else {
+        setPrinterConnected(false);
+        toast.error(webSerialPrinter.getLastError() || 'Não foi possível conectar à impressora');
+      }
+    } catch (error) {
+      console.error('Error connecting printer (web serial):', error);
+      toast.error('Erro ao conectar impressora');
+    } finally {
+      setConnectingPrinter(false);
+    }
+  };
+
+  // No navegador, tenta reconectar silenciosamente a uma porta já autorizada
+  // (sem popup) para que a impressão funcione logo após recarregar a página.
+  useEffect(() => {
+    if (!isBrowserPrinting || !enablePrinting) return;
+    let cancelled = false;
+    webSerialPrinter.connect().then(ok => {
+      if (!cancelled) setPrinterConnected(ok);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [isBrowserPrinting, enablePrinting]);
+
   return (
     <div className="space-y-6">
       <div>
@@ -286,7 +324,34 @@ const Settings: React.FC = () => {
                 </div>
                 <span className="text-sm text-slate-700 font-medium">Habilitar impressão de comprovante</span>
               </label>
-              {enablePrinting && (
+              {enablePrinting && isBrowserPrinting && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50/50 border border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${printerConnected ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
+                      <span className="text-sm text-slate-700 font-medium">
+                        {printerConnected ? 'Impressora conectada' : 'Impressora não conectada'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleConnectPrinterBrowser}
+                      disabled={connectingPrinter}
+                      className="text-xs font-semibold text-brand-600 hover:text-brand-700 disabled:opacity-50 flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-brand-50 transition-all"
+                    >
+                      {connectingPrinter ? (
+                        <><svg className="w-3.5 h-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> Conectando...</>
+                      ) : (
+                        <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16v6H4z"/><path d="M6 14h12v6H6z"/><path d="M6 10v4"/><path d="M18 10v4"/></svg> {printerConnected ? 'Reconectar' : 'Conectar impressora'}</>
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    No navegador, escolha a porta da impressora uma vez. A autorização fica salva neste navegador (Chrome/Edge, HTTPS).
+                  </p>
+                </div>
+              )}
+              {enablePrinting && !isBrowserPrinting && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-2">Porta</label>
                   <select value={printerPort} onChange={(e) => handlePrinterPortChange(e.target.value)} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500 transition-all hover:border-slate-300">

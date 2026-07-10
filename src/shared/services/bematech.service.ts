@@ -1,10 +1,13 @@
 import { FiscalNote, FiscalConfig, FiscalItem } from '../types';
+import { webSerialPrinter } from './webSerialPrinter';
 
 /**
  * Serviço de integração com impressoras fiscais Bematech
  * Suporta modelos: MP-4200, MP-2100, MP-7000
- * 
- * Usa IPC para comunicar com o main process do Electron onde o serialport funciona
+ *
+ * Desktop (Electron): usa IPC para o main process onde o `serialport` funciona.
+ * Navegador (site): usa a Web Serial API (`navigator.serial`) — Chrome/Edge + HTTPS.
+ * Ambos expõem a mesma interface, então o restante do serviço é agnóstico.
  */
 
 // Acessa a API do Electron exposta via preload
@@ -26,14 +29,16 @@ declare global {
 }
 
 function getPrinterAPI() {
-  console.log('[BEMATECH] getPrinterAPI chamado');
-  console.log('[BEMATECH] window.electronAPI:', typeof window !== 'undefined' ? window.electronAPI : 'undefined');
-  
+  // 1. Desktop (Electron): API nativa via IPC/serialport.
   if (typeof window !== 'undefined' && window.electronAPI?.printer) {
-    console.log('[BEMATECH] ✅ API de impressora encontrada');
     return window.electronAPI.printer;
   }
-  console.warn('[BEMATECH] ❌ API de impressora NÃO encontrada');
+  // 2. Navegador (site): Web Serial API, se suportada (Chrome/Edge + HTTPS).
+  if (webSerialPrinter.isSupported()) {
+    console.log('[BEMATECH] Usando Web Serial API (navegador)');
+    return webSerialPrinter;
+  }
+  console.warn('[BEMATECH] ❌ Nenhuma API de impressora disponível (nem Electron nem Web Serial)');
   return null;
 }
 
