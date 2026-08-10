@@ -614,7 +614,28 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
           duration: s.duration,
           value: sibCalcs[i].sibValue,
         }));
-        printSuccess = await handleFiscalNote(fiscalDuration, fiscalValue, printSiblings);
+
+        // Calcular info do pacote após uso (horas restantes e vencimento)
+        let pkgInfo: { remainingHours: number; expiresAt: string }[] | undefined;
+        if (usePackages || selectedAdminPackage) {
+          const usedPkgs = selectedPackages();
+          pkgInfo = usedPkgs.filter(p => p.active).map(p => {
+            const remaining = Math.max(0, p.hours - p.usedHours);
+            let expStr = 'N/A';
+            if (p.expiryDays && p.expiryDays > 0 && p.createdAt) {
+              const created = p.createdAt instanceof Date ? p.createdAt : new Date(p.createdAt);
+              const exp = new Date(created);
+              exp.setDate(exp.getDate() + p.expiryDays);
+              expStr = exp.toLocaleDateString('pt-BR');
+            } else if (p.expiresAt) {
+              const exp = p.expiresAt instanceof Date ? p.expiresAt : new Date(p.expiresAt);
+              expStr = exp.toLocaleDateString('pt-BR');
+            }
+            return { remainingHours: remaining, expiresAt: expStr };
+          });
+        }
+
+        printSuccess = await handleFiscalNote(fiscalDuration, fiscalValue, printSiblings, pkgInfo);
       } else {
         console.log('[CHECKOUT] Impressão fiscal DESABILITADA - condições não atendidas');
       }
@@ -639,6 +660,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
     durationOverride?: number,
     totalValueOverride?: number,
     siblings?: { childName: string; duration: number; value: number }[],
+    packageInfo?: { remainingHours: number; expiresAt: string }[],
   ): Promise<boolean> => {
     if (!child || !fiscalConfig) return false;
 
@@ -691,6 +713,14 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
           `VALOR TOTAL: R$ ${printValue.toFixed(2)}`,
         ]),
         `PAGAMENTO: ${isKidsPlan ? 'PLANO KIDS' : (usePackages || selectedAdminPackage) ? 'PACOTE' : paymentMethod.toUpperCase()}`,
+        ...(packageInfo && packageInfo.length > 0 ? [
+          '',
+          '--- INFO PACOTE ---',
+          ...packageInfo.flatMap(p => [
+            `Restante: ${p.remainingHours.toFixed(1)}h`,
+            `Vencimento: ${p.expiresAt}`,
+          ]),
+        ] : []),
         '================================',
         'Obrigado pela preferencia!',
       ];
