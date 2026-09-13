@@ -138,15 +138,15 @@ const FiscalSettings: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-display bg-brand-gradient bg-clip-text text-transparent">Configurações Fiscais</h1>
-          <p className="text-sm text-slate-500 mt-1">Configure os dados da empresa e impressora fiscal Bematech</p>
+          <h1 className="text-display text-ink-900">Configurações Fiscais</h1>
+          <p className="text-sm text-ink-500 mt-1">Configure os dados da empresa e impressora fiscal Bematech</p>
         </div>
         <div className="flex gap-3">
           {config.enableFiscalPrint && (
             <button
               onClick={handleTestPrinter}
               disabled={testing || loading}
-              className="h-10 px-4 rounded-lg text-sm font-semibold bg-white text-brand-700 border border-brand-200 hover:bg-brand-50 hover:border-brand-300 transition-colors disabled:opacity-50 flex items-center gap-2"
+              className="h-10 px-4 rounded-lg text-sm font-semibold bg-paper-raised text-brand-700 border border-brand-200 hover:bg-brand-50 hover:border-brand-300 transition-colors disabled:opacity-50 flex items-center gap-2"
             >
               <span>{testing ? <svg className="w-5 h-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" /></svg> : <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18.75 7.034V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659" /></svg>}</span>
               {testing ? 'Testando...' : 'Testar Impressora'}
@@ -163,40 +163,40 @@ const FiscalSettings: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-card-lg shadow-card border border-slate-200/80 p-6 space-y-6">
-        <div className="bg-gradient-to-br from-brand-50 to-fuchsia-50/40 border border-brand-200/50 p-4 rounded-lg">
+      <div className="bg-paper-raised rounded-card-lg shadow-card border border-line/80 p-6 space-y-6">
+        <div className="bg-brand-50 border border-brand-200/50 p-4 rounded-lg">
           <label className="flex items-center gap-3 cursor-pointer">
             <input
               type="checkbox"
               checked={config.enableFiscalPrint}
               onChange={(e) => handleChange('enableFiscalPrint', e.target.checked)}
-              className="w-5 h-5 text-brand-600 rounded focus:ring-2 focus:ring-blue-500"
+              className="w-5 h-5 accent-brand-600 rounded border-line focus-visible:outline-none focus-visible:shadow-focus"
             />
             <div>
-              <span className="font-bold text-slate-900 flex items-center gap-1.5"><svg className="w-4 h-4 text-brand-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg> Habilitar Emissão de Nota Fiscal</span>
-              <p className="text-xs text-slate-600">Ativar impressão fiscal no checkout</p>
+              <span className="font-bold text-ink-900 flex items-center gap-1.5"><svg className="w-4 h-4 text-brand-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg> Emitir nota fiscal no check-out</span>
+              <p className="text-xs text-ink-600">Imprime o cupom fiscal ao fechar cada visita</p>
             </div>
           </label>
         </div>
 
         <div>
-          <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2"><svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" /></svg> Dados da Empresa</h3>
+          <h3 className="text-xl font-bold text-ink-900 mb-4 flex items-center gap-2"><svg className="w-5 h-5 text-ink-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" /></svg> Dados da empresa</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Razão Social *
+              <label className="block text-sm font-medium text-ink-700 mb-2">
+                Razão social *
               </label>
               <input
                 type="text"
                 value={config.companyName}
                 onChange={(e) => handleChange('companyName', e.target.value)}
-                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 hover:border-brand-300 transition-all"
+                className="w-full h-control px-3 text-sm bg-paper-raised border border-line rounded-md text-ink-900 placeholder:text-ink-400 focus:outline-none focus:border-brand-500 focus-visible:shadow-focus hover:border-line-strong transition-colors"
                 placeholder="Nome da empresa"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-sm font-medium text-ink-700 mb-2">
                 CNPJ *
               </label>
               <input
@@ -204,58 +204,58 @@ const FiscalSettings: React.FC = () => {
                 value={config.cnpj}
                 onChange={(e) => handleChange('cnpj', e.target.value)}
                 onBlur={(e) => handleChange('cnpj', formatCNPJ(e.target.value))}
-                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 hover:border-brand-300 transition-all"
+                className="w-full h-control px-3 text-sm bg-paper-raised border border-line rounded-md text-ink-900 placeholder:text-ink-400 focus:outline-none focus:border-brand-500 focus-visible:shadow-focus hover:border-line-strong transition-colors"
                 placeholder="00.000.000/0000-00"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Inscrição Estadual
+              <label className="block text-sm font-medium text-ink-700 mb-2">
+                Inscrição estadual
               </label>
               <input
                 type="text"
                 value={config.ie}
                 onChange={(e) => handleChange('ie', e.target.value)}
-                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 hover:border-brand-300 transition-all"
+                className="w-full h-control px-3 text-sm bg-paper-raised border border-line rounded-md text-ink-900 placeholder:text-ink-400 focus:outline-none focus:border-brand-500 focus-visible:shadow-focus hover:border-line-strong transition-colors"
                 placeholder="000.000.000.000"
               />
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-sm font-medium text-ink-700 mb-2">
                 Endereço
               </label>
               <input
                 type="text"
                 value={config.address}
                 onChange={(e) => handleChange('address', e.target.value)}
-                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 hover:border-brand-300 transition-all"
+                className="w-full h-control px-3 text-sm bg-paper-raised border border-line rounded-md text-ink-900 placeholder:text-ink-400 focus:outline-none focus:border-brand-500 focus-visible:shadow-focus hover:border-line-strong transition-colors"
                 placeholder="Rua, número, complemento"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-sm font-medium text-ink-700 mb-2">
                 Cidade
               </label>
               <input
                 type="text"
                 value={config.city}
                 onChange={(e) => handleChange('city', e.target.value)}
-                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 hover:border-brand-300 transition-all"
+                className="w-full h-control px-3 text-sm bg-paper-raised border border-line rounded-md text-ink-900 placeholder:text-ink-400 focus:outline-none focus:border-brand-500 focus-visible:shadow-focus hover:border-line-strong transition-colors"
                 placeholder="Nome da cidade"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-sm font-medium text-ink-700 mb-2">
                 Estado
               </label>
               <select
                 value={config.state}
                 onChange={(e) => handleChange('state', e.target.value)}
-                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 hover:border-brand-300 transition-all"
+                className="w-full h-control px-3 text-sm bg-paper-raised border border-line rounded-md text-ink-900 placeholder:text-ink-400 focus:outline-none focus:border-brand-500 focus-visible:shadow-focus hover:border-line-strong transition-colors"
               >
                 <option value="">Selecione</option>
                 <option value="AC">AC</option>
@@ -289,7 +289,7 @@ const FiscalSettings: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-sm font-medium text-ink-700 mb-2">
                 CEP
               </label>
               <input
@@ -297,20 +297,20 @@ const FiscalSettings: React.FC = () => {
                 value={config.zipCode}
                 onChange={(e) => handleChange('zipCode', e.target.value)}
                 onBlur={(e) => handleChange('zipCode', formatZipCode(e.target.value))}
-                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 hover:border-brand-300 transition-all"
+                className="w-full h-control px-3 text-sm bg-paper-raised border border-line rounded-md text-ink-900 placeholder:text-ink-400 focus:outline-none focus:border-brand-500 focus-visible:shadow-focus hover:border-line-strong transition-colors"
                 placeholder="00000-000"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-sm font-medium text-ink-700 mb-2">
                 Telefone
               </label>
               <input
                 type="text"
                 value={config.phone}
                 onChange={(e) => handleChange('phone', e.target.value)}
-                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 hover:border-brand-300 transition-all"
+                className="w-full h-control px-3 text-sm bg-paper-raised border border-line rounded-md text-ink-900 placeholder:text-ink-400 focus:outline-none focus:border-brand-500 focus-visible:shadow-focus hover:border-line-strong transition-colors"
                 placeholder="(00) 0000-0000"
               />
             </div>
@@ -318,16 +318,16 @@ const FiscalSettings: React.FC = () => {
         </div>
 
         <div>
-          <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2"><svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m10.5 0a48.536 48.536 0 0 0-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18.75 12h.008v.008h-.008V12Zm-2.25 0h.008v.008H16.5V12Z" /></svg> Configurações da Impressora</h3>
+          <h3 className="text-xl font-bold text-ink-900 mb-4 flex items-center gap-2"><svg className="w-5 h-5 text-ink-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m10.5 0a48.536 48.536 0 0 0-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18.75 12h.008v.008h-.008V12Zm-2.25 0h.008v.008H16.5V12Z" /></svg> Impressora</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Modelo da Impressora
+              <label className="block text-sm font-medium text-ink-700 mb-2">
+                Modelo
               </label>
               <select
                 value={config.printerModel}
                 onChange={(e) => handleChange('printerModel', e.target.value as any)}
-                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 hover:border-brand-300 transition-all"
+                className="w-full h-control px-3 text-sm bg-paper-raised border border-line rounded-md text-ink-900 placeholder:text-ink-400 focus:outline-none focus:border-brand-500 focus-visible:shadow-focus hover:border-line-strong transition-colors"
               >
                 <option value="MP-4200">Bematech MP-4200 TH FI II</option>
                 <option value="MP-2100">Bematech MP-2100 TH FI</option>
@@ -337,13 +337,13 @@ const FiscalSettings: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Porta Serial
+              <label className="block text-sm font-medium text-ink-700 mb-2">
+                Porta
               </label>
               <select
                 value={config.printerPort}
                 onChange={(e) => handleChange('printerPort', e.target.value)}
-                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 hover:border-brand-300 transition-all"
+                className="w-full h-control px-3 text-sm bg-paper-raised border border-line rounded-md text-ink-900 placeholder:text-ink-400 focus:outline-none focus:border-brand-500 focus-visible:shadow-focus hover:border-line-strong transition-colors"
               >
                 <option value="AUTO">Detectar Automaticamente (Recomendado)</option>
                 <option value="COM1">COM1</option>
@@ -357,30 +357,26 @@ const FiscalSettings: React.FC = () => {
             </div>
           </div>
 
-          <div className="mt-4 bg-green-50 p-4 rounded-lg">
-            <p className="text-sm text-green-800">
-              <strong>Sistema Pronto para Produção:</strong>
-            </p>
-            <ul className="list-disc list-inside text-sm text-green-700 mt-2 space-y-1">
-              <li><strong>Detecção Automática:</strong> O sistema detecta a impressora automaticamente</li>
-              <li><strong>Driver:</strong> Instale o driver Bematech no Windows</li>
-              <li><strong>Conexão:</strong> Conecte a impressora via USB ou Serial</li>
-              <li><strong>Teste:</strong> Use o botão "Testar Impressora" para validar</li>
-            </ul>
-          </div>
-          
-          <div className="mt-4 bg-gradient-to-br from-brand-50 to-fuchsia-50/40 border border-brand-200/50 p-4 rounded-lg">
-            <p className="text-sm text-blue-800">
-              <strong>Checklist de Configuração:</strong>
-            </p>
-            <ol className="list-decimal list-inside text-sm text-blue-700 mt-2 space-y-1">
-              <li>Preencha todos os dados da empresa (CNPJ obrigatório)</li>
-              <li>Selecione o modelo correto da impressora</li>
-              <li>Deixe em "Detectar Automaticamente" (recomendado)</li>
-              <li>Marque "Habilitar Emissão de Nota Fiscal"</li>
-              <li>Clique em "Salvar"</li>
-              <li>Clique em "Testar Impressora" para validar</li>
-            </ol>
+          <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div className="border border-line rounded-card p-4">
+              <p className="text-caption uppercase text-ink-500 mb-2">Antes de testar</p>
+              <ul className="text-sm text-ink-600 space-y-1.5">
+                <li><span className="font-medium text-ink-800">Driver:</span> instale o driver Bematech no Windows</li>
+                <li><span className="font-medium text-ink-800">Conexão:</span> conecte a impressora via USB ou serial</li>
+                <li><span className="font-medium text-ink-800">Detecção:</span> o sistema encontra a impressora sozinho</li>
+              </ul>
+            </div>
+
+            <div className="border border-line rounded-card p-4">
+              <p className="text-caption uppercase text-ink-500 mb-2">Ordem da configuração</p>
+              <ol className="text-sm text-ink-600 space-y-1.5">
+                <li><span className="font-mono text-xs text-ink-400 mr-1.5">1</span>Preencher os dados da empresa (CNPJ obrigatório)</li>
+                <li><span className="font-mono text-xs text-ink-400 mr-1.5">2</span>Escolher o modelo da impressora</li>
+                <li><span className="font-mono text-xs text-ink-400 mr-1.5">3</span>Deixar a porta em detecção automática</li>
+                <li><span className="font-mono text-xs text-ink-400 mr-1.5">4</span>Marcar “Emitir nota fiscal no check-out”</li>
+                <li><span className="font-mono text-xs text-ink-400 mr-1.5">5</span>Salvar e testar a impressora</li>
+              </ol>
+            </div>
           </div>
         </div>
       </div>

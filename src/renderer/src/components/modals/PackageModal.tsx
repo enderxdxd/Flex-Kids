@@ -115,31 +115,31 @@ const PackageModal: React.FC<PackageModalProps> = ({ isOpen, onClose, onSuccess 
 
   return (
     <ModalWrapper isOpen={isOpen} onClose={handleClose}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-slate-200">
-          <h2 className="text-lg font-bold text-slate-800">Novo Pacote de Horas</h2>
-          <button onClick={handleClose} className="p-1 rounded-md hover:bg-slate-100 text-slate-400"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" /></svg></button>
+      <div className="bg-paper-raised rounded-card-lg shadow-card-lg max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-5 border-b border-line">
+          <h2 className="text-lg font-bold text-ink-800">Novo Pacote de Horas</h2>
+          <button onClick={handleClose} className="p-1 rounded-md hover:bg-ink-100 text-ink-400"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" /></svg></button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {/* Search */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Buscar Cliente</label>
-            <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Nome ou telefone..." className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+            <label className="block text-xs font-semibold text-ink-600 mb-1.5">Buscar Cliente</label>
+            <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Nome ou telefone..." className="w-full px-3 py-2.5 border border-line-strong rounded-lg text-sm focus:outline-none focus-visible:shadow-focus" />
           </div>
 
           {/* Customer List */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Cliente</label>
-            <div className="space-y-1 max-h-36 overflow-y-auto border border-slate-200 rounded-lg p-1.5">
+            <label className="block text-xs font-semibold text-ink-600 mb-1.5">Cliente</label>
+            <div className="space-y-1 max-h-36 overflow-y-auto border border-line rounded-lg p-1.5">
               {filteredCustomers.length === 0 ? (
-                <p className="text-center text-slate-400 py-3 text-xs">Nenhum cliente encontrado</p>
+                <p className="text-center text-ink-400 py-3 text-xs">Nenhum cliente encontrado</p>
               ) : (
                 filteredCustomers.map(customer => (
                   <button key={customer.id} type="button" onClick={() => { setSelectedCustomer(customer.id); setSelectedChild(''); }}
-                    className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${selectedCustomer === customer.id ? 'bg-violet-50 border border-violet-300' : 'hover:bg-slate-50 border border-transparent'}`}>
-                    <p className="font-semibold text-slate-800">{customer.name}</p>
-                    <p className="text-xs text-slate-500">{customer.phone}</p>
+                    className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${selectedCustomer === customer.id ? 'bg-violet-50 border border-violet-300' : 'hover:bg-paper border border-transparent'}`}>
+                    <p className="font-semibold text-ink-800">{customer.name}</p>
+                    <p className="text-xs text-ink-500">{customer.phone}</p>
                   </button>
                 ))
               )}
@@ -149,16 +149,16 @@ const PackageModal: React.FC<PackageModalProps> = ({ isOpen, onClose, onSuccess 
           {/* Children */}
           {selectedCustomer && (
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Criança</label>
+              <label className="block text-xs font-semibold text-ink-600 mb-1.5">Criança</label>
               <div className="space-y-1">
                 {customerChildren.length === 0 ? (
-                  <p className="text-center text-slate-400 py-3 text-xs bg-slate-50 rounded-lg">Sem crianças cadastradas</p>
+                  <p className="text-center text-ink-400 py-3 text-xs bg-paper rounded-lg">Sem crianças cadastradas</p>
                 ) : (
                   customerChildren.map(child => (
                     <button key={child.id} type="button" onClick={() => setSelectedChild(child.id)}
-                      className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${selectedChild === child.id ? 'bg-emerald-50 border border-emerald-300' : 'hover:bg-slate-50 border border-transparent'}`}>
-                      <p className="font-semibold text-slate-800">{child.name}</p>
-                      <p className="text-xs text-slate-500">{getChildAge(child)} anos</p>
+                      className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${selectedChild === child.id ? 'bg-state-ok-soft border border-state-ok/30' : 'hover:bg-paper border border-transparent'}`}>
+                      <p className="font-semibold text-ink-800">{child.name}</p>
+                      <p className="text-xs text-ink-500">{getChildAge(child)} anos</p>
                     </button>
                   ))
                 )}
@@ -172,16 +172,16 @@ const PackageModal: React.FC<PackageModalProps> = ({ isOpen, onClose, onSuccess 
               <p className="text-xs font-semibold text-violet-700 uppercase tracking-wider">Configurações</p>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Horas</label>
-                  <input type="number" value={hours} onChange={(e) => setHours(Number(e.target.value))} min="1" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                  <label className="block text-xs font-semibold text-ink-600 mb-1">Horas</label>
+                  <input type="number" value={hours} onChange={(e) => setHours(Number(e.target.value))} min="1" className="w-full px-3 py-2 border border-line-strong rounded-lg text-sm focus:outline-none focus-visible:shadow-focus" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Preço (R$)</label>
-                  <input type="number" value={price} onChange={(e) => setPrice(Number(e.target.value))} min="0" step="0.01" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                  <label className="block text-xs font-semibold text-ink-600 mb-1">Preço (R$)</label>
+                  <input type="number" value={price} onChange={(e) => setPrice(Number(e.target.value))} min="0" step="0.01" className="w-full px-3 py-2 border border-line-strong rounded-lg text-sm focus:outline-none focus-visible:shadow-focus" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Validade (dias)</label>
-                  <input type="number" value={expiresInDays} onChange={(e) => setExpiresInDays(Number(e.target.value))} min="1" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                  <label className="block text-xs font-semibold text-ink-600 mb-1">Validade (dias)</label>
+                  <input type="number" value={expiresInDays} onChange={(e) => setExpiresInDays(Number(e.target.value))} min="1" className="w-full px-3 py-2 border border-line-strong rounded-lg text-sm focus:outline-none focus-visible:shadow-focus" />
                 </div>
               </div>
             </div>
@@ -189,7 +189,7 @@ const PackageModal: React.FC<PackageModalProps> = ({ isOpen, onClose, onSuccess 
 
           {/* Buttons */}
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={handleClose} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
+            <button type="button" onClick={handleClose} className="flex-1 py-2.5 rounded-lg border border-line-strong text-sm font-medium text-ink-600 hover:bg-paper transition-colors">Cancelar</button>
             <button type="submit" disabled={!selectedChild || loading} className="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors disabled:opacity-50">
               {loading ? '⏳ Criando...' : 'Criar Pacote'}
             </button>

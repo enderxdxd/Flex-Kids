@@ -9,25 +9,24 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ invalid, iconLeft, className, ...rest }, ref) => {
     const base = cn(
-      'w-full h-10 text-sm bg-white border rounded-lg',
-      'placeholder:text-slate-400',
-      'transition-all duration-150',
-      'shadow-sm hover:shadow-card',
+      'w-full h-control text-sm bg-paper-raised border rounded-md text-ink-900',
+      'placeholder:text-ink-400',
+      'transition-[border-color] duration-100',
+      'focus:outline-none focus-visible:shadow-focus',
       invalid
-        ? 'border-red-300 focus:border-red-500 focus:ring-2 focus:ring-red-200'
-        : 'border-slate-200 hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100',
-      'focus:outline-none',
+        ? 'border-danger-300 focus:border-danger-500'
+        : 'border-line hover:border-line-strong focus:border-brand-500',
     );
 
     if (iconLeft) {
       return (
-        <div className="relative">
-          <div className="absolute inset-y-0 left-3 flex items-center text-slate-400 pointer-events-none" aria-hidden="true">
+        <div className="relative w-full min-w-0 flex-1">
+          <div className="absolute inset-y-0 left-2.5 flex items-center text-ink-400 pointer-events-none" aria-hidden="true">
             {iconLeft}
           </div>
           <input
             ref={ref}
-            className={cn(base, 'pl-10 pr-3', className)}
+            className={cn(base, 'pl-9 pr-3', className)}
             aria-invalid={invalid || undefined}
             {...rest}
           />

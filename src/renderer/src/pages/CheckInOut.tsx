@@ -15,9 +15,11 @@ import {
   calculatePrincipalValue,
 } from '../../../shared/utils/billing';
 import {
-  Card, Button, PageHeader, EmptyState, Skeleton, Badge, cn,
+  Card, Button, PageHeader, SectionHeader, EmptyState, Skeleton, Badge, Input,
+  Clock, ClockStripe, cn,
 } from '../components/ui';
-import { RefreshIcon, PlusIcon, GamepadIcon } from '../components/icons/Icons';
+import { formatBRL } from '../../../shared/utils/currency';
+import { RefreshIcon, GamepadIcon, SearchIcon } from '../components/icons/Icons';
 import CheckOutModal from '../components/modals/CheckOutModal';
 
 const CheckInOut: React.FC = () => {
@@ -70,7 +72,7 @@ const CheckInOut: React.FC = () => {
       setActivePackages(pkgs);
     } catch (error) {
       console.error('Error loading data:', error);
-      toast.error('Erro ao carregar dados');
+      toast.error('Não foi possível carregar clientes e visitas. Verifique a conexão e recarregue a página.');
     } finally {
       setLoading(false);
     }
@@ -78,13 +80,13 @@ const CheckInOut: React.FC = () => {
 
   const handleCheckIn = async () => {
     if (!selectedChild) {
-      toast.warning('Selecione uma criança');
+      toast.warning('Selecione a criança que vai entrar.');
       return;
     }
 
     const alreadyCheckedIn = activeVisits.some(v => v.childId === selectedChild);
     if (alreadyCheckedIn) {
-      toast.error('Esta criança já está com check-in ativo!');
+      toast.error('Esta criança já tem um check-in aberto. Faça o check-out antes de registrar uma nova entrada.');
       return;
     }
 
@@ -106,20 +108,13 @@ const CheckInOut: React.FC = () => {
       loadData();
     } catch (error) {
       console.error('Error during check-in:', error);
-      toast.error('Erro ao realizar check-in');
+      toast.error('Não foi possível registrar o check-in. Tente de novo em alguns segundos.');
     }
   };
 
   const handleCheckOut = (visit: Visit) => {
     setSelectedVisit(visit);
     setShowCheckOutModal(true);
-  };
-
-  const calculateDuration = (checkIn: Date) => {
-    const minutes = Math.max(0, differenceInMinutes(new Date(), new Date(checkIn)));
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return `${hours}h ${mins}m`;
   };
 
   // Estimativa coerente com o cálculo real do checkout (billing.ts).
@@ -169,10 +164,10 @@ const CheckInOut: React.FC = () => {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
-        title="Check-In / Check-Out"
-        subtitle={`Gerenciar entradas e saídas · ${activeVisits.length} visitas ativas`}
+        title="Check-in / Check-out"
+        subtitle={`Entradas e saídas do turno · ${activeVisits.length} no espaço`}
         actions={
           <Button variant="outline" onClick={loadData} loading={loading} iconLeft={<RefreshIcon size={16} />}>
             Atualizar
@@ -180,150 +175,144 @@ const CheckInOut: React.FC = () => {
         }
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1 space-y-6">
-          <Card padding="lg" className="relative overflow-hidden bg-brand-gradient text-white border-0 shadow-brand">
-            <h2 className="text-2xl font-bold mb-5 flex items-center gap-2">
-              <PlusIcon size={20} /> Novo Check-In
-            </h2>
-            <div className="space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-1 space-y-4">
+          {/* Registrar entrada é o trabalho principal desta tela: ganha o
+              primeiro lugar e o único botão primário. */}
+          <Card padding="none">
+            <SectionHeader title="Registrar entrada" />
+            <div className="p-4 space-y-3">
               <div>
-                <label className="block text-xs font-semibold mb-1.5 text-white/80 uppercase tracking-wider">
-                  Buscar Criança
+                <label htmlFor="ci-busca" className="block text-caption uppercase text-ink-500 mb-1.5">
+                  Buscar criança
                 </label>
-                <input
+                <Input
+                  id="ci-busca"
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Digite o nome..."
-                  className="w-full h-11 px-3 rounded-lg text-slate-900 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-white/60"
+                  placeholder="Digite o nome…"
+                  iconLeft={<SearchIcon size={15} />}
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold mb-1.5 text-white/80 uppercase tracking-wider">
-                  Selecione a Criança
+                <label htmlFor="ci-crianca" className="block text-caption uppercase text-ink-500 mb-1.5">
+                  Criança
                 </label>
                 <select
+                  id="ci-crianca"
                   value={selectedChild}
                   onChange={(e) => setSelectedChild(e.target.value)}
-                  className="w-full h-11 px-3 rounded-lg text-slate-900 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-white/60"
+                  className="w-full h-control px-2.5 rounded-md text-sm bg-paper-raised text-ink-900 border border-line hover:border-line-strong focus:border-brand-500 focus:outline-none focus-visible:shadow-focus"
                 >
-                  <option value="">Selecione...</option>
+                  <option value="">Selecione…</option>
                   {filteredChildren.map((child) => (
                     <option key={child.id} value={child.id}>
                       {child.name} ({getChildAge(child)} anos)
                     </option>
                   ))}
                 </select>
+                {searchTerm && (
+                  <p className="text-xs text-ink-400 mt-1 tabular-nums">
+                    {filteredChildren.length} de {children.length} crianças
+                  </p>
+                )}
               </div>
-              <button
+              <Button
+                fullWidth
+                size="lg"
                 onClick={handleCheckIn}
                 disabled={!selectedChild || loading}
-                className="w-full h-12 bg-white text-brand-700 rounded-lg font-bold hover:bg-brand-50 disabled:bg-white/40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg active:scale-[0.98]"
               >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                </svg>
-                Realizar Check-In
-              </button>
+                Registrar check-in
+              </Button>
             </div>
           </Card>
 
-          <Card padding="md">
-            <h3 className="text-heading text-slate-900 mb-3">Estatísticas</h3>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center p-3 rounded-lg bg-gradient-to-br from-blue-50 to-sky-50">
-                <span className="text-sm text-slate-700">Visitas Ativas</span>
-                <span className="text-2xl font-bold text-blue-700 tabular-nums">{activeVisits.length}</span>
+          <Card padding="none">
+            <SectionHeader title="Resumo" />
+            <div className="divide-y divide-line-subtle">
+              <div className="flex items-baseline justify-between px-4 py-2.5">
+                <span className="text-sm text-ink-600">No espaço agora</span>
+                <span className="text-readout-sm text-ink-900 tabular-nums">{activeVisits.length}</span>
               </div>
-              <div className="flex justify-between items-center p-3 rounded-lg bg-gradient-to-br from-emerald-50 to-teal-50">
-                <span className="text-sm text-slate-700">Crianças Cadastradas</span>
-                <span className="text-2xl font-bold text-emerald-700 tabular-nums">{children.length}</span>
+              <div className="flex items-baseline justify-between px-4 py-2.5">
+                <span className="text-sm text-ink-600">Crianças cadastradas</span>
+                <span className="text-readout-sm text-ink-900 tabular-nums">{children.length}</span>
               </div>
             </div>
           </Card>
         </div>
 
         <div className="lg:col-span-2">
-          <Card padding="none" accent>
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-brand-50/50 to-transparent">
-              <h2 className="text-heading bg-brand-gradient bg-clip-text text-transparent">Visitas Ativas</h2>
-              <Badge tone="brand">{activeVisits.length}</Badge>
-            </div>
+          <Card padding="none" className="overflow-hidden">
+            <SectionHeader title="No espaço agora" count={activeVisits.length} />
 
             {loading ? (
-              <div className="p-5 space-y-3">
-                {[1, 2, 3].map((i) => <Skeleton key={i} className="h-24" />)}
+              <div className="p-3 space-y-1.5">
+                {[1, 2, 3].map((i) => <Skeleton key={i} className="h-row" />)}
               </div>
             ) : activeVisits.length === 0 ? (
               <EmptyState
-                icon={<GamepadIcon size={28} />}
-                title="Nenhuma visita ativa"
-                description="Faça o primeiro check-in do dia!"
+                icon={<GamepadIcon size={32} />}
+                title="Ninguém no espaço"
+                description="Registre a primeira entrada do dia ao lado"
               />
             ) : (
-              <div className="p-5 space-y-3">
-                {activeVisits.map((visit) => {
+              <div className="divide-y divide-line-subtle">
+                {[...activeVisits]
+                  .sort((a, b) => new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime())
+                  .map((visit) => {
                   const child = children.find((c) => c.id === visit.childId);
-                  const duration = calculateDuration(visit.checkIn);
+                  const elapsed = Math.max(0, differenceInMinutes(new Date(), new Date(visit.checkIn)));
                   const estimate = estimateVisitCost(visit);
                   const estimateLabel = estimate.mode === 'kids'
-                    ? (estimate.value > 0 ? 'Plano Kids (excedente)' : 'Plano Kids')
+                    ? (estimate.value > 0 ? 'Plano Kids · excedente' : 'Plano Kids')
                     : estimate.mode === 'package'
-                      ? (estimate.value > 0 ? 'Pacote (excedente)' : 'Coberto pelo pacote')
+                      ? (estimate.value > 0 ? 'Pacote · excedente' : 'Coberto pelo pacote')
                       : 'Estimativa';
 
                   return (
-                    <div
-                      key={visit.id}
-                      className={cn(
-                        'border border-slate-200 rounded-card p-4 transition-all duration-200',
-                        'hover:border-brand-300 hover:shadow-card-hover hover:-translate-y-0.5',
-                      )}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-3">
-                            <div className="w-12 h-12 bg-brand-gradient rounded-full flex items-center justify-center text-white text-xl font-bold shadow-brand-sm">
-                              {child?.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <h3 className="font-bold text-lg text-slate-900">
-                                {child?.name || 'Criança não encontrada'}
-                              </h3>
-                              <p className="text-sm text-slate-500">
-                                {child ? getChildAge(child) : 0} anos
-                              </p>
-                            </div>
-                          </div>
+                    <div key={visit.id} className="flex items-center gap-3 pl-3 pr-3 py-2.5 hover:bg-paper transition-colors">
+                      <ClockStripe minutes={elapsed} className="self-stretch my-0.5" />
 
-                          <div className="grid grid-cols-3 gap-3 mt-3">
-                            <div className="bg-gradient-to-br from-blue-50 to-sky-50 p-3 rounded-lg border border-blue-100">
-                              <p className="text-[10px] text-blue-700/70 mb-0.5 font-semibold uppercase">Check-in</p>
-                              <p className="font-bold text-blue-700 tabular-nums">
-                                {format(new Date(visit.checkIn), 'HH:mm')}
-                              </p>
-                            </div>
-                            <div className="bg-gradient-to-br from-brand-50 to-fuchsia-50 p-3 rounded-lg border border-brand-100">
-                              <p className="text-[10px] text-brand-700/70 mb-0.5 font-semibold uppercase">Duração</p>
-                              <p className="font-bold text-brand-700 tabular-nums">{duration}</p>
-                            </div>
-                            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-3 rounded-lg border border-emerald-100">
-                              <p className="text-[10px] text-emerald-700/70 mb-0.5 font-semibold uppercase">{estimateLabel}</p>
-                              <p className="font-bold text-emerald-700 tabular-nums">R$ {estimate.value.toFixed(2)}</p>
-                            </div>
-                          </div>
+                      <span className="font-mono text-xs text-ink-400 w-11 flex-shrink-0">
+                        {format(new Date(visit.checkIn), 'HH:mm')}
+                      </span>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-semibold text-sm text-ink-900 truncate">
+                            {child?.name || 'Criança não encontrada'}
+                          </p>
+                          {visit.kidsPlanId && <Badge tone="blue" size="sm">Kids</Badge>}
                         </div>
-
-                        <Button
-                          variant="danger"
-                          onClick={() => handleCheckOut(visit)}
-                          aria-label={`Check-out de ${child?.name || 'Criança'}`}
-                          className="ml-4"
-                        >
-                          Check-Out
-                        </Button>
+                        <p className="text-xs text-ink-400">{child ? getChildAge(child) : 0} anos</p>
                       </div>
+
+                      <Clock minutes={elapsed} size="lg" className="flex-shrink-0 w-20 text-right" />
+
+                      {/* O valor é o que o balcão precisa saber quando o
+                          responsável chega para buscar. */}
+                      <div className="flex-shrink-0 w-28 text-right">
+                        <p className={cn(
+                          'text-sm tabular-nums',
+                          estimate.value > 0 ? 'font-semibold text-ink-900' : 'text-ink-400',
+                        )}>
+                          {estimate.value > 0 ? formatBRL(estimate.value) : 'Pacote'}
+                        </p>
+                        <p className="text-[11px] text-ink-400 truncate">{estimateLabel}</p>
+                      </div>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleCheckOut(visit)}
+                        aria-label={`Check-out de ${child?.name || 'criança'}`}
+                        className="flex-shrink-0"
+                      >
+                        Check-out
+                      </Button>
                     </div>
                   );
                 })}

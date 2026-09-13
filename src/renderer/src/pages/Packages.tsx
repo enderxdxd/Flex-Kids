@@ -12,8 +12,9 @@ import { useUnit } from '../contexts/UnitContext';
 import { getChildAge } from '../../../shared/utils/age';
 import { getPackageExpiryDate } from '../../../shared/utils/packageExpiry';
 import {
-  Card, Button, PageHeader, EmptyState, Skeleton, Input, cn,
+  Card, Button, IconButton, PageHeader, EmptyState, Skeleton, Badge, Input, cn,
 } from '../components/ui';
+import { formatBRL } from '../../../shared/utils/currency';
 import { RefreshIcon, PackageIcon } from '../components/icons/Icons';
 
 interface PackageFormData {
@@ -562,9 +563,9 @@ const Packages: React.FC = () => {
   const vigenteCount = packages.filter(isVigente).length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
-        title="Gestão de Pacotes"
+        title="Gestão de pacotes"
         subtitle={`${displayedPackages.length} pacotes ${showActiveOnly ? '' : `(${vigenteCount} vigentes)`}`}
         actions={
           <Button variant="outline" onClick={loadData} loading={loading} iconLeft={<RefreshIcon size={16} />}>
@@ -574,14 +575,15 @@ const Packages: React.FC = () => {
       />
 
       {/* Tabs */}
-      <div className="flex bg-slate-100 rounded-xl p-1 w-fit">
+      <div className="flex gap-5 border-b border-line" role="tablist">
         <button
           onClick={() => setActiveTab('packages')}
           className={cn(
-            'px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200',
+            'pb-2.5 -mb-px text-sm font-semibold border-b-2 transition-colors',
+            'focus-visible:outline-none focus-visible:shadow-focus',
             activeTab === 'packages'
-              ? 'bg-white text-brand-700 shadow-sm'
-              : 'text-slate-500 hover:text-slate-700',
+              ? 'border-brand-600 text-ink-900'
+              : 'border-transparent text-ink-500 hover:text-ink-800',
           )}
         >
           Pacotes Vendidos
@@ -595,10 +597,11 @@ const Packages: React.FC = () => {
             setActiveTab('plans');
           }}
           className={cn(
-            'px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200',
+            'pb-2.5 -mb-px text-sm font-semibold border-b-2 transition-colors',
+            'focus-visible:outline-none focus-visible:shadow-focus',
             activeTab === 'plans'
-              ? 'bg-white text-brand-700 shadow-sm'
-              : 'text-slate-500 hover:text-slate-700',
+              ? 'border-brand-600 text-ink-900'
+              : 'border-transparent text-ink-500 hover:text-ink-800',
           )}
         >
           Configurar Planos
@@ -608,36 +611,36 @@ const Packages: React.FC = () => {
       {/* Tab: Configurar Planos */}
       {activeTab === 'plans' && (
         <div className="space-y-5">
-          <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <h2 className="text-lg font-bold text-slate-900 mb-1">Planos Disponíveis</h2>
-            <p className="text-xs text-slate-500 mb-4">Estes planos aparecem na tela de Vender Pacote e no formulário de novo pacote.</p>
+          <div className="bg-paper-raised rounded-card border border-line p-5">
+            <h2 className="text-lg font-bold text-ink-900 mb-1">Planos Disponíveis</h2>
+            <p className="text-xs text-ink-500 mb-4">Estes planos aparecem na tela de Vender Pacote e no formulário de novo pacote.</p>
 
             {/* Plan Form */}
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-4">
-              <h3 className="text-sm font-semibold text-slate-700 mb-3">{editingPlanIdx !== null ? 'Editar Plano' : 'Adicionar Plano'}</h3>
+            <div className="bg-paper border border-line rounded-lg p-4 mb-4">
+              <h3 className="text-sm font-semibold text-ink-700 mb-3">{editingPlanIdx !== null ? 'Editar Plano' : 'Adicionar Plano'}</h3>
               <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
                 <div className="lg:col-span-1">
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Nome</label>
-                  <input type="text" value={newPlan.name} onChange={e => setNewPlan({ ...newPlan, name: e.target.value })} placeholder="Ex: Pacote 10h" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500" />
+                  <label className="block text-xs font-medium text-ink-600 mb-1">Nome</label>
+                  <input type="text" value={newPlan.name} onChange={e => setNewPlan({ ...newPlan, name: e.target.value })} placeholder="Ex: Pacote 10h" className="w-full px-3 py-2 border border-line-strong rounded-lg text-sm focus:outline-none focus-visible:shadow-focus focus:border-brand-500" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Horas</label>
-                  <input type="number" value={newPlan.hours} onChange={e => setNewPlan({ ...newPlan, hours: parseFloat(e.target.value) })} min="1" step="0.5" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500" />
+                  <label className="block text-xs font-medium text-ink-600 mb-1">Horas</label>
+                  <input type="number" value={newPlan.hours} onChange={e => setNewPlan({ ...newPlan, hours: parseFloat(e.target.value) })} min="1" step="0.5" className="w-full px-3 py-2 border border-line-strong rounded-lg text-sm focus:outline-none focus-visible:shadow-focus focus:border-brand-500" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Preço (R$)</label>
-                  <input type="number" value={newPlan.price} onChange={e => setNewPlan({ ...newPlan, price: parseFloat(e.target.value) })} min="0" step="0.01" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500" />
+                  <label className="block text-xs font-medium text-ink-600 mb-1">Preço (R$)</label>
+                  <input type="number" value={newPlan.price} onChange={e => setNewPlan({ ...newPlan, price: parseFloat(e.target.value) })} min="0" step="0.01" className="w-full px-3 py-2 border border-line-strong rounded-lg text-sm focus:outline-none focus-visible:shadow-focus focus:border-brand-500" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Validade (dias)</label>
-                  <input type="number" value={newPlan.expiryDays} onChange={e => setNewPlan({ ...newPlan, expiryDays: parseInt(e.target.value) })} min="1" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500" />
+                  <label className="block text-xs font-medium text-ink-600 mb-1">Validade (dias)</label>
+                  <input type="number" value={newPlan.expiryDays} onChange={e => setNewPlan({ ...newPlan, expiryDays: parseInt(e.target.value) })} min="1" className="w-full px-3 py-2 border border-line-strong rounded-lg text-sm focus:outline-none focus-visible:shadow-focus focus:border-brand-500" />
                 </div>
                 <div className="flex items-end gap-2">
                   <button onClick={handleSavePlan} className="flex-1 bg-brand-gradient hover:brightness-110 shadow-brand-sm text-white px-3 py-2 rounded-lg text-sm font-semibold transition-colors">
                     {editingPlanIdx !== null ? 'Salvar' : 'Adicionar'}
                   </button>
                   {editingPlanIdx !== null && (
-                    <button onClick={() => { setEditingPlanIdx(null); setNewPlan({ name: '', hours: 10, price: 300, expiryDays: 30 }); }} className="px-3 py-2 rounded-lg text-sm border border-slate-300 text-slate-600 hover:bg-slate-100 transition-colors">
+                    <button onClick={() => { setEditingPlanIdx(null); setNewPlan({ name: '', hours: 10, price: 300, expiryDays: 30 }); }} className="px-3 py-2 rounded-lg text-sm border border-line-strong text-ink-600 hover:bg-ink-100 transition-colors">
                       Cancelar
                     </button>
                   )}
@@ -647,22 +650,22 @@ const Packages: React.FC = () => {
 
             {/* Plans List */}
             {plans.length === 0 ? (
-              <p className="text-center text-slate-400 py-8 text-sm">Nenhum plano configurado. Adicione acima.</p>
+              <p className="text-center text-ink-400 py-8 text-sm">Nenhum plano configurado. Adicione acima.</p>
             ) : (
               <div className="space-y-2">
                 {plans.map((plan, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                  <div key={idx} className="flex items-center justify-between p-3 border border-line rounded-lg hover:bg-paper transition-colors">
                     <div className="flex items-center gap-4">
-                      <div className="w-9 h-9 bg-violet-100 rounded-lg flex items-center justify-center"><svg className="w-4 h-4 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" /></svg></div>
+                      <div className="w-8 h-8 bg-ink-100 rounded-md flex items-center justify-center"><svg className="w-4 h-4 text-ink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" /></svg></div>
                       <div>
-                        <p className="font-semibold text-sm text-slate-800">{plan.name}</p>
-                        <p className="text-xs text-slate-500">{plan.hours}h &middot; {plan.expiryDays} dias &middot; R$ {(plan.price / plan.hours).toFixed(2)}/h</p>
+                        <p className="font-semibold text-sm text-ink-800">{plan.name}</p>
+                        <p className="text-xs text-ink-500">{plan.hours}h &middot; {plan.expiryDays} dias &middot; {formatBRL(plan.price / plan.hours)}/h</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-lg font-bold text-brand-600">R$ {plan.price.toFixed(2)}</span>
-                      <button onClick={() => handleEditPlan(idx)} className="p-1.5 rounded-md hover:bg-blue-50 text-blue-600 transition-colors text-sm"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" /></svg></button>
-                      <button onClick={() => handleDeletePlan(idx)} className="p-1.5 rounded-md hover:bg-red-50 text-red-500 transition-colors text-sm"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg></button>
+                      <span className="text-sm font-semibold text-ink-900 tabular-nums">{formatBRL(plan.price)}</span>
+                      <button onClick={() => handleEditPlan(idx)} className="p-1.5 rounded-md hover:bg-ink-100 text-ink-500 hover:text-ink-800 transition-colors"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" /></svg></button>
+                      <button onClick={() => handleDeletePlan(idx)} className="p-1.5 rounded-md hover:bg-danger-50 text-ink-400 hover:text-danger-600 transition-colors"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg></button>
                     </div>
                   </div>
                 ))}
@@ -675,13 +678,13 @@ const Packages: React.FC = () => {
       {/* Tab: Pacotes Vendidos */}
       {activeTab === 'packages' && (
         <Card padding="none">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-brand-50/40 to-transparent gap-4">
+          <div className="flex items-center justify-between px-4 h-12 border-b border-line gap-4">
             <div className="flex-1 max-w-xs">
               <Input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Pesquisar por nome..."
+                placeholder="Buscar por cliente, criança ou pacote…"
                 iconLeft={
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -689,13 +692,13 @@ const Packages: React.FC = () => {
                 }
               />
             </div>
-            <label className="flex items-center gap-2.5 cursor-pointer flex-shrink-0 px-3 py-2 rounded-lg hover:bg-slate-50 transition-all">
+            <label className="flex items-center gap-2.5 cursor-pointer flex-shrink-0 px-3 py-2 rounded-lg hover:bg-paper transition-all">
               <div className="relative">
                 <input type="checkbox" checked={showActiveOnly} onChange={(e) => setShowActiveOnly(e.target.checked)} className="sr-only peer" />
-                <div className="w-9 h-5 bg-slate-300 rounded-full peer-checked:bg-brand-gradient transition-all"></div>
-                <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-4"></div>
+                <div className="w-8 h-[18px] bg-ink-300 rounded-full peer-checked:bg-brand-600 transition-colors"></div>
+                <div className="absolute top-0.5 left-0.5 w-3.5 h-3.5 bg-paper-raised rounded-full shadow-sm transition-transform peer-checked:translate-x-[14px]"></div>
               </div>
-              <span className="text-xs text-slate-700 font-semibold">Apenas vigentes</span>
+              <span className="text-xs text-ink-700 font-semibold">Apenas vigentes</span>
             </label>
           </div>
 
@@ -710,7 +713,7 @@ const Packages: React.FC = () => {
               description="Tente mudar o filtro ou busca"
             />
           ) : (
-            <div className="divide-y divide-slate-100/60">
+            <div className="divide-y divide-line-subtle/60">
               {displayedPackages.filter((pkg) => {
                 if (!searchTerm.trim()) return true;
                 const term = searchTerm.toLowerCase();
@@ -722,109 +725,105 @@ const Packages: React.FC = () => {
                 const remainingPct = 100 - progress;
                 const expirationDate = getExpirationDate(pkg);
                 const isExpired = expirationDate && expirationDate < new Date();
-                const progressColor = remainingPct <= 10 ? 'bg-red-500' : remainingPct <= 30 ? 'bg-amber-500' : 'bg-emerald-500';
-                const usedH = pkg.usedHours;
+                const progressColor = remainingPct <= 10 ? 'bg-clock-over' : remainingPct <= 30 ? 'bg-clock-watch' : 'bg-state-ok';
                 const totalH = pkg.hours;
                 const remainH = getRemainingHours(pkg);
 
                 return (
-                  <div key={pkg.id} className={`px-5 py-4 hover:bg-brand-50/30 transition-colors duration-150 ${!pkg.active ? 'opacity-40' : ''}`}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3.5 flex-1 min-w-0">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${isExpired ? 'bg-red-100' : 'bg-violet-100'}`}>
-                          {isExpired ? <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg> : <svg className="w-5 h-5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" /></svg>}
+                  <div key={pkg.id} className={`px-4 py-2.5 hover:bg-paper transition-colors ${!pkg.active ? 'opacity-50' : ''}`}>
+                    <div className="flex items-center gap-4">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-ink-900 text-sm">{pkg.type}</p>
+                          {!pkg.active ? (
+                            <Badge tone="slate" size="sm">Inativo</Badge>
+                          ) : isExpired ? (
+                            <Badge tone="red" size="sm">Expirado</Badge>
+                          ) : remainH <= 0 ? (
+                            <Badge tone="amber" size="sm">Esgotado</Badge>
+                          ) : null}
+                          {(pkg as any).employeeDiscount && <Badge tone="brand" size="sm">Colaborador</Badge>}
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="font-bold text-slate-900 text-sm">{pkg.type}</p>
-                            {!pkg.active ? (
-                              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">Inativo</span>
-                            ) : isExpired ? (
-                              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">Expirado</span>
-                            ) : remainH <= 0 ? (
-                              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Esgotado</span>
-                            ) : (
-                              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Vigente</span>
-                            )}
-                            {(pkg as any).employeeDiscount && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-brand-100 text-brand-700">Desc. Colab.</span>}
-                          </div>
-                          <p className="text-xs text-slate-500 truncate mt-0.5">
-                            {getCustomerName(pkg.customerId)}
-                            {pkg.childId ? ` · ${getChildName(pkg.childId)}` : ''}
-                            {` · Compra: ${format(pkg.createdAt instanceof Date ? pkg.createdAt : new Date(pkg.createdAt), 'dd/MM/yyyy')}`}
-                          </p>
+                        <p className="text-xs text-ink-500 truncate mt-0.5">
+                          {getCustomerName(pkg.customerId)}
+                          {pkg.childId ? ` · ${getChildName(pkg.childId)}` : ''}
+                          {` · comprado ${format(pkg.createdAt instanceof Date ? pkg.createdAt : new Date(pkg.createdAt), 'dd/MM/yy')}`}
+                        </p>
+                      </div>
+
+                      {/* Saldo é o dado que decide se o cliente pode usar o
+                          pacote agora — vai em destaque, com a barra logo abaixo. */}
+                      <div className="w-44 hidden md:block flex-shrink-0">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className={`font-mono text-sm font-medium tabular-nums ${remainingPct <= 10 ? 'text-clock-over' : remainingPct <= 30 ? 'text-clock-watch' : 'text-ink-900'}`}>
+                            {remainH.toFixed(1)}h
+                          </span>
+                          <span className="text-[11px] text-ink-400 tabular-nums">de {totalH.toFixed(1)}h</span>
+                        </div>
+                        <div className="w-full bg-ink-200 rounded-full h-1.5 mt-1 overflow-hidden">
+                          <div className={`h-full rounded-full ${progressColor}`} style={{ width: `${Math.max(0, 100 - progress)}%` }} />
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-5 flex-shrink-0 ml-4">
-                        {/* Progress */}
-                        <div className="w-40 hidden md:block">
-                          <div className="flex justify-between text-[10px] text-slate-500 mb-1.5">
-                            <span>{usedH.toFixed(1)}h / {totalH.toFixed(1)}h</span>
-                            <span className={`font-bold ${remainingPct <= 10 ? 'text-red-600' : remainingPct <= 30 ? 'text-amber-600' : 'text-emerald-600'}`}>{remainH.toFixed(1)}h restantes</span>
-                          </div>
-                          <div className="w-full bg-slate-200/60 rounded-full h-2">
-                            <div className={`h-2 rounded-full transition-all duration-500 ${progressColor}`} style={{ width: `${progress}%` }} />
-                          </div>
-                        </div>
+                      <div className="w-24 hidden lg:block flex-shrink-0 text-right">
+                        {expirationDate ? (() => {
+                          const daysLeft = Math.ceil((expirationDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                          const expTone = isExpired ? 'text-clock-over' : daysLeft <= 7 ? 'text-clock-watch' : 'text-ink-500';
+                          return (
+                            <>
+                              <p className={`text-xs font-medium tabular-nums ${expTone}`}>
+                                {isExpired ? 'expirado' : daysLeft <= 7 ? `vence em ${daysLeft}d` : format(expirationDate, 'dd/MM/yy')}
+                              </p>
+                              {!isExpired && daysLeft > 7 && <p className="text-[11px] text-ink-400">validade</p>}
+                            </>
+                          );
+                        })() : (
+                          <p className="text-xs text-ink-300">—</p>
+                        )}
+                      </div>
 
-                        {/* Expiry Date */}
-                        <div className="w-24 hidden md:block text-center">
-                          {expirationDate ? (() => {
-                            const daysLeft = Math.ceil((expirationDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-                            const expColor = isExpired ? 'text-red-600' : daysLeft <= 7 ? 'text-amber-600' : 'text-slate-500';
-                            return (
-                              <div>
-                                <p className={`text-[10px] font-bold ${expColor}`}>{format(expirationDate, 'dd/MM/yyyy')}</p>
-                                <p className={`text-[9px] ${expColor}`}>{isExpired ? 'Expirado' : `${daysLeft}d restantes`}</p>
-                              </div>
-                            );
-                          })() : (
-                            <p className="text-[10px] text-slate-300">—</p>
-                          )}
-                        </div>
+                      <div className="w-24 flex-shrink-0 text-right">
+                        {(pkg as any).employeeDiscount && (pkg as any).originalPrice && (
+                          <span className="text-[11px] text-ink-400 line-through block tabular-nums">{formatBRL((pkg as any).originalPrice)}</span>
+                        )}
+                        {(() => {
+                          const displayPrice = getDisplayPrice(pkg);
+                          const isEstimated = pkg.price === 0 && displayPrice > 0;
+                          return (
+                            <>
+                              <span className={`text-sm font-semibold tabular-nums ${displayPrice > 0 ? 'text-ink-800' : 'text-ink-300'}`}>
+                                {isEstimated ? '~' : ''}{formatBRL(displayPrice)}
+                              </span>
+                              {isEstimated && <p className="text-[11px] text-ink-400">via plano</p>}
+                            </>
+                          );
+                        })()}
+                      </div>
 
-                        <div className="w-28 text-right">
-                          {(pkg as any).employeeDiscount && (pkg as any).originalPrice && (
-                            <span className="text-[10px] text-slate-400 line-through block">R$ {(pkg as any).originalPrice.toFixed(2)}</span>
+                      {/* Ações em tom neutro: cinco ícones em cinco cores viram
+                          um arco-íris e nenhuma delas significa estado. */}
+                      <div className="flex gap-0.5 flex-shrink-0">
+                        {pkg.active && (
+                          <IconButton variant="ghost" size="sm" onClick={() => openRenewModal(pkg)} aria-label={`Renovar ${pkg.type}`} title="Renovar pacote">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2 11.5a10 10 0 0 1 18.8-4.3L21.5 8"/><path d="M22 12.5a10 10 0 0 1-18.8 4.2L2.5 16"/></svg>
+                          </IconButton>
+                        )}
+                        <IconButton variant="ghost" size="sm" onClick={() => openPrintModal(pkg)} aria-label={`Imprimir resumo de ${pkg.type}`} title="Imprimir resumo">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                        </IconButton>
+                        <IconButton variant="ghost" size="sm" onClick={() => openAdjustHoursModal(pkg)} aria-label={`Ajustar horas de ${pkg.type}`} title="Ajustar horas (admin)">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        </IconButton>
+                        <IconButton variant="ghost" size="sm" onClick={() => openModal(pkg)} aria-label={`Editar ${pkg.type}`} title="Editar">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </IconButton>
+                        <IconButton variant="ghost" size="sm" onClick={() => handleToggleActive(pkg.id, pkg.active)} aria-label={pkg.active ? `Desativar ${pkg.type}` : `Ativar ${pkg.type}`} title={pkg.active ? 'Desativar' : 'Ativar'}>
+                          {pkg.active ? (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                          ) : (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                           )}
-                          {(() => {
-                            const displayPrice = getDisplayPrice(pkg);
-                            const isEstimated = pkg.price === 0 && displayPrice > 0;
-                            return (
-                              <div>
-                                <span className={`text-sm font-bold ${displayPrice > 0 ? 'text-slate-800' : 'text-slate-300'}`}>
-                                  {isEstimated ? '~' : ''}R$ {displayPrice.toFixed(2)}
-                                </span>
-                                {isEstimated && <p className="text-[9px] text-slate-400">via plano</p>}
-                              </div>
-                            );
-                          })()}
-                        </div>
-
-                        <div className="flex gap-1">
-                          {pkg.active && (
-                            <button onClick={() => openRenewModal(pkg)} className="p-2 rounded-lg hover:bg-emerald-50 text-emerald-500 transition-all" title="Renovar Pacote">
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2 11.5a10 10 0 0 1 18.8-4.3L21.5 8"/><path d="M22 12.5a10 10 0 0 1-18.8 4.2L2.5 16"/></svg>
-                            </button>
-                          )}
-                          <button onClick={() => openPrintModal(pkg)} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-all" title="Imprimir Resumo">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-                          </button>
-                          <button onClick={() => openAdjustHoursModal(pkg)} className="p-2 rounded-lg hover:bg-amber-50 text-amber-500 transition-all" title="Ajustar Horas (Admin)">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                          </button>
-                          <button onClick={() => openModal(pkg)} className="p-2 rounded-lg hover:bg-blue-50 text-blue-500 transition-all" title="Editar">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                          </button>
-                          <button onClick={() => handleToggleActive(pkg.id, pkg.active)} className={`p-2 rounded-lg transition-all ${pkg.active ? 'hover:bg-red-50 text-red-400' : 'hover:bg-emerald-50 text-emerald-500'}`} title={pkg.active ? 'Desativar' : 'Ativar'}>
-                            {pkg.active ? (
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-                            ) : (
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                            )}
-                          </button>
-                        </div>
+                        </IconButton>
                       </div>
                     </div>
                   </div>
@@ -837,16 +836,16 @@ const Packages: React.FC = () => {
 
       {/* Modal Criar/Editar Pacote */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-5 border-b border-slate-200">
-              <h2 className="text-lg font-bold text-slate-900">{editingPackage ? 'Editar Pacote' : 'Novo Pacote'}</h2>
-              <button onClick={() => setShowModal(false)} className="p-1 rounded-md hover:bg-slate-100 text-slate-400"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" /></svg></button>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-paper-raised rounded-card-lg shadow-card-lg max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-5 border-b border-line">
+              <h2 className="text-lg font-bold text-ink-900">{editingPackage ? 'Editar Pacote' : 'Novo Pacote'}</h2>
+              <button onClick={() => setShowModal(false)} className="p-1 rounded-md hover:bg-ink-100 text-ink-400"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" /></svg></button>
             </div>
             <form onSubmit={handleSubmit} className="p-5 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Responsável *</label>
-                <select value={formData.customerId} onChange={(e) => setFormData({ ...formData, customerId: e.target.value, childId: undefined })} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500" required>
+                <label className="block text-xs font-semibold text-ink-600 mb-1.5">Responsável *</label>
+                <select value={formData.customerId} onChange={(e) => setFormData({ ...formData, customerId: e.target.value, childId: undefined })} className="w-full px-3 py-2.5 border border-line-strong rounded-lg text-sm focus:outline-none focus-visible:shadow-focus focus:border-brand-500" required>
                   <option value="">Selecione...</option>
                   {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
@@ -854,8 +853,8 @@ const Packages: React.FC = () => {
 
               {formData.customerId && getCustomerChildren(formData.customerId).length > 0 && (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Criança (opcional)</label>
-                  <select value={formData.childId || ''} onChange={(e) => setFormData({ ...formData, childId: e.target.value || undefined })} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500">
+                  <label className="block text-xs font-semibold text-ink-600 mb-1.5">Criança (opcional)</label>
+                  <select value={formData.childId || ''} onChange={(e) => setFormData({ ...formData, childId: e.target.value || undefined })} className="w-full px-3 py-2.5 border border-line-strong rounded-lg text-sm focus:outline-none focus-visible:shadow-focus focus:border-brand-500">
                     <option value="">Todas as crianças</option>
                     {getCustomerChildren(formData.customerId).map(ch => <option key={ch.id} value={ch.id}>{ch.name} ({getChildAge(ch)} anos)</option>)}
                   </select>
@@ -864,13 +863,13 @@ const Packages: React.FC = () => {
 
               {!editingPackage && plans.length > 0 && (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Plano</label>
+                  <label className="block text-xs font-semibold text-ink-600 mb-1.5">Plano</label>
                   <div className="grid grid-cols-2 gap-2">
                     {plans.map(p => (
                       <button key={p.name} type="button" onClick={() => setFormData({ ...formData, type: p.name, hours: p.hours, price: p.price, expiryDays: p.expiryDays })}
-                        className={`p-3 rounded-lg border text-left text-sm transition-all ${formData.type === p.name ? 'border-violet-500 bg-brand-50' : 'border-slate-200 hover:border-violet-300'}`}>
-                        <p className="font-semibold text-slate-800">{p.name}</p>
-                        <p className="text-xs text-slate-500">{p.hours}h &middot; R$ {p.price.toFixed(2)}</p>
+                        className={`p-3 rounded-lg border text-left text-sm transition-all ${formData.type === p.name ? 'border-violet-500 bg-brand-50' : 'border-line hover:border-violet-300'}`}>
+                        <p className="font-semibold text-ink-800">{p.name}</p>
+                        <p className="text-xs text-ink-500">{p.hours}h &middot; {formatBRL(p.price)}</p>
                       </button>
                     ))}
                   </div>
@@ -879,16 +878,16 @@ const Packages: React.FC = () => {
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Horas</label>
-                  <input type="number" value={formData.hours} onChange={(e) => setFormData({ ...formData, hours: parseFloat(e.target.value) })} min="1" step="0.5" className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500" required />
+                  <label className="block text-xs font-semibold text-ink-600 mb-1.5">Horas</label>
+                  <input type="number" value={formData.hours} onChange={(e) => setFormData({ ...formData, hours: parseFloat(e.target.value) })} min="1" step="0.5" className="w-full px-3 py-2.5 border border-line-strong rounded-lg text-sm focus:outline-none focus-visible:shadow-focus focus:border-brand-500" required />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Preço (R$)</label>
-                  <input type="number" value={formData.price} onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })} min="0" step="0.01" className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500" required />
+                  <label className="block text-xs font-semibold text-ink-600 mb-1.5">Preço (R$)</label>
+                  <input type="number" value={formData.price} onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })} min="0" step="0.01" className="w-full px-3 py-2.5 border border-line-strong rounded-lg text-sm focus:outline-none focus-visible:shadow-focus focus:border-brand-500" required />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Validade</label>
-                  <select value={formData.expiryDays || 30} onChange={(e) => setFormData({ ...formData, expiryDays: parseInt(e.target.value) })} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500">
+                  <label className="block text-xs font-semibold text-ink-600 mb-1.5">Validade</label>
+                  <select value={formData.expiryDays || 30} onChange={(e) => setFormData({ ...formData, expiryDays: parseInt(e.target.value) })} className="w-full px-3 py-2.5 border border-line-strong rounded-lg text-sm focus:outline-none focus-visible:shadow-focus focus:border-brand-500">
                     <option value="15">15 dias</option>
                     <option value="30">30 dias</option>
                     <option value="45">45 dias</option>
@@ -903,19 +902,19 @@ const Packages: React.FC = () => {
 
               {editingPackage && (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Data de Expiração</label>
+                  <label className="block text-xs font-semibold text-ink-600 mb-1.5">Data de Expiração</label>
                   <input
                     type="date"
                     value={editExpiresAt}
                     onChange={(e) => setEditExpiresAt(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500"
+                    className="w-full px-3 py-2.5 border border-line-strong rounded-lg text-sm focus:outline-none focus-visible:shadow-focus focus:border-brand-500"
                   />
-                  <p className="text-[10px] text-slate-400 mt-1">Altere para definir uma data de expiração personalizada</p>
+                  <p className="text-[10px] text-ink-400 mt-1">Altere para definir uma data de expiração personalizada</p>
                 </div>
               )}
 
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
+                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2.5 rounded-lg border border-line-strong text-sm font-medium text-ink-600 hover:bg-paper transition-colors">Cancelar</button>
                 <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-lg bg-brand-gradient hover:brightness-110 shadow-brand-sm text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">{saving ? 'Salvando...' : (editingPackage ? 'Salvar' : 'Criar Pacote')}</button>
               </div>
             </form>
@@ -925,14 +924,14 @@ const Packages: React.FC = () => {
 
       {/* Modal Admin Auth */}
       {(pendingEditPkg || pendingAction) && !adminAuth && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full">
-            <div className="flex items-center justify-between p-5 border-b border-slate-200">
-              <h2 className="text-lg font-bold text-slate-900">Autenticação Admin</h2>
-              <button onClick={() => { setPendingEditPkg(null); setPendingAction(null); setAdminPasswordInput(''); }} className="p-1 rounded-md hover:bg-slate-100 text-slate-400"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" /></svg></button>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-paper-raised rounded-card-lg shadow-card-lg max-w-sm w-full">
+            <div className="flex items-center justify-between p-5 border-b border-line">
+              <h2 className="text-lg font-bold text-ink-900">Autenticação Admin</h2>
+              <button onClick={() => { setPendingEditPkg(null); setPendingAction(null); setAdminPasswordInput(''); }} className="p-1 rounded-md hover:bg-ink-100 text-ink-400"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" /></svg></button>
             </div>
             <div className="p-5 space-y-3">
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-ink-600">
                 {pendingAction === 'plans' ? 'Configurar planos requer senha de administrador.' : pendingAction === 'adjustHours' ? 'Ajustar horas de pacote requer senha de administrador.' : 'Editar pacotes vendidos requer senha de administrador.'}
               </p>
               <input type="password" value={adminPasswordInput} onChange={e => setAdminPasswordInput(e.target.value)} onKeyDown={e => {
@@ -946,9 +945,9 @@ const Packages: React.FC = () => {
                     else if (pkg) { openModal(pkg); }
                   } else { toast.error('Senha incorreta'); setAdminPasswordInput(''); }
                 }
-              }} placeholder="Senha admin" className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500" autoFocus />
+              }} placeholder="Senha admin" className="w-full px-3 py-2.5 border border-line-strong rounded-lg text-sm focus:outline-none focus-visible:shadow-focus focus:border-brand-500" autoFocus />
               <div className="flex gap-3">
-                <button onClick={() => { setPendingEditPkg(null); setPendingAction(null); setAdminPasswordInput(''); }} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50">Cancelar</button>
+                <button onClick={() => { setPendingEditPkg(null); setPendingAction(null); setAdminPasswordInput(''); }} className="flex-1 py-2.5 rounded-lg border border-line-strong text-sm font-medium text-ink-600 hover:bg-paper">Cancelar</button>
                 <button onClick={() => {
                   if (adminPasswordInput === ADMIN_PASSWORD) {
                     setAdminAuth(true); setAdminPasswordInput('');
@@ -967,57 +966,57 @@ const Packages: React.FC = () => {
 
       {/* Modal Ajustar Horas (Admin) */}
       {showAdjustModal && adjustPkg && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
-            <div className="flex items-center justify-between p-5 border-b border-slate-200">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-paper-raised rounded-card-lg shadow-card-lg max-w-md w-full">
+            <div className="flex items-center justify-between p-5 border-b border-line">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">Ajustar Horas do Pacote</h2>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <h2 className="text-lg font-bold text-ink-900">Ajustar Horas do Pacote</h2>
+                <p className="text-xs text-ink-500 mt-0.5">
                   {adjustPkg.type} &middot; {getCustomerName(adjustPkg.customerId)}
                   {adjustPkg.childId ? ` · ${getChildName(adjustPkg.childId)}` : ''}
                 </p>
               </div>
-              <button onClick={() => { setShowAdjustModal(false); setAdjustPkg(null); }} className="p-1 rounded-md hover:bg-slate-100 text-slate-400"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" /></svg></button>
+              <button onClick={() => { setShowAdjustModal(false); setAdjustPkg(null); }} className="p-1 rounded-md hover:bg-ink-100 text-ink-400"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" /></svg></button>
             </div>
             <div className="p-5 space-y-4">
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                <p className="text-xs font-semibold text-amber-700">Valores atuais</p>
-                <p className="text-sm text-amber-800 mt-1">
+              <div className="bg-state-warn-soft border border-state-warn/30 rounded-lg p-3">
+                <p className="text-xs font-semibold text-state-warn">Valores atuais</p>
+                <p className="text-sm text-state-warn mt-1">
                   {adjustPkg.hours}h total &middot; {adjustPkg.usedHours.toFixed(1)}h usadas &middot; {getRemainingHours(adjustPkg).toFixed(1)}h restantes
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Horas Totais</label>
-                  <input type="number" value={adjustHours} onChange={(e) => setAdjustHours(parseFloat(e.target.value) || 0)} min="0.5" step="0.5" className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                  <label className="block text-xs font-semibold text-ink-600 mb-1.5">Horas Totais</label>
+                  <input type="number" value={adjustHours} onChange={(e) => setAdjustHours(parseFloat(e.target.value) || 0)} min="0.5" step="0.5" className="w-full px-3 py-2.5 border border-line-strong rounded-lg text-sm focus:outline-none focus-visible:shadow-focus" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Horas Usadas</label>
-                  <input type="number" value={adjustUsedHours} onChange={(e) => setAdjustUsedHours(parseFloat(e.target.value) || 0)} min="0" step="0.5" className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                  <label className="block text-xs font-semibold text-ink-600 mb-1.5">Horas Usadas</label>
+                  <input type="number" value={adjustUsedHours} onChange={(e) => setAdjustUsedHours(parseFloat(e.target.value) || 0)} min="0" step="0.5" className="w-full px-3 py-2.5 border border-line-strong rounded-lg text-sm focus:outline-none focus-visible:shadow-focus" />
                 </div>
               </div>
 
               {adjustHours > 0 && (
-                <div className="bg-slate-50 rounded-lg p-3">
-                  <p className="text-xs text-slate-500">Resultado após ajuste:</p>
-                  <p className="text-sm font-bold text-slate-900 mt-0.5">
+                <div className="bg-paper rounded-lg p-3">
+                  <p className="text-xs text-ink-500">Resultado após ajuste:</p>
+                  <p className="text-sm font-bold text-ink-900 mt-0.5">
                     {adjustHours}h total &middot; {adjustUsedHours.toFixed(1)}h usadas &middot; {Math.max(0, adjustHours - adjustUsedHours).toFixed(1)}h restantes
                   </p>
                   {adjustUsedHours >= adjustHours && (
-                    <p className="text-[11px] text-red-600 font-semibold mt-1">O pacote será marcado como inativo (horas esgotadas)</p>
+                    <p className="text-[11px] text-state-bad font-semibold mt-1">O pacote será marcado como inativo (horas esgotadas)</p>
                   )}
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Motivo do ajuste</label>
-                <textarea value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} placeholder="Ex: Erro no lançamento, compensação ao cliente..." rows={2} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none" />
+                <label className="block text-xs font-semibold text-ink-600 mb-1.5">Motivo do ajuste</label>
+                <textarea value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} placeholder="Ex: Erro no lançamento, compensação ao cliente..." rows={2} className="w-full px-3 py-2.5 border border-line-strong rounded-lg text-sm focus:outline-none focus-visible:shadow-focus resize-none" />
               </div>
 
               <div className="flex gap-3 pt-1">
-                <button onClick={() => { setShowAdjustModal(false); setAdjustPkg(null); }} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
-                <button onClick={handleAdjustHours} disabled={adjustSaving} className="flex-1 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">{adjustSaving ? 'Salvando...' : 'Confirmar Ajuste'}</button>
+                <button onClick={() => { setShowAdjustModal(false); setAdjustPkg(null); }} className="flex-1 py-2.5 rounded-lg border border-line-strong text-sm font-medium text-ink-600 hover:bg-paper transition-colors">Cancelar</button>
+                <button onClick={handleAdjustHours} disabled={adjustSaving} className="flex-1 py-2.5 rounded-lg bg-state-warn hover:bg-state-warn text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">{adjustSaving ? 'Salvando...' : 'Confirmar Ajuste'}</button>
               </div>
             </div>
           </div>
@@ -1030,69 +1029,69 @@ const Packages: React.FC = () => {
         const progressPct = getPackageProgress(printPkg);
         const remainingPct = 100 - progressPct;
         return (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
-              <div className="flex items-center justify-between p-5 border-b border-slate-200">
-                <h2 className="text-lg font-bold text-slate-900">Imprimir Resumo do Pacote</h2>
-                <button onClick={() => { setShowPrintModal(false); setPrintPkg(null); }} className="p-1 rounded-md hover:bg-slate-100 text-slate-400"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" /></svg></button>
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="bg-paper-raised rounded-card-lg shadow-card-lg max-w-md w-full">
+              <div className="flex items-center justify-between p-5 border-b border-line">
+                <h2 className="text-lg font-bold text-ink-900">Imprimir Resumo do Pacote</h2>
+                <button onClick={() => { setShowPrintModal(false); setPrintPkg(null); }} className="p-1 rounded-md hover:bg-ink-100 text-ink-400"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" /></svg></button>
               </div>
               <div className="p-5 space-y-4">
                 {/* Preview */}
-                <div className="bg-slate-50 rounded-xl p-4 space-y-3 border border-slate-200">
+                <div className="bg-paper rounded-card p-4 space-y-3 border border-line">
                   <div className="text-center">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Resumo do Pacote</p>
-                    <p className="text-base font-bold text-slate-900 mt-0.5">{printPkg.type}</p>
+                    <p className="text-xs font-bold text-ink-400 uppercase tracking-wider">Resumo do Pacote</p>
+                    <p className="text-base font-bold text-ink-900 mt-0.5">{printPkg.type}</p>
                   </div>
                   <div className="space-y-1.5 text-sm">
-                    <div className="flex justify-between"><span className="text-slate-500">Responsável</span><span className="font-semibold text-slate-800">{d.customerName}</span></div>
-                    {d.childName && <div className="flex justify-between"><span className="text-slate-500">Criança</span><span className="font-semibold text-slate-800">{d.childName}</span></div>}
-                    <div className="flex justify-between"><span className="text-slate-500">Data da Compra</span><span className="font-semibold text-slate-800">{format(d.purchaseDate, 'dd/MM/yyyy')}</span></div>
-                    {d.expDate && <div className="flex justify-between"><span className="text-slate-500">Vencimento</span><span className={`font-semibold ${d.isExpired ? 'text-red-600' : 'text-slate-800'}`}>{format(d.expDate, 'dd/MM/yyyy')}</span></div>}
-                    <div className="flex justify-between"><span className="text-slate-500">Status</span><span className={`font-semibold ${printPkg.active ? 'text-emerald-600' : 'text-red-600'}`}>{printPkg.active ? 'Ativo' : 'Inativo'}</span></div>
+                    <div className="flex justify-between"><span className="text-ink-500">Responsável</span><span className="font-semibold text-ink-800">{d.customerName}</span></div>
+                    {d.childName && <div className="flex justify-between"><span className="text-ink-500">Criança</span><span className="font-semibold text-ink-800">{d.childName}</span></div>}
+                    <div className="flex justify-between"><span className="text-ink-500">Data da Compra</span><span className="font-semibold text-ink-800">{format(d.purchaseDate, 'dd/MM/yyyy')}</span></div>
+                    {d.expDate && <div className="flex justify-between"><span className="text-ink-500">Vencimento</span><span className={`font-semibold ${d.isExpired ? 'text-state-bad' : 'text-ink-800'}`}>{format(d.expDate, 'dd/MM/yyyy')}</span></div>}
+                    <div className="flex justify-between"><span className="text-ink-500">Status</span><span className={`font-semibold ${printPkg.active ? 'text-state-ok' : 'text-state-bad'}`}>{printPkg.active ? 'Ativo' : 'Inativo'}</span></div>
                   </div>
-                  <div className="border-t border-slate-200 pt-3">
-                    <div className="flex justify-between text-xs text-slate-500 mb-1">
+                  <div className="border-t border-line pt-3">
+                    <div className="flex justify-between text-xs text-ink-500 mb-1">
                       <span>{printPkg.usedHours.toFixed(1)}h / {printPkg.hours}h</span>
-                      <span className={`font-bold ${remainingPct <= 10 ? 'text-red-600' : remainingPct <= 30 ? 'text-amber-600' : 'text-emerald-600'}`}>{d.remaining.toFixed(1)}h restantes</span>
+                      <span className={`font-bold ${remainingPct <= 10 ? 'text-state-bad' : remainingPct <= 30 ? 'text-state-warn' : 'text-state-ok'}`}>{d.remaining.toFixed(1)}h restantes</span>
                     </div>
-                    <div className="w-full bg-slate-200 rounded-full h-2">
-                      <div className={`h-2 rounded-full transition-all ${progressPct >= 90 ? 'bg-red-500' : progressPct >= 70 ? 'bg-amber-500' : 'bg-brand-500'}`} style={{ width: `${progressPct}%` }} />
+                    <div className="w-full bg-ink-200 rounded-full h-2">
+                      <div className={`h-2 rounded-full transition-all ${progressPct >= 90 ? 'bg-state-bad' : progressPct >= 70 ? 'bg-state-warn' : 'bg-brand-500'}`} style={{ width: `${progressPct}%` }} />
                     </div>
                   </div>
-                  {d.isExpired && <p className="text-center text-xs font-bold text-red-600 bg-red-50 rounded-lg py-1.5">PACOTE EXPIRADO</p>}
+                  {d.isExpired && <p className="text-center text-xs font-bold text-state-bad bg-state-bad-soft rounded-lg py-1.5">PACOTE EXPIRADO</p>}
                 </div>
 
                 {/* Print Options */}
                 <div className="space-y-2">
-                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Escolha a forma de impressão</p>
+                  <p className="text-xs font-semibold text-ink-600 uppercase tracking-wider">Escolha a forma de impressão</p>
                   <button
                     onClick={handlePrintThermal}
                     disabled={printing}
-                    className="w-full flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 hover:border-violet-300 hover:bg-brand-50 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full flex items-center gap-3 p-3.5 rounded-card border border-line hover:border-violet-300 hover:bg-brand-50 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <div className="w-10 h-10 bg-violet-100 rounded-lg flex items-center justify-center flex-shrink-0">
                       <svg className="w-5 h-5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m10.5 0a48.536 48.536 0 0 0-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18.25 7.034V12" /></svg>
                     </div>
                     <div>
-                      <p className="font-semibold text-sm text-slate-800">Impressora Térmica</p>
-                      <p className="text-xs text-slate-500">Imprime na impressora Bematech configurada</p>
+                      <p className="font-semibold text-sm text-ink-800">Impressora Térmica</p>
+                      <p className="text-xs text-ink-500">Imprime na impressora Bematech configurada</p>
                     </div>
                   </button>
                   <button
                     onClick={handlePrintBrowser}
-                    className="w-full flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-all text-left"
+                    className="w-full flex items-center gap-3 p-3.5 rounded-card border border-line hover:border-blue-300 hover:bg-blue-50 transition-all text-left"
                   >
                     <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
                       <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
                     </div>
                     <div>
-                      <p className="font-semibold text-sm text-slate-800">Imprimir via Navegador</p>
-                      <p className="text-xs text-slate-500">Abre janela de impressão do sistema (qualquer impressora)</p>
+                      <p className="font-semibold text-sm text-ink-800">Imprimir via Navegador</p>
+                      <p className="text-xs text-ink-500">Abre janela de impressão do sistema (qualquer impressora)</p>
                     </div>
                   </button>
                 </div>
 
-                <button onClick={() => { setShowPrintModal(false); setPrintPkg(null); }} className="w-full py-2.5 rounded-xl border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Fechar</button>
+                <button onClick={() => { setShowPrintModal(false); setPrintPkg(null); }} className="w-full py-2.5 rounded-card border border-line-strong text-sm font-medium text-ink-600 hover:bg-paper transition-colors">Fechar</button>
               </div>
             </div>
           </div>
@@ -1105,23 +1104,23 @@ const Packages: React.FC = () => {
         const expDate = getExpirationDate(renewPkg);
         const isExpired = expDate && expDate < new Date();
         return (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-5 border-b border-slate-200">
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="bg-paper-raised rounded-card-lg shadow-card-lg max-w-lg w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-5 border-b border-line">
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900">Renovar Pacote</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <h2 className="text-lg font-bold text-ink-900">Renovar Pacote</h2>
+                  <p className="text-xs text-ink-500 mt-0.5">
                     {getCustomerName(renewPkg.customerId)}
                     {renewPkg.childId ? ` · ${getChildName(renewPkg.childId)}` : ''}
                   </p>
                 </div>
-                <button onClick={() => { setShowRenewModal(false); setRenewPkg(null); }} className="p-1 rounded-md hover:bg-slate-100 text-slate-400"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" /></svg></button>
+                <button onClick={() => { setShowRenewModal(false); setRenewPkg(null); }} className="p-1 rounded-md hover:bg-ink-100 text-ink-400"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" /></svg></button>
               </div>
               <div className="p-5 space-y-4">
                 {/* Current package info */}
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                  <p className="text-xs font-semibold text-amber-700">Pacote Atual — {renewPkg.type}</p>
-                  <div className="mt-1.5 space-y-1 text-sm text-amber-800">
+                <div className="bg-state-warn-soft border border-state-warn/30 rounded-lg p-3">
+                  <p className="text-xs font-semibold text-state-warn">Pacote Atual — {renewPkg.type}</p>
+                  <div className="mt-1.5 space-y-1 text-sm text-state-warn">
                     <div className="flex justify-between">
                       <span>Horas restantes</span>
                       <span className="font-bold">{remaining.toFixed(1)}h</span>
@@ -1129,7 +1128,7 @@ const Packages: React.FC = () => {
                     {expDate && (
                       <div className="flex justify-between">
                         <span>Vencimento</span>
-                        <span className={`font-bold ${isExpired ? 'text-red-600' : ''}`}>
+                        <span className={`font-bold ${isExpired ? 'text-state-bad' : ''}`}>
                           {format(expDate, 'dd/MM/yyyy')}{isExpired ? ' (expirado)' : ''}
                         </span>
                       </div>
@@ -1140,7 +1139,7 @@ const Packages: React.FC = () => {
                 {/* Plan selection */}
                 {plans.length > 0 && (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Escolha o plano para renovação</label>
+                    <label className="block text-xs font-semibold text-ink-600 mb-1.5">Escolha o plano para renovação</label>
                     <div className="grid grid-cols-2 gap-2">
                       {plans.map(p => (
                         <button key={p.name} type="button" onClick={() => {
@@ -1150,10 +1149,10 @@ const Packages: React.FC = () => {
                           setRenewPlanName(p.name);
                         }}
                           className={`p-3 rounded-lg border text-left text-sm transition-all ${
-                            renewPlanName === p.name ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 hover:border-emerald-300'
+                            renewPlanName === p.name ? 'border-state-ok bg-state-ok-soft' : 'border-line hover:border-state-ok/30'
                           }`}>
-                          <p className="font-semibold text-slate-800">{p.name}</p>
-                          <p className="text-xs text-slate-500">{p.hours}h · R$ {p.price.toFixed(2)} · {p.expiryDays}d</p>
+                          <p className="font-semibold text-ink-800">{p.name}</p>
+                          <p className="text-xs text-ink-500">{p.hours}h · {formatBRL(p.price)} · {p.expiryDays}d</p>
                         </button>
                       ))}
                     </div>
@@ -1163,16 +1162,16 @@ const Packages: React.FC = () => {
                 {/* Custom values */}
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Horas Adicionais</label>
-                    <input type="number" value={renewHours} onChange={(e) => setRenewHours(parseFloat(e.target.value) || 0)} min="1" step="0.5" className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                    <label className="block text-xs font-semibold text-ink-600 mb-1.5">Horas Adicionais</label>
+                    <input type="number" value={renewHours} onChange={(e) => setRenewHours(parseFloat(e.target.value) || 0)} min="1" step="0.5" className="w-full px-3 py-2.5 border border-line-strong rounded-lg text-sm focus:outline-none focus-visible:shadow-focus" />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Preço (R$)</label>
-                    <input type="number" value={renewPrice} onChange={(e) => setRenewPrice(parseFloat(e.target.value) || 0)} min="0" step="0.01" className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                    <label className="block text-xs font-semibold text-ink-600 mb-1.5">Preço (R$)</label>
+                    <input type="number" value={renewPrice} onChange={(e) => setRenewPrice(parseFloat(e.target.value) || 0)} min="0" step="0.01" className="w-full px-3 py-2.5 border border-line-strong rounded-lg text-sm focus:outline-none focus-visible:shadow-focus" />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Validade</label>
-                    <select value={renewExpiryDays} onChange={(e) => setRenewExpiryDays(parseInt(e.target.value))} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    <label className="block text-xs font-semibold text-ink-600 mb-1.5">Validade</label>
+                    <select value={renewExpiryDays} onChange={(e) => setRenewExpiryDays(parseInt(e.target.value))} className="w-full px-3 py-2.5 border border-line-strong rounded-lg text-sm focus:outline-none focus-visible:shadow-focus">
                       <option value="15">15 dias</option>
                       <option value="30">30 dias</option>
                       <option value="45">45 dias</option>
@@ -1186,9 +1185,9 @@ const Packages: React.FC = () => {
                 </div>
 
                 {/* Preview result */}
-                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
-                  <p className="text-xs font-semibold text-emerald-700">Resultado após renovação</p>
-                  <div className="mt-1.5 space-y-1 text-sm text-emerald-800">
+                <div className="bg-state-ok-soft border border-state-ok/30 rounded-lg p-3">
+                  <p className="text-xs font-semibold text-state-ok">Resultado após renovação</p>
+                  <div className="mt-1.5 space-y-1 text-sm text-state-ok">
                     <div className="flex justify-between">
                       <span>Horas restantes atuais</span>
                       <span className="font-semibold">{remaining.toFixed(1)}h</span>
@@ -1197,7 +1196,7 @@ const Packages: React.FC = () => {
                       <span>+ Horas adicionais</span>
                       <span className="font-semibold">+{renewHours}h</span>
                     </div>
-                    <div className="flex justify-between border-t border-emerald-300 pt-1 mt-1">
+                    <div className="flex justify-between border-t border-state-ok/30 pt-1 mt-1">
                       <span className="font-bold">Total de Horas</span>
                       <span className="font-bold text-lg">{(remaining + renewHours).toFixed(1)}h</span>
                     </div>
@@ -1209,8 +1208,8 @@ const Packages: React.FC = () => {
                 </div>
 
                 <div className="flex gap-3 pt-2">
-                  <button onClick={() => { setShowRenewModal(false); setRenewPkg(null); }} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
-                  <button onClick={handleConfirmRenewal} disabled={renewHours <= 0 || renewPrice <= 0} className="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Ir para Pagamento</button>
+                  <button onClick={() => { setShowRenewModal(false); setRenewPkg(null); }} className="flex-1 py-2.5 rounded-lg border border-line-strong text-sm font-medium text-ink-600 hover:bg-paper transition-colors">Cancelar</button>
+                  <button onClick={handleConfirmRenewal} disabled={renewHours <= 0 || renewPrice <= 0} className="flex-1 py-2.5 rounded-lg bg-state-ok hover:bg-[#166b4c] text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Ir para Pagamento</button>
                 </div>
               </div>
             </div>

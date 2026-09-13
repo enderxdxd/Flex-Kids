@@ -3,19 +3,20 @@ import ModalWrapper from './ModalWrapper';
 import { toast } from 'react-toastify';
 import { Visit, Package, Child, Customer, FiscalConfig } from '../../../../shared/types';
 import { visitsServiceOffline } from '../../../../shared/firebase/services/visits.service.offline';
-import { packagesServiceOffline } from '../../../../shared/firebase/services/packages.service.offline';
+import { packagesServiceOffline, PackageDeductionUndo } from '../../../../shared/firebase/services/packages.service.offline';
 import { paymentsServiceOffline } from '../../../../shared/firebase/services/payments.service.offline';
 import { customersServiceOffline } from '../../../../shared/firebase/services/customers.service.offline';
 import { settingsServiceOffline } from '../../../../shared/firebase/services/settings.service.offline';
 import { bematechService } from '../../../../shared/services/bematech.service';
 import { useUnit } from '../../contexts/UnitContext';
+import { getPackageExpiryDate } from '../../../../shared/utils/packageExpiry';
+import { formatBRL } from '../../../../shared/utils/currency';
 import {
   KIDS_PLAN_FREE_MINUTES,
+  calculateIncludedSiblingValues,
   calculateKidsPlanCoverage,
   calculateMultiPackageCoverage,
   calculatePrincipalValue,
-  calculateSiblingAvulsoValue,
-  distributeSiblingCoverageOverPackage,
   recalcDurationMinutes,
 } from '../../../../shared/utils/billing';
 
@@ -23,7 +24,6 @@ interface SiblingVisit {
   visit: Visit;
   child: Child;
   duration: number;
-  value: number;
   included: boolean;
 }
 
@@ -36,6 +36,80 @@ interface CheckOutModalProps {
 }
 
 const ADMIN_PASSWORD = 'pactoflex123';
+
+/**
+ * Acima disso a permanência é sinalizada no modal: numa recreação infantil uma
+ * visita de 6h+ quase sempre é check-out esquecido, e o operador precisa
+ * conferir o horário antes de cobrar.
+ */
+const LONG_VISIT_ALERT_MINUTES = 6 * 60;
+
+/** Indicador de seleção de um item de radiogroup. */
+const RadioDot: React.FC<{ checked: boolean; tone?: 'brand' | 'emerald' }> = ({ checked, tone = 'brand' }) => {
+  const ring = checked
+    ? tone === 'emerald' ? 'border-state-ok' : 'border-brand-500'
+    : 'border-line-strong';
+  const dot = tone === 'emerald' ? 'bg-state-ok' : 'bg-brand-500';
+  return (
+    <span className={`mt-0.5 flex-shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${ring}`}>
+      {checked && <span className={`w-2 h-2 rounded-full ${dot}`} />}
+    </span>
+  );
+};
+
+/**
+ * Saldo de um pacote como medidor de três faixas — já usado · sai agora · sobra.
+ * É o que diferencia dois pacotes de mesmo nome e deixa visível quando um deles
+ * vai zerar neste check-out; o número sozinho não mostra isso.
+ */
+const PackageBalanceRow: React.FC<{ pkg: Package; consumingMin: number }> = ({ pkg, consumingMin }) => {
+  const totalMin = Math.round(pkg.hours * 60);
+  const remainingMin = Math.max(0, Math.round((pkg.hours - pkg.usedHours) * 60));
+  const consuming = Math.min(consumingMin, remainingMin);
+  const leftAfterMin = remainingMin - consuming;
+  const isEmpty = remainingMin <= 0;
+
+  const pct = (min: number) => (totalMin > 0 ? (min / totalMin) * 100 : 0);
+  const leftAfterPct = pct(leftAfterMin);
+  // Cor da sobra segue o mesmo semáforo da tela de Pacotes.
+  const leftTone = leftAfterPct <= 10 ? 'bg-state-bad' : leftAfterPct <= 30 ? 'bg-state-warn' : 'bg-state-ok';
+
+  const expiry = getPackageExpiryDate(pkg);
+  const daysToExpiry = expiry ? Math.ceil((expiry.getTime() - Date.now()) / 86400000) : null;
+  const expiringSoon = daysToExpiry !== null && daysToExpiry <= 7;
+
+  return (
+    <div className={`rounded-card border px-3.5 py-3 ${isEmpty ? 'border-line-subtle bg-paper opacity-60' : 'border-line bg-paper-raised'}`}>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-ink-900 truncate">{pkg.type}</p>
+        {consuming > 0 ? (
+          <span className="flex-shrink-0 text-caption uppercase bg-brand-50 text-brand-700 border border-brand-200 px-2 py-0.5 rounded-md tabular-nums">−{consuming} min</span>
+        ) : isEmpty ? (
+          <span className="flex-shrink-0 text-caption uppercase bg-ink-200 text-ink-500 px-2 py-0.5 rounded-md">Esgotado</span>
+        ) : null}
+      </div>
+
+      {/* já usado (trilho cinza) · sai agora (brand) · sobra (semáforo) */}
+      <div className="mt-2 h-1.5 w-full rounded-full bg-ink-200 overflow-hidden flex flex-row-reverse">
+        <div className={`h-full ${leftTone}`} style={{ width: `${leftAfterPct}%` }} />
+        <div className="h-full bg-brand-500" style={{ width: `${pct(consuming)}%` }} />
+      </div>
+
+      <p className="mt-1.5 text-xs text-ink-500 tabular-nums">
+        Restam <span className="font-semibold text-ink-700">{remainingMin}</span> de {totalMin} min
+        {consuming > 0 && <span>{' · '}fica com {leftAfterMin} min</span>}
+        {expiry && (
+          <span className={expiringSoon ? 'text-state-warn font-semibold' : undefined}>
+            {' · '}
+            {expiringSoon
+              ? daysToExpiry <= 0 ? 'vence hoje' : `vence em ${daysToExpiry} ${daysToExpiry === 1 ? 'dia' : 'dias'}`
+              : `vence ${expiry.toLocaleDateString('pt-BR')}`}
+          </span>
+        )}
+      </p>
+    </div>
+  );
+};
 
 const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSuccess, visit }) => {
   const { currentUnit } = useUnit();
@@ -60,6 +134,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [employeeDiscount, setEmployeeDiscount] = useState(false);
   const [siblingVisits, setSiblingVisits] = useState<SiblingVisit[]>([]);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
 
   useEffect(() => {
     if (isOpen && visit) {
@@ -185,7 +260,6 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
               visit: sv,
               child: sibChild,
               duration: dur,
-              value: 0, // recalculado dinamicamente em calculateValue
               included: false, // padrão: NÃO incluir; usuário precisa habilitar conscientemente
             };
           });
@@ -206,7 +280,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
       }
     } catch (error) {
       console.error('Error loading data:', error);
-      toast.error('Erro ao carregar dados');
+      toast.error('Não foi possível carregar os dados desta visita. Feche e abra o check-out novamente.');
     }
   };
 
@@ -275,22 +349,6 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
       } else if (paymentMethod === 'package') {
         setPaymentMethod('pix');
       }
-      // Irmãos: kids do irmão = grátis até 180min; senão avulso (com desconto se aplicável)
-      setSiblingVisits(prev => prev.map(s => {
-        if (s.visit.kidsPlanId) {
-          const sibKc = calculateKidsPlanCoverage(s.duration, minimumTime, KIDS_PLAN_FREE_MINUTES);
-          return {
-            ...s,
-            value: sibKc.billableExcessMin > 0
-              ? Math.round((sibKc.billableExcessMin / 60) * hourlyRate * 100) / 100
-              : 0,
-          };
-        }
-        return {
-          ...s,
-          value: calculateSiblingAvulsoValue(s.duration, minimumTime, hourlyRate, employeeDiscount),
-        };
-      }));
     } else if (usePackages || selectedAdminPackage) {
       const coverage = getMultiPackageCoverage(siblingsBillableMin);
       const principalValue = calculatePrincipalValue({
@@ -305,20 +363,8 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
       setTotalValue(principalValue);
       if (coverage.isFullyCovered) {
         setPaymentMethod('package');
-        setSiblingVisits(prev => prev.map(s => ({ ...s, value: 0 })));
-      } else {
-        if (principalValue > 0 && paymentMethod === 'package') setPaymentMethod('pix');
-        const sibCalcs = distributeSiblingCoverageOverPackage(
-          coverage,
-          siblingVisits.map(s => ({ durationMin: s.duration, isKidsPlan: !!s.visit.kidsPlanId })),
-          minimumTime,
-          hourlyRate,
-          employeeDiscount,
-        );
-        setSiblingVisits(prev => prev.map((s, i) => ({
-          ...s,
-          value: s.included ? sibCalcs[i].sibValue : 0,
-        })));
+      } else if (principalValue > 0 && paymentMethod === 'package') {
+        setPaymentMethod('pix');
       }
     } else {
       // Avulso
@@ -331,21 +377,12 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
         employeeDiscount,
       });
       setTotalValue(principalValue);
-      setSiblingVisits(prev => prev.map(s => ({
-        ...s,
-        value: s.visit.kidsPlanId
-          ? 0
-          : calculateSiblingAvulsoValue(s.duration, minimumTime, hourlyRate, employeeDiscount),
-      })));
+      // Sem pacote não existe quitação "package": sem isto o seletor de
+      // PIX/crédito/débito some e o check-out trava pedindo uma forma de
+      // pagamento que não há como escolher.
+      if (paymentMethod === 'package') setPaymentMethod('pix');
     }
   };
-
-  // Total dos irmãos incluídos
-  const includedSiblingsTotal = siblingVisits
-    .filter(s => s.included)
-    .reduce((sum, s) => sum + s.value, 0);
-
-  const combinedTotal = Math.round((totalValue + includedSiblingsTotal) * 100) / 100;
 
   // Minutos faturáveis dos irmãos incluídos (exceto Kids Plan) — usado para a
   // pré-visualização da cobertura do pacote. Garante que o UI mostre o desconto
@@ -353,6 +390,34 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
   const previewSiblingsBillableMin = siblingVisits
     .filter(s => s.included && !s.visit.kidsPlanId)
     .reduce((sum, s) => sum + Math.max(s.duration, minimumTime), 0);
+
+  // Valor de cada irmão é DERIVADO em render, nunca guardado em state: manter
+  // isso no state fazia o efeito que recalcula o total realimentar
+  // `siblingVisits` a cada passada e o modal entrava em loop de render.
+  const includedSiblings = siblingVisits.filter(s => s.included);
+
+  const includedSiblingCalcs = calculateIncludedSiblingValues({
+    principalUsesPackage: !isKidsPlan && (usePackages || !!selectedAdminPackage),
+    includedSiblings: includedSiblings.map(s => ({
+      durationMin: s.duration,
+      isKidsPlan: !!s.visit.kidsPlanId,
+    })),
+    multiCoverage: !isKidsPlan && (usePackages || selectedAdminPackage)
+      ? getMultiPackageCoverage(previewSiblingsBillableMin)
+      : undefined,
+    minimumTime,
+    hourlyRate,
+    employeeDiscount,
+  });
+
+  const siblingValueByVisitId = new Map(
+    includedSiblings.map((s, i) => [s.visit.id, includedSiblingCalcs[i]?.sibValue ?? 0]),
+  );
+  const siblingValue = (s: SiblingVisit): number => siblingValueByVisitId.get(s.visit.id) ?? 0;
+
+  const includedSiblingsTotal = includedSiblingCalcs.reduce((sum, c) => sum + c.sibValue, 0);
+
+  const combinedTotal = Math.round((totalValue + includedSiblingsTotal) * 100) / 100;
 
   const toggleSibling = (visitId: string) => {
     setSiblingVisits(prev => prev.map(s =>
@@ -366,11 +431,18 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
 
   const handleCheckOut = async () => {
     if (!isKidsPlan && !(usePackages || selectedAdminPackage) && paymentMethod === 'package') {
-      toast.error('Selecione um pacote ou escolha outra forma de pagamento');
+      toast.error('Escolha um pacote ou selecione PIX, crédito ou débito.');
       return;
     }
     if (processingRef.current) return;
     processingRef.current = true;
+
+    // Débitos de pacote já aplicados nesta tentativa — usados para reverter se
+    // uma etapa posterior do check-out falhar.
+    const appliedDeductions: PackageDeductionUndo[] = [];
+    // Vira true quando a visita principal já foi fechada: a partir daí o erro
+    // não pode dizer que "nada foi cobrado".
+    let mainVisitCommitted = false;
 
     try {
       setLoading(true);
@@ -432,6 +504,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
           paid: true,
           paymentId,
         });
+        mainVisitCommitted = true;
       } else {
         // --- Fluxo normal (pacotes / avulso) ---
         // Calcular cobertura incluindo irmãos para descontar corretamente do pacote
@@ -451,10 +524,19 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
           multiCoverage: coverage,
         });
 
-        // 2. Descontar horas de cada pacote usado (inclui principal + irmãos)
+        // 2. Descontar horas de cada pacote usado (inclui principal + irmãos).
+        // Se um débito falhar no meio, desfaz os anteriores — senão o cliente
+        // perde horas a cada tentativa de check-out que der erro.
         for (const { pkg, coveredMin } of coverage.breakdown) {
           const hoursToDeduct = coveredMin / 60;
-          await packagesServiceOffline.usePackage(pkg.id, hoursToDeduct);
+          try {
+            const undo = await packagesServiceOffline.usePackage(pkg.id, hoursToDeduct);
+            appliedDeductions.push(undo);
+          } catch (error) {
+            await packagesServiceOffline.undoPackageDeductions(appliedDeductions);
+            appliedDeductions.length = 0;
+            throw new Error(`não foi possível debitar o pacote ${pkg.type} — ${(error as Error).message}`);
+          }
           console.log(`[CHECKOUT] Pacote ${pkg.type} (${pkg.id}): -${coveredMin}min (principal+irmãos)`);
         }
 
@@ -500,44 +582,38 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
           paymentId,
           packageId: firstPkgId,
         });
+
+        // Ponto de commit: a visita principal já consumiu essas horas. Falhas
+        // daqui pra frente (irmãos, impressão) não podem devolver o saldo.
+        appliedDeductions.length = 0;
+        mainVisitCommitted = true;
       }
 
       // 4. Processar checkout dos irmãos incluídos com durações ATUALIZADAS (via billing.ts)
       const includedSiblings = freshSiblings.filter(s => s.included);
 
-      // Pré-calcular valores e flag de pacote por irmão (distribui sobra do pacote, trata Kids Plan)
-      const sibCalcs: { sibValue: number; sibUsedPackage: boolean }[] = (() => {
-        if (isKidsPlan || !(usePackages || selectedAdminPackage)) {
-          // Sem pacote do principal → cada irmão calculado individualmente
-          return includedSiblings.map(s => {
-            if (s.visit.kidsPlanId) {
-              const kc = getKidsPlanCoverage(s.duration);
-              return {
-                sibValue: kc.billableExcessMin > 0
-                  ? Math.round((kc.billableExcessMin / 60) * hourlyRate * 100) / 100
-                  : 0,
-                sibUsedPackage: false,
-              };
-            }
-            return {
-              sibValue: calculateSiblingAvulsoValue(s.duration, minimumTime, hourlyRate, employeeDiscount),
-              sibUsedPackage: false,
-            };
-          });
-        }
-
-        // Com pacote ativo: precisa recalcular cobertura para distribuir sobra entre irmãos
-        const includedSibsNonKids = includedSiblings.filter(s => !s.visit.kidsPlanId);
-        const sibsBill = includedSibsNonKids.reduce((sum, s) => sum + Math.max(s.duration, minimumTime), 0);
-        const cov = getMultiPackageCoverage(sibsBill, actualDuration);
-        return distributeSiblingCoverageOverPackage(
-          cov,
-          includedSiblings.map(s => ({ durationMin: s.duration, isKidsPlan: !!s.visit.kidsPlanId })),
-          minimumTime,
-          hourlyRate,
-          employeeDiscount,
-        );
-      })();
+      // Mesma função usada na pré-visualização — preview e cobrança não podem
+      // divergir. Aqui as durações são as recalculadas no momento do clique.
+      const principalUsesPackage = !isKidsPlan && (usePackages || !!selectedAdminPackage);
+      const sibInputs = includedSiblings.map(s => ({
+        durationMin: s.duration,
+        isKidsPlan: !!s.visit.kidsPlanId,
+      }));
+      const sibCalcs = calculateIncludedSiblingValues({
+        principalUsesPackage,
+        includedSiblings: sibInputs,
+        multiCoverage: principalUsesPackage
+          ? getMultiPackageCoverage(
+              includedSiblings
+                .filter(s => !s.visit.kidsPlanId)
+                .reduce((sum, s) => sum + Math.max(s.duration, minimumTime), 0),
+              actualDuration,
+            )
+          : undefined,
+        minimumTime,
+        hourlyRate,
+        employeeDiscount,
+      });
 
       const pkgFirstId: string | undefined = (() => {
         if (isKidsPlan || !(usePackages || selectedAdminPackage) || includedSiblings.length === 0) return undefined;
@@ -641,15 +717,28 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
       }
 
       if (printSuccess) {
-        toast.success('✅ Check-out realizado com sucesso!');
+        toast.success('Check-out concluído');
       } else {
-        toast.success('✅ Check-out realizado! (Comprovante não impresso)');
+        toast.success('Check-out concluído. O comprovante não foi impresso.');
       }
       onSuccess();
       handleClose();
     } catch (error) {
       console.error('Error during checkout:', error);
-      toast.error('Erro ao realizar check-out');
+      // Reverte horas já debitadas se a falha veio depois dos débitos
+      // (pagamento, checkout da visita, irmãos...).
+      if (appliedDeductions.length > 0) {
+        await packagesServiceOffline.undoPackageDeductions(appliedDeductions);
+      }
+      const detail = error instanceof Error && error.message ? error.message : String(error);
+      toast.error(
+        // fica até o operador fechar: a mensagem diz o que fazer a seguir
+        mainVisitCommitted
+          // A visita principal já foi fechada — só irmãos/comprovante falharam.
+          ? `A visita de ${child?.name || 'a criança'} foi fechada, mas houve um erro depois: ${detail}. Confira o Histórico de Visitas antes de repetir.`
+          : `Check-out não concluído: ${detail}. Nada foi cobrado — corrija e tente de novo.`,
+        { autoClose: 10000 },
+      );
     } finally {
       processingRef.current = false;
       setLoading(false);
@@ -735,15 +824,15 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
       console.log('[CHECKOUT] Resultado da impressão:', printed);
 
       if (printed) {
-        toast.success('📄 Comprovante impresso com sucesso!');
+        toast.success('Comprovante impresso');
         return true;
       } else {
-        toast.warning('⚠️ Impressora não conectada - Comprovante não foi impresso');
+        toast.warning('A impressora não respondeu. Reimprima o comprovante pelo Histórico de Visitas.');
         return false;
       }
     } catch (error) {
       console.error('[CHECKOUT] Error printing receipt:', error);
-      toast.error('❌ Erro ao processar comprovante');
+      toast.error('Não foi possível imprimir o comprovante. Reimprima pelo Histórico de Visitas.');
       return false;
     }
   };
@@ -754,6 +843,7 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
     setPaymentMethod('pix');
     setIsAdminAuthenticated(false);
     setAdminPassword('');
+    setShowAdminPanel(false);
     setShowConfirmation(false);
     setEmployeeDiscount(false);
     setSiblingVisits([]);
@@ -768,96 +858,111 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
 
   return (
     <ModalWrapper isOpen={isOpen} onClose={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-slate-200">
-          <h2 className="text-lg font-bold text-slate-800">Check-Out</h2>
-          <button onClick={handleClose} className="p-1 rounded-md hover:bg-slate-100 text-slate-400"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" /></svg></button>
+      <div className="bg-paper-raised rounded-card-lg shadow-card-lg max-w-xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b border-line bg-paper-raised/95 backdrop-blur-sm">
+          <h2 className="text-heading text-ink-900">Check-out</h2>
+          <button
+            onClick={handleClose}
+            aria-label="Fechar check-out"
+            className="p-1.5 rounded-lg text-ink-400 hover:bg-ink-100 hover:text-ink-600 transition-colors focus-visible:outline-none focus-visible:shadow-focus"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" /></svg>
+          </button>
         </div>
 
         <div className="p-5 space-y-4">
-          {/* Visit Info */}
-          <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Criança</span>
-                <span className="font-semibold text-slate-800">{child?.name || 'Carregando...'}</span>
+          {/* Quem está saindo e há quanto tempo — a permanência é o número que o
+              operador confere antes de qualquer decisão de cobrança. */}
+          <div className="rounded-card border border-line bg-surface-muted p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-base font-bold text-ink-900 truncate">{child?.name || 'Carregando…'}</p>
+                <p className="text-xs text-ink-500 truncate mt-0.5">{customer?.name || 'Carregando…'}</p>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Responsável</span>
-                <span className="font-semibold text-slate-800">{customer?.name || 'Carregando...'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Duração</span>
-                <span className="font-bold text-violet-600">{formatTime(duration)}</span>
-              </div>
-              {!isKidsPlan && !(usePackages || selectedAdminPackage) && duration < minimumTime && (
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Tempo mínimo</span>
-                  <span className="font-semibold text-amber-600">{formatTime(minimumTime)} (cobrado)</span>
-                </div>
-              )}
               {isKidsPlan && (
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500">Plano</span>
-                  <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-semibold">Plano Kids — 3h grátis/dia</span>
-                </div>
+                <span className="flex-shrink-0 text-caption uppercase bg-blue-100 text-blue-700 px-2 py-1 rounded-md">Plano Kids · 3h grátis/dia</span>
               )}
             </div>
+
+            <div className="mt-3 pt-3 border-t border-line flex items-baseline justify-between gap-3">
+              <span className="text-caption uppercase text-ink-400">Permanência</span>
+              <span className={`text-3xl font-bold tabular-nums tracking-tight ${duration >= LONG_VISIT_ALERT_MINUTES ? 'text-state-warn' : 'text-brand-600'}`}>
+                {formatTime(duration)}
+              </span>
+            </div>
+
+            {duration >= LONG_VISIT_ALERT_MINUTES && (
+              <div className="mt-3 flex items-start gap-2 rounded-lg border border-state-warn/30 bg-state-warn-soft px-3 py-2">
+                <svg className="w-4 h-4 text-state-warn flex-shrink-0 mt-px" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /></svg>
+                <p className="text-xs text-state-warn">
+                  Acima de {LONG_VISIT_ALERT_MINUTES / 60}h — confira o horário de saída antes de cobrar.
+                </p>
+              </div>
+            )}
+
+            {!isKidsPlan && !(usePackages || selectedAdminPackage) && duration < minimumTime && (
+              <p className="mt-3 text-xs text-ink-500">
+                Abaixo do tempo mínimo — serão cobrados <span className="font-semibold text-state-warn">{formatTime(minimumTime)}</span>.
+              </p>
+            )}
           </div>
 
+          {/* Controles de entrada — somem na revisão para que o passo de
+              confirmação seja de fato uma revisão, e não a mesma tela de novo. */}
+          {!showConfirmation && (<>
           {/* Visitas de Irmãos */}
           {siblingVisits.length > 0 && (
-            <div className="border border-violet-200 rounded-lg p-4 bg-violet-50/50">
-              <p className="text-xs font-bold text-violet-800 mb-1 flex items-center gap-1.5">
+            <div className="border border-brand-200 rounded-card p-4 bg-brand-50/50">
+              <p className="text-xs font-bold text-brand-800 mb-1 flex items-center gap-1.5">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" /></svg>
                 Irmãos com visita ativa ({siblingVisits.length})
               </p>
-              <p className="text-[11px] text-violet-700/70 mb-2.5">
+              <p className="text-xs text-brand-700/80 mb-2.5">
                 Marque apenas os irmãos que você quer fechar junto neste check-out.
               </p>
               <div className="flex gap-2 mb-2.5">
                 <button
                   type="button"
                   onClick={() => setAllSiblingsIncluded(true)}
-                  className="px-2.5 py-1 rounded-md border border-violet-200 bg-white text-[11px] font-semibold text-violet-700 hover:bg-violet-100 transition-colors"
+                  className="px-2.5 py-1 rounded-md border border-brand-200 bg-paper-raised text-xs font-semibold text-brand-700 hover:bg-brand-100 transition-colors focus-visible:outline-none focus-visible:shadow-focus"
                 >
                   Selecionar todos
                 </button>
                 <button
                   type="button"
                   onClick={() => setAllSiblingsIncluded(false)}
-                  className="px-2.5 py-1 rounded-md border border-slate-200 bg-white text-[11px] font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+                  className="px-2.5 py-1 rounded-md border border-line bg-paper-raised text-xs font-semibold text-ink-600 hover:bg-paper transition-colors focus-visible:outline-none focus-visible:shadow-focus"
                 >
                   Limpar seleção
                 </button>
               </div>
               <div className="space-y-1.5">
                 {siblingVisits.map((sibling) => (
-                  <label key={sibling.visit.id} className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg border transition-all ${sibling.included ? 'bg-white border-violet-300' : 'bg-white/60 border-slate-200 hover:border-violet-300'}`}>
+                  <label key={sibling.visit.id} className={`flex items-center gap-3 cursor-pointer p-2.5 rounded-lg border transition-all ${sibling.included ? 'bg-paper-raised border-brand-300' : 'bg-paper-raised/60 border-line hover:border-brand-300'}`}>
                     <input
                       type="checkbox"
                       checked={sibling.included}
                       onChange={() => toggleSibling(sibling.visit.id)}
-                      className="w-4 h-4 text-violet-600 rounded focus:ring-violet-500"
+                      className="w-4 h-4 accent-brand-600 rounded border-line-strong focus-visible:outline-none focus-visible:shadow-focus"
                     />
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-semibold truncate ${sibling.included ? 'text-slate-800' : 'text-slate-500'}`}>{sibling.child.name}</p>
-                      <p className="text-xs text-slate-500">
+                      <p className={`text-sm font-semibold truncate ${sibling.included ? 'text-ink-800' : 'text-ink-500'}`}>{sibling.child.name}</p>
+                      <p className="text-xs text-ink-500">
                         {formatTime(sibling.duration)}
-                        {sibling.included && (sibling.value > 0 ? ` · R$ ${sibling.value.toFixed(2)}` : sibling.visit.kidsPlanId ? ' · Plano Kids' : ' · Pacote')}
+                        {sibling.included && (siblingValue(sibling) > 0 ? ` · ${formatBRL(siblingValue(sibling))}` : sibling.visit.kidsPlanId ? ' · Plano Kids' : ' · Pacote')}
                         {!sibling.included && ' · não será cobrado'}
                       </p>
                     </div>
                     {sibling.included && (
-                      <span className="text-[10px] bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded font-semibold flex-shrink-0">Incluído</span>
+                      <span className="text-caption uppercase bg-brand-100 text-brand-700 px-2 py-0.5 rounded-md flex-shrink-0">Incluído</span>
                     )}
                   </label>
                 ))}
               </div>
               {includedSiblingsTotal > 0 && (
-                <div className="mt-2 pt-2 border-t border-violet-200 flex justify-between items-center text-sm">
-                  <span className="text-violet-700 font-medium">Subtotal irmãos</span>
-                  <span className="font-bold text-violet-700">R$ {includedSiblingsTotal.toFixed(2)}</span>
+                <div className="mt-2 pt-2 border-t border-brand-200 flex justify-between items-center text-sm">
+                  <span className="text-brand-700 font-medium">Subtotal irmãos</span>
+                  <span className="font-bold text-brand-700 tabular-nums">{formatBRL(includedSiblingsTotal)}</span>
                 </div>
               )}
             </div>
@@ -866,57 +971,64 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
           {/* Packages - hide if KidsPlan */}
           {!isKidsPlan && packages.length > 0 && (
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-2">Usar Pacotes</label>
+              <p className="text-caption uppercase text-ink-400 mb-2">Forma de cobrança</p>
               {isPayingAvulsoDespitePackage && (
-                <div className="mb-2 border-2 border-orange-300 bg-orange-50 rounded-lg p-3 flex items-start gap-2">
-                  <svg className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+                <div className="mb-3 border border-state-warn/30 bg-state-warn-soft rounded-card p-3 flex items-start gap-2.5">
+                  <svg className="w-5 h-5 text-state-warn flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
                   <div className="flex-1">
-                    <p className="text-sm font-bold text-orange-800">Atenção: cliente tem pacote com saldo</p>
-                    <p className="text-xs text-orange-700 mt-0.5">
-                      {customerPackagesWithBalance.length} pacote(s) disponível(is) — total {Math.round(customerPackagesWithBalance.reduce((s, p) => s + (p.hours - p.usedHours) * 60, 0))}min. Confirme se realmente deseja cobrar avulso.
+                    <p className="text-sm font-bold text-state-warn">Este cliente tem pacote com saldo</p>
+                    <p className="text-xs text-state-warn mt-0.5">
+                      {customerPackagesWithBalance.length === 1
+                        ? `1 pacote com ${Math.round(customerPackagesWithBalance.reduce((s, p) => s + (p.hours - p.usedHours) * 60, 0))} min`
+                        : `${customerPackagesWithBalance.length} pacotes com ${Math.round(customerPackagesWithBalance.reduce((s, p) => s + (p.hours - p.usedHours) * 60, 0))} min no total`}
+                      {' '}disponível. Cobrar avulso só se for essa a intenção.
                     </p>
                   </div>
                 </div>
               )}
-              <div className="space-y-1">
-                <button type="button" onClick={() => { setUsePackages(false); setSelectedAdminPackage(''); }}
-                  className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all ${!usePackages && !selectedAdminPackage ? 'bg-violet-50 border border-violet-300' : 'hover:bg-slate-50 border border-transparent'}`}>
-                  <p className="font-semibold text-slate-800">Pagamento Avulso</p>
-                </button>
-                <button type="button" onClick={() => { setUsePackages(true); setSelectedAdminPackage(''); }}
-                  className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all ${usePackages ? 'bg-emerald-50 border border-emerald-300' : 'hover:bg-slate-50 border border-transparent'}`}>
+              <div className="space-y-2" role="radiogroup" aria-label="Forma de cobrança">
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={!usePackages && !selectedAdminPackage}
+                  onClick={() => { setUsePackages(false); setSelectedAdminPackage(''); }}
+                  className={`w-full flex items-start gap-3 text-left px-3.5 py-3 rounded-card border transition-all focus-visible:outline-none focus-visible:shadow-focus ${!usePackages && !selectedAdminPackage ? 'bg-brand-50 border-brand-400' : 'bg-paper-raised border-line hover:border-brand-300'}`}
+                >
+                  <RadioDot checked={!usePackages && !selectedAdminPackage} />
                   <div>
-                    <p className="font-semibold text-slate-800">Usar Pacotes do Cliente</p>
-                    <p className="text-xs text-slate-500">Consome automaticamente do menor para o maior</p>
+                    <p className="text-sm font-semibold text-ink-900">Pagamento avulso</p>
+                    <p className="text-xs text-ink-500 mt-0.5">Cobrar esta visita por hora</p>
                   </div>
                 </button>
+
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={usePackages}
+                  onClick={() => { setUsePackages(true); setSelectedAdminPackage(''); }}
+                  className={`w-full flex items-start gap-3 text-left px-3.5 py-3 rounded-card border transition-all focus-visible:outline-none focus-visible:shadow-focus ${usePackages ? 'bg-state-ok-soft border-state-ok' : 'bg-paper-raised border-line hover:border-state-ok/30'}`}
+                >
+                  <RadioDot checked={usePackages} tone="emerald" />
+                  <div>
+                    <p className="text-sm font-semibold text-ink-900">Usar pacotes do cliente</p>
+                    <p className="text-xs text-ink-500 mt-0.5">Consome do menor saldo para o maior</p>
+                  </div>
+                </button>
+
                 {usePackages && (
-                  <div className="ml-3 pl-3 border-l-2 border-emerald-200 space-y-1">
+                  <div className="ml-3 pl-4 border-l-2 border-state-ok/30 space-y-2">
                     {packages
+                      .slice()
                       .sort((a, b) => (a.hours - a.usedHours) - (b.hours - b.usedHours))
-                      .map((pkg, idx) => {
-                        const remainingHours = pkg.hours - pkg.usedHours;
-                        const remainingMin = Math.round(remainingHours * 60);
-                        const hasTime = remainingHours > 0;
+                      .map((pkg) => {
                         const coverage = getMultiPackageCoverage(previewSiblingsBillableMin);
                         const pkgCoverage = coverage.breakdown.find(b => b.pkg.id === pkg.id);
                         return (
-                          <div key={pkg.id} className={`px-3 py-2 rounded-lg text-sm ${hasTime ? 'bg-white border border-slate-200' : 'bg-slate-50 border border-slate-100 opacity-50'}`}>
-                            <div className="flex justify-between items-center">
-                              <div>
-                                <p className="font-semibold text-slate-800">
-                                  <span className="text-xs text-slate-400 mr-1">#{idx + 1}</span>
-                                  {pkg.type}
-                                </p>
-                                <p className="text-xs text-slate-500">{remainingMin}min restantes de {Math.round(pkg.hours * 60)}min</p>
-                              </div>
-                              {pkgCoverage ? (
-                                <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-semibold">-{pkgCoverage.coveredMin}min</span>
-                              ) : !hasTime ? (
-                                <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded">Esgotado</span>
-                              ) : null}
-                            </div>
-                          </div>
+                          <PackageBalanceRow
+                            key={pkg.id}
+                            pkg={pkg}
+                            consumingMin={pkgCoverage?.coveredMin ?? 0}
+                          />
                         );
                       })}
                   </div>
@@ -925,20 +1037,47 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
             </div>
           )}
 
-          {/* Admin Packages - hide if KidsPlan */}
-          {!isKidsPlan && allPackages.length > 0 && (
-            <div className="border border-amber-200 rounded-lg p-3 bg-amber-50">
-              <p className="text-xs font-semibold text-amber-800 mb-2">Pacote de Outro Cliente (Admin)</p>
+          {/* Saída de exceção: cobrar do pacote de outro cliente. Fica recolhida
+              para não competir com o fluxo normal, e só abre sob senha. */}
+          {!isKidsPlan && allPackages.length > 0 && !showAdminPanel && !selectedAdminPackage && (
+            <button
+              type="button"
+              onClick={() => setShowAdminPanel(true)}
+              className="text-xs font-semibold text-ink-500 hover:text-brand-600 underline underline-offset-2 transition-colors focus-visible:outline-none focus-visible:shadow-focus rounded"
+            >
+              Cobrar do pacote de outro cliente
+            </button>
+          )}
+
+          {!isKidsPlan && allPackages.length > 0 && (showAdminPanel || selectedAdminPackage) && (
+            <div className="border border-state-warn/30 rounded-card p-3.5 bg-state-warn-soft">
+              <div className="flex items-center justify-between mb-2.5">
+                <p className="text-caption uppercase text-state-warn">Pacote de outro cliente</p>
+                <button
+                  type="button"
+                  onClick={() => { setShowAdminPanel(false); setSelectedAdminPackage(''); }}
+                  className="text-xs text-state-warn hover:text-state-warn transition-colors focus-visible:outline-none focus-visible:shadow-focus rounded"
+                >
+                  Fechar
+                </button>
+              </div>
               {!isAdminAuthenticated ? (
-                <div className="flex gap-2">
-                  <input type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="Senha admin" className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
-                  <button onClick={() => { if (adminPassword === ADMIN_PASSWORD) { setIsAdminAuthenticated(true); toast.success('Autenticado'); } else { toast.error('Senha incorreta'); setAdminPassword(''); } }} className="bg-amber-500 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-amber-600">Entrar</button>
-                </div>
+                <form
+                  className="flex gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (adminPassword === ADMIN_PASSWORD) { setIsAdminAuthenticated(true); toast.success('Acesso de administrador liberado'); }
+                    else { toast.error('Senha de administrador incorreta'); setAdminPassword(''); }
+                  }}
+                >
+                  <input type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="Senha de administrador" aria-label="Senha de administrador" className="flex-1 px-3 py-2 border border-state-warn/30 bg-paper-raised rounded-lg text-sm focus:outline-none focus-visible:shadow-focus focus:border-state-warn" />
+                  <button type="submit" className="bg-state-warn text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-state-warn transition-colors focus-visible:outline-none focus-visible:shadow-focus">Liberar</button>
+                </form>
               ) : (
                 <div className="space-y-1">
                   <div className="flex justify-between items-center mb-1">
-                    <span className="text-[11px] text-emerald-700 font-medium">Admin autenticado</span>
-                    <button onClick={() => { setIsAdminAuthenticated(false); setAdminPassword(''); setSelectedAdminPackage(''); }} className="text-[11px] text-slate-500 hover:text-slate-700">Sair</button>
+                    <span className="text-xs text-state-ok font-semibold">Administrador liberado</span>
+                    <button type="button" onClick={() => { setIsAdminAuthenticated(false); setAdminPassword(''); setSelectedAdminPackage(''); }} className="text-xs text-ink-500 hover:text-ink-700 transition-colors focus-visible:outline-none focus-visible:shadow-focus rounded">Bloquear</button>
                   </div>
                   {allPackages.map(pkg => {
                     const remainingHours = pkg.hours - pkg.usedHours;
@@ -946,9 +1085,9 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
                     const hasTime = remainingHours > 0;
                     return (
                       <button key={pkg.id} type="button" onClick={() => { if (hasTime) { setSelectedAdminPackage(pkg.id); setUsePackages(false); } }} disabled={!hasTime}
-                        className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${selectedAdminPackage === pkg.id ? 'bg-amber-100 border border-amber-400' : hasTime ? 'hover:bg-white border border-transparent' : 'opacity-40 cursor-not-allowed border border-transparent'}`}>
-                        <p className="font-semibold text-slate-800">{pkg.type} <span className="text-xs text-amber-700">({customers.find(c => c.id === pkg.customerId)?.name || '-'})</span></p>
-                        <p className="text-xs text-slate-500">{remainingMin}min de {Math.round(pkg.hours * 60)}min</p>
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all focus-visible:outline-none focus-visible:shadow-focus ${selectedAdminPackage === pkg.id ? 'bg-state-warn-soft border border-state-warn/30' : hasTime ? 'bg-paper-raised/60 hover:bg-paper-raised border border-transparent' : 'opacity-40 cursor-not-allowed border border-transparent'}`}>
+                        <p className="font-semibold text-ink-900">{pkg.type} <span className="text-xs font-normal text-state-warn">· {customers.find(c => c.id === pkg.customerId)?.name || 'sem responsável'}</span></p>
+                        <p className="text-xs text-ink-500 tabular-nums">{remainingMin} de {Math.round(pkg.hours * 60)} min restantes</p>
                       </button>
                     );
                   })}
@@ -959,52 +1098,57 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
 
           {/* Employee Discount */}
           {!isKidsPlan && !usePackages && !selectedAdminPackage && (
-            <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg border border-slate-200 hover:bg-slate-50 transition-all">
+            <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg border border-line hover:bg-paper transition-all">
               <div className="relative">
                 <input type="checkbox" checked={employeeDiscount} onChange={(e) => setEmployeeDiscount(e.target.checked)} className="sr-only peer" />
-                <div className="w-9 h-5 bg-slate-300 rounded-full peer-checked:bg-violet-500 transition-colors"></div>
-                <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-4"></div>
+                <div className="w-9 h-5 bg-slate-300 rounded-full peer-checked:bg-brand-500 transition-colors"></div>
+                <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-paper-raised rounded-full shadow-sm transition-transform peer-checked:translate-x-4"></div>
               </div>
               <div>
-                <span className="text-sm font-semibold text-slate-700">Desconto Colaborador</span>
-                <span className="text-xs text-slate-400 ml-1.5">(50%)</span>
+                <span className="text-sm font-semibold text-ink-700">Desconto colaborador</span>
+                <span className="text-xs text-ink-400 ml-1.5">(50%)</span>
               </div>
             </label>
           )}
+
+          </>)}
 
           {/* Total */}
           {(() => {
             if (isKidsPlan) {
               const kidsCov = getKidsPlanCoverage();
               return (
-                <div className={`rounded-lg p-4 border ${kidsCov.isPartial ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-200'}`}>
+                <div className={`rounded-lg p-4 border ${kidsCov.isPartial ? 'bg-state-warn-soft border-state-warn/30' : 'bg-blue-50 border-blue-200'}`}>
                   <div className="space-y-2">
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-600">Plano Kids (grátis)</span>
+                      <span className="text-ink-600">Plano Kids (grátis)</span>
                       <span className="font-semibold text-blue-600">{kidsCov.coveredMin}min</span>
                     </div>
                     {kidsCov.isPartial && (
                       <>
                         <div className="flex justify-between items-center text-sm">
-                          <span className="text-slate-600">Excedente</span>
-                          <span className="font-semibold text-amber-600">{kidsCov.excessMin}min</span>
+                          <span className="text-ink-600">Excedente</span>
+                          <span className="font-semibold text-state-warn">{kidsCov.excessMin}min</span>
                         </div>
                         {kidsCov.billableExcessMin > kidsCov.excessMin && (
                           <div className="flex justify-between items-center text-sm">
-                            <span className="text-slate-600">Tempo mínimo cobrado</span>
-                            <span className="font-semibold text-amber-600">{kidsCov.billableExcessMin}min</span>
+                            <span className="text-ink-600">Tempo mínimo cobrado</span>
+                            <span className="font-semibold text-state-warn">{kidsCov.billableExcessMin}min</span>
                           </div>
                         )}
-                        <div className="border-t border-amber-200 pt-2 flex justify-between items-center">
-                          <span className="text-sm font-semibold text-slate-700">Valor a pagar (excedente)</span>
-                          <span className="text-xl font-bold text-amber-600">R$ {totalValue.toFixed(2)}</span>
+                        <div className="border-t border-state-warn/30 pt-2 flex justify-between items-baseline gap-3">
+                          <span className="text-sm font-semibold text-ink-700">A pagar pelo excedente</span>
+                          <span className="text-xl font-bold text-state-warn tabular-nums">{formatBRL(totalValue)}</span>
                         </div>
                       </>
                     )}
                     {kidsCov.isFullyCovered && (
-                      <div className="border-t border-blue-200 pt-2 flex justify-between items-center">
-                        <span className="text-sm font-semibold text-slate-700">Total</span>
-                        <span className="text-2xl font-bold text-blue-600">PLANO KIDS</span>
+                      <div className="border-t border-blue-200 pt-2 flex items-end justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-ink-700">Total</p>
+                          <p className="text-xs text-blue-700 mt-0.5">Coberto pelo Plano Kids</p>
+                        </div>
+                        <span className="text-2xl font-bold text-blue-600 tabular-nums">{formatBRL(0)}</span>
                       </div>
                     )}
                   </div>
@@ -1014,37 +1158,43 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
 
             const coverage = (usePackages || selectedAdminPackage) ? getMultiPackageCoverage(previewSiblingsBillableMin) : null;
             return (
-              <div className={`rounded-lg p-4 border ${coverage?.isPartial ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'}`}>
+              <div className={`rounded-lg p-4 border ${coverage?.isPartial ? 'bg-state-warn-soft border-state-warn/30' : 'bg-state-ok-soft border-state-ok/30'}`}>
                 {coverage && coverage.hasPackages && (coverage.isPartial || coverage.isFullyCovered) ? (
                   <div className="space-y-2">
-                    {coverage.breakdown.map((b) => (
-                      <div key={b.pkg.id} className="flex justify-between items-center text-sm">
-                        <span className="text-slate-600">{b.pkg.type}</span>
-                        <span className="font-semibold text-emerald-600">-{b.coveredMin}min</span>
-                      </div>
-                    ))}
+                    {/* O detalhe por pacote já aparece nos medidores acima —
+                        aqui fica só o consolidado, para não repetir a mesma
+                        informação duas vezes na mesma tela. */}
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-ink-600">
+                        Coberto por {coverage.breakdown.length} {coverage.breakdown.length === 1 ? 'pacote' : 'pacotes'}
+                      </span>
+                      <span className="font-semibold text-state-ok tabular-nums">−{coverage.totalCoveredMin} min</span>
+                    </div>
                     {coverage.isPartial && (
                       <>
                         <div className="flex justify-between items-center text-sm">
-                          <span className="text-slate-600">Excedente</span>
-                          <span className="font-semibold text-amber-600">{coverage.excessMin}min</span>
+                          <span className="text-ink-600">Excedente</span>
+                          <span className="font-semibold text-state-warn">{coverage.excessMin}min</span>
                         </div>
                         {coverage.billableExcessMin > coverage.excessMin && (
                           <div className="flex justify-between items-center text-sm">
-                            <span className="text-slate-600">Tempo mínimo cobrado</span>
-                            <span className="font-semibold text-amber-600">{coverage.billableExcessMin}min</span>
+                            <span className="text-ink-600">Tempo mínimo cobrado</span>
+                            <span className="font-semibold text-state-warn">{coverage.billableExcessMin}min</span>
                           </div>
                         )}
-                        <div className="border-t border-amber-200 pt-2 flex justify-between items-center">
-                          <span className="text-sm font-semibold text-slate-700">Valor a pagar (excedente)</span>
-                          <span className="text-xl font-bold text-amber-600">R$ {totalValue.toFixed(2)}</span>
+                        <div className="border-t border-state-warn/30 pt-2 flex justify-between items-baseline gap-3">
+                          <span className="text-sm font-semibold text-ink-700">A pagar pelo excedente</span>
+                          <span className="text-xl font-bold text-state-warn tabular-nums">{formatBRL(totalValue)}</span>
                         </div>
                       </>
                     )}
                     {coverage.isFullyCovered && (
-                      <div className="border-t border-emerald-200 pt-2 flex justify-between items-center">
-                        <span className="text-sm font-semibold text-slate-700">Total</span>
-                        <span className="text-2xl font-bold text-emerald-600">PACOTE</span>
+                      <div className="border-t border-state-ok/30 pt-2 flex items-end justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-ink-700">Total</p>
+                          <p className="text-xs text-state-ok mt-0.5">Coberto pelo pacote</p>
+                        </div>
+                        <span className="text-2xl font-bold text-state-ok tabular-nums">{formatBRL(0)}</span>
                       </div>
                     )}
                   </div>
@@ -1052,13 +1202,13 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
                   <div>
                     {employeeDiscount && (
                       <div className="flex justify-between items-center text-sm mb-1">
-                        <span className="text-slate-500">Desconto colaborador (50%)</span>
-                        <span className="text-slate-400 line-through">R$ {(totalValue * 2).toFixed(2)}</span>
+                        <span className="text-ink-500">Desconto colaborador (50%)</span>
+                        <span className="text-ink-400 line-through tabular-nums">{formatBRL(totalValue * 2)}</span>
                       </div>
                     )}
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-semibold text-slate-700">Total</span>
-                      <span className="text-2xl font-bold text-emerald-600">R$ {totalValue.toFixed(2)}</span>
+                    <div className="flex justify-between items-baseline gap-3">
+                      <span className="text-sm font-semibold text-ink-700">Total</span>
+                      <span className="text-2xl font-bold text-state-ok tabular-nums">{formatBRL(totalValue)}</span>
                     </div>
                   </div>
                 )}
@@ -1068,143 +1218,125 @@ const CheckOutModal: React.FC<CheckOutModalProps> = ({ isOpen, onClose, onSucces
 
           {/* Total Combinado (principal + irmãos) */}
           {siblingVisits.filter(s => s.included).length > 0 && (
-            <div className="rounded-lg p-4 border-2 border-violet-300 bg-violet-50">
+            <div className="rounded-card p-4 border border-brand-300 bg-brand-50">
               <div className="space-y-1.5 text-sm">
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-600">{child?.name || 'Principal'}</span>
-                  <span className="font-semibold text-slate-700">R$ {totalValue.toFixed(2)}</span>
+                  <span className="text-ink-600">{child?.name || 'Principal'}</span>
+                  <span className="font-semibold text-ink-700 tabular-nums">{formatBRL(totalValue)}</span>
                 </div>
                 {siblingVisits.filter(s => s.included).map(s => (
                   <div key={s.visit.id} className="flex justify-between items-center">
-                    <span className="text-slate-600">{s.child.name}</span>
-                    <span className="font-semibold text-slate-700">{s.value > 0 ? `R$ ${s.value.toFixed(2)}` : s.visit.kidsPlanId ? 'Plano Kids' : 'Pacote'}</span>
+                    <span className="text-ink-600">{s.child.name}</span>
+                    <span className="font-semibold text-ink-700 tabular-nums">{siblingValue(s) > 0 ? formatBRL(siblingValue(s)) : s.visit.kidsPlanId ? 'Plano Kids' : 'Pacote'}</span>
                   </div>
                 ))}
-                <div className="border-t border-violet-300 pt-2 flex justify-between items-center">
-                  <span className="font-bold text-violet-800">Total Geral</span>
-                  <span className="text-2xl font-bold text-violet-700">R$ {combinedTotal.toFixed(2)}</span>
+                <div className="border-t border-brand-300 pt-2 flex justify-between items-center">
+                  <span className="font-bold text-brand-800">Total Geral</span>
+                  <span className="text-2xl font-bold text-brand-700 tabular-nums">{formatBRL(combinedTotal)}</span>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Print */}
-          {fiscalConfig?.enableFiscalPrint && (
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={printFiscalNote} onChange={(e) => setPrintFiscalNote(e.target.checked)} className="w-4 h-4 text-violet-600 rounded focus:ring-violet-500" />
-              <span className="text-sm text-slate-600">Imprimir comprovante</span>
-            </label>
-          )}
-
           {/* Payment Method */}
-          {totalValue > 0 && paymentMethod !== 'package' && (
+          {!showConfirmation && totalValue > 0 && paymentMethod !== 'package' && (
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-2">Forma de Pagamento</label>
+              <p className="text-caption uppercase text-ink-400 mb-2">Forma de pagamento</p>
               <div className="grid grid-cols-3 gap-2">
                 {(['pix', 'credit', 'debit'] as const).map(method => (
                   <button key={method} type="button" onClick={() => setPaymentMethod(method)}
-                    className={`p-3 rounded-lg border text-center transition-all ${paymentMethod === method ? 'border-violet-500 bg-violet-50' : 'border-slate-200 hover:border-violet-300'}`}>
-                    <div className="flex justify-center mb-1">{method === 'pix' ? <svg className="w-6 h-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> : <svg className="w-6 h-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>}</div>
-                    <div className="text-xs font-medium text-slate-700">{method === 'pix' ? 'PIX' : method === 'credit' ? 'Crédito' : 'Débito'}</div>
+                    className={`p-3 rounded-card border text-center transition-all focus-visible:outline-none focus-visible:shadow-focus ${paymentMethod === method ? 'border-brand-500 bg-brand-50' : 'border-line hover:border-brand-300'}`}>
+                    <div className="flex justify-center mb-1">{method === 'pix' ? <svg className="w-6 h-6 text-state-warn" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> : <svg className="w-6 h-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>}</div>
+                    <div className="text-xs font-medium text-ink-700">{method === 'pix' ? 'PIX' : method === 'credit' ? 'Crédito' : 'Débito'}</div>
                   </button>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Buttons */}
+          {/* Print */}
+          {!showConfirmation && fiscalConfig?.enableFiscalPrint && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={printFiscalNote} onChange={(e) => setPrintFiscalNote(e.target.checked)} className="w-4 h-4 accent-brand-600 rounded border-line-strong focus-visible:outline-none focus-visible:shadow-focus" />
+              <span className="text-sm text-ink-600">Imprimir comprovante</span>
+            </label>
+          )}
+
+          {/* Passo 1 leva à revisão; quem confirma de fato é o botão do passo 2. */}
           {!showConfirmation ? (
             <div className="flex gap-3 pt-2">
-              <button type="button" onClick={handleClose} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
+              <button type="button" onClick={handleClose} className="flex-1 py-2.5 rounded-lg border border-line-strong text-sm font-medium text-ink-600 hover:bg-paper transition-colors focus-visible:outline-none focus-visible:shadow-focus">Cancelar</button>
               <button type="button" onClick={() => {
                 if (!isKidsPlan && !(usePackages || selectedAdminPackage) && paymentMethod === 'package') {
-                  toast.error('Selecione um pacote ou escolha outra forma de pagamento');
+                  toast.error('Escolha um pacote ou selecione PIX, crédito ou débito.');
                   return;
                 }
                 setShowConfirmation(true);
-              }} disabled={loading || !child} className="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors disabled:opacity-50">
-                {loading ? '⏳ Processando...' : !child ? '⏳ Carregando...' : 'Confirmar Check-Out'}
+              }} disabled={loading || !child} className="flex-1 py-2.5 rounded-lg bg-brand-gradient shadow-brand-sm hover:brightness-110 text-white text-sm font-semibold transition-all disabled:opacity-50 disabled:shadow-none focus-visible:outline-none focus-visible:shadow-focus">
+                {!child ? 'Carregando…' : 'Revisar check-out'}
               </button>
             </div>
           ) : (
-            <div className="border-2 border-amber-400 bg-amber-50 rounded-lg p-4 space-y-3">
-              <p className="text-sm font-bold text-amber-800 text-center">Confirme os dados do check-out:</p>
+            <div className="border border-state-warn/30 bg-state-warn-soft rounded-card p-4 space-y-3">
+              <p className="text-caption uppercase text-state-warn text-center">Confira antes de confirmar</p>
               {isPayingAvulsoDespitePackage && (
-                <div className="border-2 border-orange-400 bg-orange-100 rounded-lg p-3 flex items-start gap-2">
-                  <svg className="w-5 h-5 text-orange-700 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+                <div className="border border-state-warn/30 bg-orange-100 rounded-card p-3 flex items-start gap-2.5">
+                  <svg className="w-5 h-5 text-state-warn flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
                   <div className="flex-1">
-                    <p className="text-xs font-bold text-orange-900">Você está cobrando AVULSO com pacote disponível!</p>
-                    <p className="text-[11px] text-orange-800 mt-0.5">
-                      Cliente tem {Math.round(customerPackagesWithBalance.reduce((s, p) => s + (p.hours - p.usedHours) * 60, 0))}min em {customerPackagesWithBalance.length} pacote(s). Volte e selecione "Usar Pacotes do Cliente" se for engano.
+                    <p className="text-xs font-bold text-orange-900">Você está cobrando avulso com pacote disponível</p>
+                    <p className="text-xs text-state-warn mt-0.5">
+                      O cliente tem {Math.round(customerPackagesWithBalance.reduce((s, p) => s + (p.hours - p.usedHours) * 60, 0))} min disponíveis. Volte e escolha “Usar pacotes do cliente” se for engano.
                     </p>
                   </div>
                 </div>
               )}
-              <div className="text-xs text-slate-700 space-y-1">
-                <p><span className="font-semibold">Criança:</span> {child?.name}</p>
-                <p><span className="font-semibold">Duração:</span> {Math.floor(duration / 60)}h {duration % 60}min</p>
+              <div className="text-sm text-ink-700 space-y-1.5">
+                {/* Só o que ainda não está visível no restante da tela: como
+                    será quitado, o comprovante e os irmãos incluídos. */}
                 {(() => {
+                  const formaLabel = paymentMethod === 'pix' ? 'PIX' : paymentMethod === 'credit' ? 'Crédito' : 'Débito';
                   if (isKidsPlan) {
                     const kidsCov = getKidsPlanCoverage();
-                    if (kidsCov.isFullyCovered) {
-                      return <p><span className="font-semibold">Pagamento:</span> <span className="text-blue-700 font-bold">Plano Kids ({kidsCov.coveredMin}min grátis)</span></p>;
-                    } else {
-                      return (
-                        <>
-                          <p><span className="font-semibold">Plano Kids:</span> <span className="text-blue-700 font-bold">{kidsCov.coveredMin}min grátis</span></p>
-                          <p><span className="font-semibold">Excedente:</span> <span className="text-amber-700 font-bold">{kidsCov.excessMin}min{kidsCov.billableExcessMin > kidsCov.excessMin ? ` (mín. ${kidsCov.billableExcessMin}min)` : ''} → R$ {totalValue.toFixed(2)}</span></p>
-                          <p><span className="font-semibold">Forma:</span> {paymentMethod === 'pix' ? 'PIX' : paymentMethod === 'credit' ? 'Crédito' : 'Débito'}</p>
-                        </>
-                      );
-                    }
+                    return kidsCov.isFullyCovered
+                      ? <p><span className="text-ink-500">Quitação:</span> <span className="font-bold text-blue-700">Plano Kids · {kidsCov.coveredMin}min grátis</span></p>
+                      : <p><span className="text-ink-500">Quitação:</span> <span className="font-bold text-state-warn">{formaLabel} · {formatBRL(totalValue)}</span> <span className="text-ink-500">(excedente de {kidsCov.excessMin}min)</span></p>;
                   }
                   const coverage = (usePackages || selectedAdminPackage) ? getMultiPackageCoverage(previewSiblingsBillableMin) : null;
                   if (coverage?.isFullyCovered) {
-                    return (
-                      <>
-                        <p><span className="font-semibold">Pagamento:</span> <span className="text-violet-700 font-bold">Via Pacote</span></p>
-                        {coverage.breakdown.map(b => (
-                          <p key={b.pkg.id} className="text-[11px] text-slate-500 ml-2">• {b.pkg.type}: -{b.coveredMin}min</p>
-                        ))}
-                      </>
-                    );
-                  } else if (coverage?.isPartial) {
-                    return (
-                      <>
-                        {coverage.breakdown.map(b => (
-                          <p key={b.pkg.id}><span className="font-semibold">{b.pkg.type}:</span> <span className="text-emerald-700 font-bold">-{b.coveredMin}min</span></p>
-                        ))}
-                        <p><span className="font-semibold">Excedente:</span> <span className="text-amber-700 font-bold">{coverage.excessMin}min{coverage.billableExcessMin > coverage.excessMin ? ` (mín. ${coverage.billableExcessMin}min)` : ''} → R$ {totalValue.toFixed(2)}</span></p>
-                        <p><span className="font-semibold">Forma:</span> {paymentMethod === 'pix' ? 'PIX' : paymentMethod === 'credit' ? 'Crédito' : 'Débito'}</p>
-                      </>
-                    );
-                  } else {
-                    return (
-                      <>
-                        <p><span className="font-semibold">Valor:</span> <span className="text-emerald-700 font-bold">R$ {totalValue.toFixed(2)}</span></p>
-                        <p><span className="font-semibold">Forma:</span> {paymentMethod === 'pix' ? 'PIX' : paymentMethod === 'credit' ? 'Crédito' : 'Débito'}</p>
-                      </>
-                    );
+                    return <p><span className="text-ink-500">Quitação:</span> <span className="font-bold text-brand-700">Pacote do cliente · nada a cobrar</span></p>;
                   }
+                  if (coverage?.isPartial) {
+                    return <p><span className="text-ink-500">Quitação:</span> <span className="font-bold text-state-warn">{formaLabel} · {formatBRL(totalValue)}</span> <span className="text-ink-500">(excedente de {coverage.excessMin}min)</span></p>;
+                  }
+                  return <p><span className="text-ink-500">Quitação:</span> <span className="font-bold text-state-ok">{formaLabel} · {formatBRL(totalValue)}</span></p>;
                 })()}
+
+                {fiscalConfig?.enableFiscalPrint && (
+                  <p><span className="text-ink-500">Comprovante:</span> {printFiscalNote ? 'será impresso' : 'não será impresso'}</p>
+                )}
+
                 {siblingVisits.filter(s => s.included).length > 0 && (
-                  <>
-                    <div className="border-t border-amber-300 mt-2 pt-2">
-                      <p className="font-semibold text-violet-800">Irmãos incluídos:</p>
-                    </div>
+                  <div className="pt-1.5 mt-1.5 border-t border-state-warn/30 space-y-1">
+                    <p className="text-ink-500">Irmãos incluídos:</p>
                     {siblingVisits.filter(s => s.included).map(s => (
-                      <p key={s.visit.id}><span className="font-semibold">{s.child.name}:</span> {formatTime(s.duration)} — <span className="text-emerald-700 font-bold">R$ {s.value.toFixed(2)}</span></p>
+                      <p key={s.visit.id} className="ml-2">
+                        • {s.child.name} — {formatTime(s.duration)} ·{' '}
+                        <span className="font-semibold text-ink-800">
+                          {siblingValue(s) > 0 ? formatBRL(siblingValue(s)) : s.visit.kidsPlanId ? 'Plano Kids' : 'Pacote'}
+                        </span>
+                      </p>
                     ))}
-                    <div className="border-t border-amber-300 mt-1 pt-1">
-                      <p><span className="font-bold text-violet-800">Total Geral:</span> <span className="text-lg font-bold text-violet-700">R$ {combinedTotal.toFixed(2)}</span></p>
-                    </div>
-                  </>
+                    <p className="pt-1.5 border-t border-state-warn/30">
+                      <span className="font-bold text-brand-800">Total geral:</span>{' '}
+                      <span className="text-lg font-bold text-brand-700 tabular-nums">{formatBRL(combinedTotal)}</span>
+                    </p>
+                  </div>
                 )}
               </div>
               <div className="flex gap-3">
-                <button type="button" onClick={() => setShowConfirmation(false)} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Voltar</button>
-                <button type="button" onClick={handleCheckOut} disabled={loading} className="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold transition-colors disabled:opacity-50">
-                  {loading ? 'Processando...' : 'Confirmar Pagamento'}
+                <button type="button" onClick={() => setShowConfirmation(false)} disabled={loading} className="flex-1 py-2.5 rounded-lg border border-line-strong text-sm font-medium text-ink-600 hover:bg-paper transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:shadow-focus">Voltar</button>
+                <button type="button" onClick={handleCheckOut} disabled={loading} className="flex-1 py-2.5 rounded-lg bg-state-ok hover:bg-[#166b4c] text-white text-sm font-bold transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:shadow-focus">
+                  {loading ? 'Processando…' : 'Confirmar check-out'}
                 </button>
               </div>
             </div>

@@ -64,11 +64,14 @@ function AppRoutes({ initError }: { initError: string | null }) {
           <Route path="/settings" element={<Layout><Settings /></Layout>} />
         </Routes>
       </Router>
+      {/* Erro fica mais tempo na tela que confirmação: quem acertou já seguiu
+          para o próximo cliente, quem errou precisa ler o que aconteceu. */}
       <ToastContainer
         position="top-right"
-        autoClose={3000}
+        autoClose={4000}
+        theme="light"
         hideProgressBar={false}
-        newestOnTop={false}
+        newestOnTop
         closeOnClick
         rtl={false}
         pauseOnFocusLoss

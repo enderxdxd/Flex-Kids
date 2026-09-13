@@ -214,6 +214,64 @@ export function distributeSiblingCoverageOverPackage(
   });
 }
 
+/** Um irmão candidato a ser fechado junto com a visita principal. */
+export interface SiblingBillingInput {
+  durationMin: number;
+  isKidsPlan: boolean;
+}
+
+/**
+ * Valor de cada irmão INCLUÍDO no check-out, na ordem recebida.
+ *
+ * Fonte única para a pré-visualização do modal e para a cobrança: quando as
+ * duas divergem, o operador vê um valor na tela e o cliente paga outro.
+ */
+export function calculateIncludedSiblingValues(params: {
+  /** true quando a visita principal está quitando via pacote. */
+  principalUsesPackage: boolean;
+  includedSiblings: SiblingBillingInput[];
+  /** Cobertura do pacote — obrigatória quando `principalUsesPackage`. */
+  multiCoverage?: MultiPackageCoverage;
+  minimumTime: number;
+  hourlyRate: number;
+  employeeDiscount?: boolean;
+}): { sibValue: number; sibUsedPackage: boolean }[] {
+  const {
+    principalUsesPackage,
+    includedSiblings,
+    multiCoverage,
+    minimumTime,
+    hourlyRate,
+    employeeDiscount = false,
+  } = params;
+
+  // Sem pacote no principal, cada irmão é calculado por conta própria.
+  if (!principalUsesPackage || !multiCoverage) {
+    return includedSiblings.map((sib) => {
+      if (sib.isKidsPlan) {
+        const kc = calculateKidsPlanCoverage(sib.durationMin, minimumTime);
+        return {
+          sibValue: kc.billableExcessMin > 0 ? round2((kc.billableExcessMin / 60) * hourlyRate) : 0,
+          sibUsedPackage: false,
+        };
+      }
+      return {
+        sibValue: calculateSiblingAvulsoValue(sib.durationMin, minimumTime, hourlyRate, employeeDiscount),
+        sibUsedPackage: false,
+      };
+    });
+  }
+
+  // Com pacote, a sobra depois do principal é distribuída entre os irmãos.
+  return distributeSiblingCoverageOverPackage(
+    multiCoverage,
+    includedSiblings,
+    minimumTime,
+    hourlyRate,
+    employeeDiscount,
+  );
+}
+
 /**
  * Valor avulso para um irmão (sem pacote, sem Kids Plan).
  */
@@ -231,4 +289,45 @@ export function calculateSiblingAvulsoValue(
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+/**
+ * Tolerância de saldo ao debitar um pacote, em horas (1 minuto).
+ *
+ * `calculateMultiPackageCoverage` arredonda o saldo para minutos inteiros
+ * (`Math.round`), então uma cobertura pode pedir até 0,5min a mais do que o
+ * pacote realmente tem quando `hours`/`usedHours` são fracionários — o que
+ * acontece sempre que um pacote é renovado carregando o saldo anterior
+ * (ex.: 20h + 0,9666h = 20,9666h). O débito precisa aceitar essa diferença de
+ * arredondamento; o excedente é absorvido pelo clamp em `pkg.hours`.
+ */
+export const PACKAGE_DEDUCTION_TOLERANCE_HOURS = 1 / 60;
+
+/**
+ * Resolve o débito de horas de um pacote.
+ *
+ * Lança se o pedido ultrapassar o saldo por mais que o arredondamento de
+ * minutos; caso contrário devolve o novo `usedHours` (limitado ao total do
+ * pacote) e se ele continua ativo.
+ */
+export function resolvePackageDeduction(
+  pkg: { hours?: number; usedHours?: number },
+  hoursRequested: number,
+): { newUsedHours: number; active: boolean } {
+  const totalHours = pkg.hours || 0;
+  const usedHours = pkg.usedHours || 0;
+  const availableHours = Math.max(0, totalHours - usedHours);
+
+  if (hoursRequested - availableHours > PACKAGE_DEDUCTION_TOLERANCE_HOURS) {
+    throw new Error(
+      `saldo insuficiente (precisa de ${Math.round(hoursRequested * 60)}min, ` +
+      `restam ${Math.round(availableHours * 60)}min)`,
+    );
+  }
+
+  const newUsedHours = Math.min(totalHours, usedHours + hoursRequested);
+  return {
+    newUsedHours,
+    active: totalHours - newUsedHours > PACKAGE_DEDUCTION_TOLERANCE_HOURS,
+  };
 }

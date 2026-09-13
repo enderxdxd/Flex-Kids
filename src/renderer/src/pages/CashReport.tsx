@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { formatBRL } from '../../../shared/utils/currency';
 import { toast } from 'react-toastify';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -199,9 +200,9 @@ const CashReport: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
-        title="Relatório de Caixa"
+        title="Caixa"
         subtitle={viewMode === 'daily' ? 'Fechamento diário' : 'Resumo mensal'}
         actions={
           <div className="flex gap-2 no-print">
@@ -226,7 +227,7 @@ const CashReport: React.FC = () => {
                 </svg>
               }
             >
-              Imprimir Fiscal
+              Imprimir fiscal
             </Button>
           </div>
         }
@@ -234,16 +235,17 @@ const CashReport: React.FC = () => {
 
       {/* Toggle + date */}
       <div className="flex flex-wrap items-center gap-4 no-print">
-        <div className="flex bg-slate-100 rounded-xl p-1">
+        <div className="flex gap-5 border-b border-line" role="tablist">
           {(['daily', 'monthly'] as const).map(m => (
             <button
               key={m}
               onClick={() => setViewMode(m)}
               className={cn(
-                'px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200',
+                'pb-2.5 -mb-px text-sm font-semibold border-b-2 transition-colors',
+                'focus-visible:outline-none focus-visible:shadow-focus',
                 viewMode === m
-                  ? 'bg-white text-brand-700 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700',
+                  ? 'border-brand-600 text-ink-900'
+                  : 'border-transparent text-ink-500 hover:text-ink-800',
               )}
             >
               {m === 'daily' ? 'Diário' : 'Mensal'}
@@ -257,9 +259,9 @@ const CashReport: React.FC = () => {
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="h-10 px-3 border border-slate-200 rounded-lg text-sm bg-white hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 focus:outline-none transition-all"
+              className="h-10 px-3 border border-line rounded-lg text-sm bg-paper-raised hover:border-brand-300 focus:border-brand-500 focus-visible:shadow-focus focus:outline-none transition-all"
             />
-            <span className="text-sm text-slate-500 capitalize">
+            <span className="text-sm text-ink-500 capitalize">
               {format(new Date(selectedDate + 'T12:00:00'), "EEEE, dd 'de' MMMM", { locale: ptBR })}
             </span>
           </>
@@ -269,70 +271,56 @@ const CashReport: React.FC = () => {
               type="month"
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="h-10 px-3 border border-slate-200 rounded-lg text-sm bg-white hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 focus:outline-none transition-all"
+              className="h-10 px-3 border border-line rounded-lg text-sm bg-paper-raised hover:border-brand-300 focus:border-brand-500 focus-visible:shadow-focus focus:outline-none transition-all"
             />
-            <span className="text-sm text-slate-500 capitalize">
+            <span className="text-sm text-ink-500 capitalize">
               {format(new Date(selectedMonth + '-15'), "MMMM 'de' yyyy", { locale: ptBR })}
             </span>
           </>
         )}
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card padding="md" className="bg-gradient-to-br from-brand-50 to-fuchsia-50/50 border-brand-200/60">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="w-7 h-7 rounded-lg bg-brand-gradient text-white flex items-center justify-center shadow-sm">
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
-            </span>
-            <p className="text-caption text-brand-700 uppercase">Pacotes</p>
-          </div>
-          <p className="text-2xl font-bold text-brand-700 tabular-nums">R$ {totalPackages.toFixed(2)}</p>
-          <p className="text-[11px] text-brand-600/70 mt-1">{packageCount} {packageCount === 1 ? 'venda' : 'vendas'}</p>
+      {/* Resumo do período. Três recortes do mesmo dinheiro: só o total geral
+          recebe cor, porque é o número que fecha o caixa. */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Card padding="none" className="px-4 py-3.5">
+          <p className="text-caption uppercase text-ink-500">Pacotes</p>
+          <p className="text-readout text-ink-900 mt-1.5 tabular-nums">{formatBRL(totalPackages)}</p>
+          <p className="text-xs text-ink-500 mt-0.5">{packageCount} {packageCount === 1 ? 'venda' : 'vendas'}</p>
         </Card>
 
-        <Card padding="md" className="bg-gradient-to-br from-blue-50 to-sky-50/50 border-blue-200/60">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-sky-400 to-blue-600 text-white flex items-center justify-center shadow-sm">
-              <BarChartIcon size={14} />
-            </span>
-            <p className="text-caption text-blue-700 uppercase">Visitas</p>
-          </div>
-          <p className="text-2xl font-bold text-blue-700 tabular-nums">R$ {totalVisits.toFixed(2)}</p>
-          <p className="text-[11px] text-blue-600/70 mt-1">{visitCount} {visitCount === 1 ? 'visita' : 'visitas'}</p>
+        <Card padding="none" className="px-4 py-3.5">
+          <p className="text-caption uppercase text-ink-500">Visitas</p>
+          <p className="text-readout text-ink-900 mt-1.5 tabular-nums">{formatBRL(totalVisits)}</p>
+          <p className="text-xs text-ink-500 mt-0.5">{visitCount} {visitCount === 1 ? 'visita' : 'visitas'}</p>
         </Card>
 
-        <Card padding="md" accent className="bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200/60">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-400 to-teal-600 text-white flex items-center justify-center shadow-sm">
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            </span>
-            <p className="text-caption text-emerald-700 uppercase">Total Geral</p>
-          </div>
-          <p className="text-2xl font-bold text-emerald-700 tabular-nums">R$ {totalGeneral.toFixed(2)}</p>
-          <p className="text-[11px] text-emerald-600/70 mt-1">{payments.length} {payments.length === 1 ? 'pagamento' : 'pagamentos'}</p>
+        <Card padding="none" className="px-4 py-3.5 border-money-in/30 bg-transparent">
+          <p className="text-caption uppercase text-money-in">Total geral</p>
+          <p className="text-readout text-money-in mt-1.5 tabular-nums">{formatBRL(totalGeneral)}</p>
+          <p className="text-xs text-ink-500 mt-0.5">{payments.length} {payments.length === 1 ? 'pagamento' : 'pagamentos'}</p>
         </Card>
 
-        <Card padding="md">
-          <p className="text-caption text-slate-500 uppercase mb-3">Por Método</p>
-          <div className="space-y-2">
+        <Card padding="none" className="px-4 py-3.5">
+          <p className="text-caption uppercase text-ink-500 mb-2">Por método</p>
+          <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-xs text-slate-600">
-                <MethodIcon method="cash" className="w-3.5 h-3.5 text-emerald-600" /> Dinheiro
+              <span className="flex items-center gap-1.5 text-xs text-ink-600">
+                <MethodIcon method="cash" className="w-3.5 h-3.5 text-ink-400" /> Dinheiro
               </span>
-              <span className={cn('text-xs font-bold tabular-nums', totalByMethod.dinheiro > 0 ? 'text-slate-900' : 'text-slate-300')}>R$ {totalByMethod.dinheiro.toFixed(2)}</span>
+              <span className={cn('text-xs font-semibold tabular-nums', totalByMethod.dinheiro > 0 ? 'text-ink-900' : 'text-ink-300')}>{formatBRL(totalByMethod.dinheiro)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-xs text-slate-600">
-                <MethodIcon method="pix" className="w-3.5 h-3.5 text-amber-600" /> PIX
+              <span className="flex items-center gap-1.5 text-xs text-ink-600">
+                <MethodIcon method="pix" className="w-3.5 h-3.5 text-ink-400" /> PIX
               </span>
-              <span className={cn('text-xs font-bold tabular-nums', totalByMethod.pix > 0 ? 'text-slate-900' : 'text-slate-300')}>R$ {totalByMethod.pix.toFixed(2)}</span>
+              <span className={cn('text-xs font-semibold tabular-nums', totalByMethod.pix > 0 ? 'text-ink-900' : 'text-ink-300')}>{formatBRL(totalByMethod.pix)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-xs text-slate-600">
+              <span className="flex items-center gap-1.5 text-xs text-ink-600">
                 <MethodIcon method="card" className="w-3.5 h-3.5 text-blue-600" /> Cartão
               </span>
-              <span className={cn('text-xs font-bold tabular-nums', totalByMethod.cartao > 0 ? 'text-slate-900' : 'text-slate-300')}>R$ {totalByMethod.cartao.toFixed(2)}</span>
+              <span className={cn('text-xs font-semibold tabular-nums', totalByMethod.cartao > 0 ? 'text-ink-900' : 'text-ink-300')}>{formatBRL(totalByMethod.cartao)}</span>
             </div>
           </div>
         </Card>
@@ -340,8 +328,8 @@ const CashReport: React.FC = () => {
 
       {/* Table */}
       <Card padding="none">
-        <div className="flex justify-between items-center px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-brand-50/40 to-transparent no-print">
-          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Detalhamento</h2>
+        <div className="flex justify-between items-center px-5 py-4 border-b border-line-subtle bg-transparent no-print">
+          <h2 className="text-caption uppercase text-ink-500">Detalhamento</h2>
           <Button
             variant="ghost"
             size="sm"
@@ -367,46 +355,46 @@ const CashReport: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50/60">
-                  <th className="text-left px-5 py-3 font-semibold text-[11px] text-slate-500 uppercase tracking-wider">Nome</th>
-                  <th className="text-left px-4 py-3 font-semibold text-[11px] text-slate-500 uppercase tracking-wider">Tipo</th>
-                  <th className="text-left px-4 py-3 font-semibold text-[11px] text-slate-500 uppercase tracking-wider">Método</th>
-                  {viewMode === 'monthly' && <th className="text-left px-4 py-3 font-semibold text-[11px] text-slate-500 uppercase tracking-wider">Data</th>}
-                  <th className="text-left px-4 py-3 font-semibold text-[11px] text-slate-500 uppercase tracking-wider">Hora</th>
-                  <th className="text-right px-5 py-3 font-semibold text-[11px] text-slate-500 uppercase tracking-wider">Valor</th>
+                <tr className="border-b border-line bg-paper/60">
+                  <th className="text-left px-5 py-3 font-semibold text-[11px] text-ink-500 uppercase tracking-wider">Nome</th>
+                  <th className="text-left px-4 py-3 font-semibold text-[11px] text-ink-500 uppercase tracking-wider">Tipo</th>
+                  <th className="text-left px-4 py-3 font-semibold text-[11px] text-ink-500 uppercase tracking-wider">Método</th>
+                  {viewMode === 'monthly' && <th className="text-left px-4 py-3 font-semibold text-[11px] text-ink-500 uppercase tracking-wider">Data</th>}
+                  <th className="text-left px-4 py-3 font-semibold text-[11px] text-ink-500 uppercase tracking-wider">Hora</th>
+                  <th className="text-right px-5 py-3 font-semibold text-[11px] text-ink-500 uppercase tracking-wider">Valor</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-line-subtle">
                 {payments.map((payment) => (
                   <tr key={payment.id} className="hover:bg-brand-50/30 transition-colors">
-                    <td className="px-5 py-3 font-medium text-slate-900">{payment.childName || payment.description || '-'}</td>
+                    <td className="px-5 py-3 font-medium text-ink-900">{payment.childName || payment.description || '-'}</td>
                     <td className="px-4 py-3">
                       <Badge tone={payment.type === 'package' ? 'brand' : 'emerald'} size="sm">
                         {getTypeLabel(payment)}
                       </Badge>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="flex items-center gap-1.5 text-slate-700">
+                      <span className="flex items-center gap-1.5 text-ink-700">
                         <MethodIcon method={payment.method} className="w-3.5 h-3.5" />
                         {getPaymentMethodLabel(payment.method)}
                       </span>
                     </td>
                     {viewMode === 'monthly' && (
-                      <td className="px-4 py-3 text-slate-500 text-xs tabular-nums">
+                      <td className="px-4 py-3 text-ink-500 text-xs tabular-nums">
                         {new Date(payment.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                       </td>
                     )}
-                    <td className="px-4 py-3 text-slate-500 tabular-nums">
+                    <td className="px-4 py-3 text-ink-500 tabular-nums">
                       {new Date(payment.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                     </td>
-                    <td className="px-5 py-3 text-right font-bold text-emerald-700 tabular-nums">R$ {payment.amount.toFixed(2)}</td>
+                    <td className="px-5 py-3 text-right font-bold text-state-ok tabular-nums">{formatBRL(payment.amount)}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr className="bg-gradient-to-r from-slate-900 to-slate-800">
                   <td colSpan={viewMode === 'monthly' ? 5 : 4} className="px-5 py-3.5 font-bold text-sm text-white">{viewMode === 'daily' ? 'TOTAL DO DIA' : 'TOTAL DO MÊS'}</td>
-                  <td className="px-5 py-3.5 text-right font-bold text-lg text-emerald-300 tabular-nums">R$ {totalGeneral.toFixed(2)}</td>
+                  <td className="px-5 py-3.5 text-right font-bold text-lg text-[#5fd3a3] tabular-nums">{formatBRL(totalGeneral)}</td>
                 </tr>
               </tfoot>
             </table>

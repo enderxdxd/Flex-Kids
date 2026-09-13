@@ -32,18 +32,18 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
   return (
     <div className="flex items-center justify-center py-16">
-      <div className="bg-white rounded-xl border border-slate-200 max-w-sm w-full p-6">
+      <div className="bg-paper-raised rounded-card border border-line max-w-sm w-full p-6">
         <div className="text-center mb-5">
-          <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center mx-auto mb-3">
-            <svg className="w-7 h-7 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>
+          <div className="w-12 h-12 bg-state-warn-soft rounded-card flex items-center justify-center mx-auto mb-3">
+            <svg className="w-7 h-7 text-state-warn" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>
           </div>
-          <h2 className="text-lg font-bold text-slate-800">Área Administrativa</h2>
-          <p className="text-xs text-slate-500 mt-1">Digite a senha de administrador</p>
+          <h2 className="text-lg font-bold text-ink-800">Área Administrativa</h2>
+          <p className="text-xs text-ink-500 mt-1">Digite a senha de administrador</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3">
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm text-red-700 font-medium">
+            <div className="bg-state-bad-soft border border-state-bad/30 rounded-lg px-3 py-2 text-sm text-state-bad font-medium">
               {error}
             </div>
           )}
@@ -54,7 +54,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Senha admin..."
-              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+              className="w-full px-3 py-2.5 border border-line-strong rounded-lg text-sm focus:outline-none focus-visible:shadow-focus"
               required
               autoFocus
             />

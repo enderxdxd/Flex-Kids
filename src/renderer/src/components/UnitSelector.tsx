@@ -12,7 +12,7 @@ const UnitSelector: React.FC = () => {
       <select
         value={currentUnit}
         onChange={(e) => setCurrentUnit(e.target.value)}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus-visible:shadow-focus"
       >
         {units.map((unit) => (
           <option key={unit.id} value={unit.id}>

@@ -1257,8 +1257,8 @@ const ImportData: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-display bg-brand-gradient bg-clip-text text-transparent">Importar Dados</h1>
-        <p className="text-sm text-slate-500 mt-1">Importação de dados do sistema anterior via planilhas XLSX</p>
+        <h1 className="text-display text-ink-900">Importar Dados</h1>
+        <p className="text-sm text-ink-500 mt-1">Importação de dados do sistema anterior via planilhas XLSX</p>
       </div>
 
       {/* Delete options on upload step */}
@@ -1266,10 +1266,10 @@ const ImportData: React.FC = () => {
         <div className="space-y-3">
           {/* Delete tracked imports */}
           {createdIds && (createdIds.customerIds.length > 0 || createdIds.childIds.length > 0 || createdIds.packageIds.length > 0 || (createdIds.kidsPlanIds && createdIds.kidsPlanIds.length > 0)) && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-5 space-y-3">
+            <div className="bg-state-bad-soft border border-state-bad/30 rounded-card p-5 space-y-3">
               <div>
-                <h3 className="text-sm font-bold text-red-700">Dados importados anteriormente</h3>
-                <p className="text-xs text-red-600 mt-1">
+                <h3 className="text-sm font-bold text-state-bad">Dados importados anteriormente</h3>
+                <p className="text-xs text-state-bad mt-1">
                   {createdIds.customerIds.length} clientes, {createdIds.childIds.length} crianças, {createdIds.packageIds.length} pacotes{createdIds.kidsPlanIds?.length > 0 ? `, ${createdIds.kidsPlanIds.length} planos kids` : ''}
                   {createdIds.importedAt && ` — importados em ${new Date(createdIds.importedAt).toLocaleString('pt-BR')}`}
                 </p>
@@ -1277,7 +1277,7 @@ const ImportData: React.FC = () => {
               <button
                 onClick={handleDeleteImported}
                 disabled={deleting}
-                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition-colors disabled:opacity-50"
+                className="px-4 py-2 rounded-lg bg-state-bad hover:bg-danger-600 text-white text-xs font-semibold transition-colors disabled:opacity-50"
               >
                 {deleting ? '⏳ Excluindo...' : '🗑️ Excluir dados rastreados'}
               </button>
@@ -1285,17 +1285,17 @@ const ImportData: React.FC = () => {
           )}
 
           {/* Nuclear delete all */}
-          <div className="bg-red-50 border border-red-300 rounded-xl p-5 space-y-3">
+          <div className="bg-state-bad-soft border border-state-bad/30 rounded-card p-5 space-y-3">
             <div>
-              <h3 className="text-sm font-bold text-red-800">⚠️ Excluir TODOS os dados desta unidade</h3>
-              <p className="text-xs text-red-600 mt-1">
+              <h3 className="text-sm font-bold text-state-bad">⚠️ Excluir TODOS os dados desta unidade</h3>
+              <p className="text-xs text-state-bad mt-1">
                 Busca e exclui todos os clientes, crianças e pacotes da unidade <strong>{currentUnit}</strong> do Firebase e cache local. Dados de outras unidades não serão afetados.
               </p>
             </div>
             <button
               onClick={handleDeleteAll}
               disabled={deleting}
-              className="px-4 py-2 rounded-lg bg-red-800 hover:bg-red-900 text-white text-xs font-semibold transition-colors disabled:opacity-50"
+              className="px-4 py-2 rounded-lg bg-danger-700 hover:bg-danger-700 text-white text-xs font-semibold transition-colors disabled:opacity-50"
             >
               {deleting ? '⏳ Excluindo...' : '💣 Excluir TODOS os clientes, crianças e pacotes'}
             </button>
@@ -1306,49 +1306,49 @@ const ImportData: React.FC = () => {
       {/* Step: Upload */}
       {step === 'upload' && (
         <div className="space-y-4">
-          <div className="bg-white rounded-card-lg border border-slate-200/80 shadow-card p-5 space-y-4">
-            <h2 className="text-sm font-bold text-slate-600 uppercase tracking-wider">1. Selecione as planilhas</h2>
+          <div className="bg-paper-raised rounded-card-lg border border-line/80 shadow-card p-5 space-y-4">
+            <h2 className="text-caption uppercase text-ink-500">1. Selecione as planilhas</h2>
 
             {/* Responsáveis + Crianças */}
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                ListaResponsaveisCriancas.xlsx <span className="text-slate-400">(responsáveis + crianças)</span>
+              <label className="block text-xs font-semibold text-ink-600 mb-1.5">
+                ListaResponsaveisCriancas.xlsx <span className="text-ink-400">(responsáveis + crianças)</span>
               </label>
               <input
                 type="file"
                 accept=".xlsx,.xls"
                 onChange={(e) => setResponsaveisFile(e.target.files?.[0] || null)}
-                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-brand-gradient file:text-white file:shadow-brand-sm hover:file:brightness-110"
+                className="block w-full text-sm text-ink-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-brand-gradient file:text-white file:shadow-brand-sm hover:file:brightness-110"
               />
-              {responsaveisFile && <p className="text-xs text-emerald-600 mt-1">✅ {responsaveisFile.name}</p>}
+              {responsaveisFile && <p className="text-xs text-state-ok mt-1">✅ {responsaveisFile.name}</p>}
             </div>
 
             {/* Pacotes */}
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                pacotes_de_tempo.xlsx <span className="text-slate-400">(pacotes)</span>
+              <label className="block text-xs font-semibold text-ink-600 mb-1.5">
+                pacotes_de_tempo.xlsx <span className="text-ink-400">(pacotes)</span>
               </label>
               <input
                 type="file"
                 accept=".xlsx,.xls"
                 onChange={(e) => setPacotesFile(e.target.files?.[0] || null)}
-                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-brand-gradient file:text-white file:shadow-brand-sm hover:file:brightness-110"
+                className="block w-full text-sm text-ink-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-brand-gradient file:text-white file:shadow-brand-sm hover:file:brightness-110"
               />
-              {pacotesFile && <p className="text-xs text-emerald-600 mt-1">✅ {pacotesFile.name}</p>}
+              {pacotesFile && <p className="text-xs text-state-ok mt-1">✅ {pacotesFile.name}</p>}
             </div>
 
             {/* Planos Kids */}
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                Relatório Clientes - Plano Kids.xlsx <span className="text-slate-400">(planos kids)</span>
+              <label className="block text-xs font-semibold text-ink-600 mb-1.5">
+                Relatório Clientes - Plano Kids.xlsx <span className="text-ink-400">(planos kids)</span>
               </label>
               <input
                 type="file"
                 accept=".xlsx,.xls"
                 onChange={(e) => setKidsPlansFile(e.target.files?.[0] || null)}
-                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-brand-gradient file:text-white file:shadow-brand-sm hover:file:brightness-110"
+                className="block w-full text-sm text-ink-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-brand-gradient file:text-white file:shadow-brand-sm hover:file:brightness-110"
               />
-              {kidsPlansFile && <p className="text-xs text-emerald-600 mt-1">✅ {kidsPlansFile.name}</p>}
+              {kidsPlansFile && <p className="text-xs text-state-ok mt-1">✅ {kidsPlansFile.name}</p>}
             </div>
           </div>
 
@@ -1367,28 +1367,28 @@ const ImportData: React.FC = () => {
         <div className="space-y-4">
           {/* Stats preview */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white rounded-card-lg border border-slate-200/80 shadow-card p-4">
-              <p className="text-xs text-slate-500 font-medium">Responsáveis</p>
+            <div className="bg-paper-raised rounded-card-lg border border-line/80 shadow-card p-4">
+              <p className="text-xs text-ink-500 font-medium">Responsáveis</p>
               <p className="text-2xl font-bold text-violet-600 mt-1">{responsaveis.length}</p>
             </div>
-            <div className="bg-white rounded-card-lg border border-slate-200/80 shadow-card p-4">
-              <p className="text-xs text-slate-500 font-medium">Crianças</p>
+            <div className="bg-paper-raised rounded-card-lg border border-line/80 shadow-card p-4">
+              <p className="text-xs text-ink-500 font-medium">Crianças</p>
               <p className="text-2xl font-bold text-blue-600 mt-1">{criancas.length}</p>
             </div>
-            <div className="bg-white rounded-card-lg border border-slate-200/80 shadow-card p-4">
-              <p className="text-xs text-slate-500 font-medium">Pacotes</p>
-              <p className="text-2xl font-bold text-emerald-600 mt-1">{pacotes.length}</p>
+            <div className="bg-paper-raised rounded-card-lg border border-line/80 shadow-card p-4">
+              <p className="text-xs text-ink-500 font-medium">Pacotes</p>
+              <p className="text-2xl font-bold text-state-ok mt-1">{pacotes.length}</p>
               {pacotes.length > 0 && (
-                <p className="text-[10px] text-slate-400 mt-0.5">
+                <p className="text-[10px] text-ink-400 mt-0.5">
                   {pacotes.filter(p => !p.venceu).length} ativos · {pacotes.filter(p => p.venceu).length} vencidos
                 </p>
               )}
             </div>
-            <div className="bg-white rounded-card-lg border border-slate-200/80 shadow-card p-4">
-              <p className="text-xs text-slate-500 font-medium">Planos Kids</p>
-              <p className="text-2xl font-bold text-amber-600 mt-1">{kidsPlansRaw.length}</p>
+            <div className="bg-paper-raised rounded-card-lg border border-line/80 shadow-card p-4">
+              <p className="text-xs text-ink-500 font-medium">Planos Kids</p>
+              <p className="text-2xl font-bold text-state-warn mt-1">{kidsPlansRaw.length}</p>
               {kidsPlansRaw.length > 0 && (
-                <p className="text-[10px] text-slate-400 mt-0.5">
+                <p className="text-[10px] text-ink-400 mt-0.5">
                   {kidsPlansRaw.filter(k => k.plano.toUpperCase().includes('FULL')).length} Full · {kidsPlansRaw.filter(k => !k.plano.toUpperCase().includes('FULL')).length} 2X
                 </p>
               )}
@@ -1411,10 +1411,10 @@ const ImportData: React.FC = () => {
             if (bonus.length > 0) warnings.push(`${bonus.length} pacotes com bônus (minutos disponíveis > vendidos) — horas serão ajustadas`);
             if (warnings.length === 0) return null;
             return (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-1">
-                <p className="text-xs font-bold text-amber-700 mb-1">⚠️ Observações de qualidade dos dados</p>
+              <div className="bg-state-warn-soft border border-state-warn/30 rounded-card p-4 space-y-1">
+                <p className="text-xs font-bold text-state-warn mb-1">⚠️ Observações de qualidade dos dados</p>
                 {warnings.map((w, i) => (
-                  <p key={i} className="text-xs text-amber-600">• {w}</p>
+                  <p key={i} className="text-xs text-state-warn">• {w}</p>
                 ))}
               </div>
             );
@@ -1422,29 +1422,29 @@ const ImportData: React.FC = () => {
 
           {/* Sample data */}
           {responsaveis.length > 0 && (
-            <div className="bg-white rounded-card-lg border border-slate-200/80 shadow-card">
-              <div className="p-4 border-b border-slate-100">
-                <h3 className="text-sm font-bold text-slate-600">Amostra — Responsáveis (primeiros 5)</h3>
+            <div className="bg-paper-raised rounded-card-lg border border-line/80 shadow-card">
+              <div className="p-4 border-b border-line-subtle">
+                <h3 className="text-sm font-bold text-ink-600">Amostra — Responsáveis (primeiros 5)</h3>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
-                  <thead className="bg-slate-50">
+                  <thead className="bg-paper">
                     <tr>
-                      <th className="px-3 py-2 text-left text-slate-500 font-semibold">Código</th>
-                      <th className="px-3 py-2 text-left text-slate-500 font-semibold">Nome</th>
-                      <th className="px-3 py-2 text-left text-slate-500 font-semibold">Telefone</th>
-                      <th className="px-3 py-2 text-left text-slate-500 font-semibold">Email</th>
-                      <th className="px-3 py-2 text-left text-slate-500 font-semibold">CPF</th>
+                      <th className="px-3 py-2 text-left text-ink-500 font-semibold">Código</th>
+                      <th className="px-3 py-2 text-left text-ink-500 font-semibold">Nome</th>
+                      <th className="px-3 py-2 text-left text-ink-500 font-semibold">Telefone</th>
+                      <th className="px-3 py-2 text-left text-ink-500 font-semibold">Email</th>
+                      <th className="px-3 py-2 text-left text-ink-500 font-semibold">CPF</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-line-subtle">
                     {responsaveis.slice(0, 5).map((r, i) => (
-                      <tr key={i} className="hover:bg-slate-50">
-                        <td className="px-3 py-2 text-slate-600">{r.codResponsavel}</td>
-                        <td className="px-3 py-2 font-medium text-slate-800">{r.nome}</td>
-                        <td className="px-3 py-2 text-slate-600">{r.telefone || '—'}</td>
-                        <td className="px-3 py-2 text-slate-600">{r.email || '—'}</td>
-                        <td className="px-3 py-2 text-slate-600">{r.cpf || '—'}</td>
+                      <tr key={i} className="hover:bg-paper">
+                        <td className="px-3 py-2 text-ink-600">{r.codResponsavel}</td>
+                        <td className="px-3 py-2 font-medium text-ink-800">{r.nome}</td>
+                        <td className="px-3 py-2 text-ink-600">{r.telefone || '—'}</td>
+                        <td className="px-3 py-2 text-ink-600">{r.email || '—'}</td>
+                        <td className="px-3 py-2 text-ink-600">{r.cpf || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1454,30 +1454,30 @@ const ImportData: React.FC = () => {
           )}
 
           {pacotes.length > 0 && (
-            <div className="bg-white rounded-card-lg border border-slate-200/80 shadow-card">
-              <div className="p-4 border-b border-slate-100">
-                <h3 className="text-sm font-bold text-slate-600">Amostra — Pacotes (primeiros 5)</h3>
+            <div className="bg-paper-raised rounded-card-lg border border-line/80 shadow-card">
+              <div className="p-4 border-b border-line-subtle">
+                <h3 className="text-sm font-bold text-ink-600">Amostra — Pacotes (primeiros 5)</h3>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
-                  <thead className="bg-slate-50">
+                  <thead className="bg-paper">
                     <tr>
-                      <th className="px-3 py-2 text-left text-slate-500 font-semibold">Responsável</th>
-                      <th className="px-3 py-2 text-left text-slate-500 font-semibold">Pacote</th>
-                      <th className="px-3 py-2 text-left text-slate-500 font-semibold">Min Vendidos</th>
-                      <th className="px-3 py-2 text-left text-slate-500 font-semibold">Min Disponíveis</th>
-                      <th className="px-3 py-2 text-left text-slate-500 font-semibold">Venceu</th>
+                      <th className="px-3 py-2 text-left text-ink-500 font-semibold">Responsável</th>
+                      <th className="px-3 py-2 text-left text-ink-500 font-semibold">Pacote</th>
+                      <th className="px-3 py-2 text-left text-ink-500 font-semibold">Min Vendidos</th>
+                      <th className="px-3 py-2 text-left text-ink-500 font-semibold">Min Disponíveis</th>
+                      <th className="px-3 py-2 text-left text-ink-500 font-semibold">Venceu</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-line-subtle">
                     {pacotes.slice(0, 5).map((p, i) => (
-                      <tr key={i} className="hover:bg-slate-50">
-                        <td className="px-3 py-2 font-medium text-slate-800">{p.nomeResponsavel}</td>
-                        <td className="px-3 py-2 text-slate-600">{p.pacote}</td>
-                        <td className="px-3 py-2 text-slate-600">{p.minutosVendidos}</td>
-                        <td className="px-3 py-2 text-slate-600">{p.minutosDisponiveis}</td>
+                      <tr key={i} className="hover:bg-paper">
+                        <td className="px-3 py-2 font-medium text-ink-800">{p.nomeResponsavel}</td>
+                        <td className="px-3 py-2 text-ink-600">{p.pacote}</td>
+                        <td className="px-3 py-2 text-ink-600">{p.minutosVendidos}</td>
+                        <td className="px-3 py-2 text-ink-600">{p.minutosDisponiveis}</td>
                         <td className="px-3 py-2">
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${p.venceu ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${p.venceu ? 'bg-state-bad-soft text-state-bad' : 'bg-state-ok-soft text-state-ok'}`}>
                             {p.venceu ? 'Sim' : 'Não'}
                           </span>
                         </td>
@@ -1490,11 +1490,11 @@ const ImportData: React.FC = () => {
           )}
 
           {/* Dry run toggle + actions */}
-          <div className="bg-white rounded-card-lg border border-slate-200/80 shadow-card p-5 space-y-4">
+          <div className="bg-paper-raised rounded-card-lg border border-line/80 shadow-card p-5 space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-bold text-slate-700">Modo de importação</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Simulação não grava nada — use para validar antes</p>
+                <h3 className="text-sm font-bold text-ink-700">Modo de importação</h3>
+                <p className="text-xs text-ink-400 mt-0.5">Simulação não grava nada — use para validar antes</p>
               </div>
               <div className="flex items-center gap-3">
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -1505,7 +1505,7 @@ const ImportData: React.FC = () => {
                     onChange={() => setDryRun(true)}
                     className="w-4 h-4 text-violet-600"
                   />
-                  <span className="text-sm font-medium text-slate-600">🔍 Simulação</span>
+                  <span className="text-sm font-medium text-ink-600">🔍 Simulação</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -1513,23 +1513,23 @@ const ImportData: React.FC = () => {
                     name="mode"
                     checked={!dryRun}
                     onChange={() => setDryRun(false)}
-                    className="w-4 h-4 text-red-600"
+                    className="w-4 h-4 text-state-bad"
                   />
-                  <span className="text-sm font-medium text-red-600">🚀 Importação Real</span>
+                  <span className="text-sm font-medium text-state-bad">🚀 Importação Real</span>
                 </label>
               </div>
             </div>
 
             {!dryRun && (
-              <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
-                <p className="text-xs text-red-700 font-medium">
+              <div className="bg-state-bad-soft border border-state-bad/30 rounded-lg px-4 py-3">
+                <p className="text-xs text-state-bad font-medium">
                   ⚠️ ATENÇÃO: A importação real gravará dados no Firebase e no cache local. Esta ação não pode ser desfeita facilmente.
                 </p>
               </div>
             )}
 
             <div className="flex items-center gap-3">
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-ink-500">
                 Unidade de destino: <span className="font-bold text-violet-600">{currentUnit}</span>
               </p>
             </div>
@@ -1538,13 +1538,13 @@ const ImportData: React.FC = () => {
           <div className="flex gap-3">
             <button
               onClick={handleReset}
-              className="px-4 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+              className="px-4 py-2.5 rounded-lg border border-line-strong text-sm font-medium text-ink-600 hover:bg-paper transition-colors"
             >
               Voltar
             </button>
             <button
               onClick={handleImport}
-              className={`px-6 py-2.5 rounded-lg text-white text-sm font-semibold transition-colors ${dryRun ? 'bg-brand-gradient hover:brightness-110 shadow-brand-sm' : 'bg-red-600 hover:bg-red-700'}`}
+              className={`px-6 py-2.5 rounded-lg text-white text-sm font-semibold transition-colors ${dryRun ? 'bg-brand-gradient hover:brightness-110 shadow-brand-sm' : 'bg-state-bad hover:bg-danger-600'}`}
             >
               {dryRun ? '🔍 Executar Simulação' : '🚀 Importar Agora'}
             </button>
@@ -1555,23 +1555,23 @@ const ImportData: React.FC = () => {
       {/* Step: Deleting */}
       {step === 'deleting' && (
         <div className="space-y-4">
-          <div className="bg-white rounded-xl border border-red-200 p-5">
+          <div className="bg-paper-raised rounded-card border border-state-bad/30 p-5">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-bold text-red-700">🗑️ Excluindo dados importados...</h3>
+              <h3 className="text-sm font-bold text-state-bad">🗑️ Excluindo dados importados...</h3>
               <button
                 onClick={() => { cancelRef.current = true; }}
-                className="px-3 py-1.5 rounded-lg bg-red-100 text-red-600 text-xs font-semibold hover:bg-red-200 transition-colors"
+                className="px-3 py-1.5 rounded-lg bg-state-bad-soft text-state-bad text-xs font-semibold hover:bg-state-bad/15 transition-colors"
               >
                 ⛔ Cancelar
               </button>
             </div>
-            <div className="w-full bg-slate-100 rounded-full h-3 mb-2">
+            <div className="w-full bg-ink-100 rounded-full h-3 mb-2">
               <div
-                className="bg-red-500 h-3 rounded-full transition-all duration-300"
+                className="bg-state-bad h-3 rounded-full transition-all duration-300"
                 style={{ width: progress.total > 0 ? `${(progress.current / progress.total) * 100}%` : '0%' }}
               />
             </div>
-            <div className="flex justify-between text-xs text-slate-500">
+            <div className="flex justify-between text-xs text-ink-500">
               <span>{progress.label}</span>
               <span>{progress.current}/{progress.total}</span>
             </div>
@@ -1582,27 +1582,27 @@ const ImportData: React.FC = () => {
       {/* Step: Importing */}
       {step === 'importing' && (
         <div className="space-y-4">
-          <div className="bg-white rounded-card-lg border border-slate-200/80 shadow-card p-5">
+          <div className="bg-paper-raised rounded-card-lg border border-line/80 shadow-card p-5">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-bold text-slate-700">
+              <h3 className="text-sm font-bold text-ink-700">
                 {dryRun ? '🔍 Simulação em andamento...' : '🚀 Importação em andamento...'}
               </h3>
               <button
                 onClick={() => { cancelRef.current = true; }}
-                className="px-3 py-1.5 rounded-lg bg-red-100 text-red-600 text-xs font-semibold hover:bg-red-200 transition-colors"
+                className="px-3 py-1.5 rounded-lg bg-state-bad-soft text-state-bad text-xs font-semibold hover:bg-state-bad/15 transition-colors"
               >
                 ⛔ Cancelar
               </button>
             </div>
 
             {/* Progress bar */}
-            <div className="w-full bg-slate-100 rounded-full h-3 mb-2">
+            <div className="w-full bg-ink-100 rounded-full h-3 mb-2">
               <div
                 className="bg-violet-500 h-3 rounded-full transition-all duration-300"
                 style={{ width: progress.total > 0 ? `${(progress.current / progress.total) * 100}%` : '0%' }}
               />
             </div>
-            <div className="flex justify-between text-xs text-slate-500">
+            <div className="flex justify-between text-xs text-ink-500">
               <span>{progress.label}</span>
               <span>{progress.current}/{progress.total}</span>
             </div>
@@ -1615,26 +1615,26 @@ const ImportData: React.FC = () => {
         <div className="space-y-4">
           {/* Results */}
           <div className="grid grid-cols-3 gap-4">
-            <div className="bg-white rounded-xl border border-emerald-200 p-4">
-              <p className="text-xs text-slate-500 font-medium">Clientes Criados</p>
-              <p className="text-2xl font-bold text-emerald-600 mt-1">{stats.customersCreated}</p>
-              {stats.customersSkipped > 0 && <p className="text-[10px] text-amber-500 mt-0.5">{stats.customersSkipped} duplicatas ignoradas</p>}
+            <div className="bg-paper-raised rounded-card border border-state-ok/30 p-4">
+              <p className="text-xs text-ink-500 font-medium">Clientes Criados</p>
+              <p className="text-2xl font-bold text-state-ok mt-1">{stats.customersCreated}</p>
+              {stats.customersSkipped > 0 && <p className="text-[10px] text-state-warn mt-0.5">{stats.customersSkipped} duplicatas ignoradas</p>}
             </div>
-            <div className="bg-white rounded-xl border border-blue-200 p-4">
-              <p className="text-xs text-slate-500 font-medium">Crianças Criadas</p>
+            <div className="bg-paper-raised rounded-card border border-blue-200 p-4">
+              <p className="text-xs text-ink-500 font-medium">Crianças Criadas</p>
               <p className="text-2xl font-bold text-blue-600 mt-1">{stats.childrenCreated}</p>
-              {stats.childrenSkipped > 0 && <p className="text-[10px] text-amber-500 mt-0.5">{stats.childrenSkipped} duplicatas ignoradas</p>}
+              {stats.childrenSkipped > 0 && <p className="text-[10px] text-state-warn mt-0.5">{stats.childrenSkipped} duplicatas ignoradas</p>}
             </div>
-            <div className="bg-white rounded-xl border border-violet-200 p-4">
-              <p className="text-xs text-slate-500 font-medium">Pacotes Criados</p>
+            <div className="bg-paper-raised rounded-card border border-violet-200 p-4">
+              <p className="text-xs text-ink-500 font-medium">Pacotes Criados</p>
               <p className="text-2xl font-bold text-violet-600 mt-1">{stats.packagesCreated}</p>
-              {stats.packagesSkipped > 0 && <p className="text-[10px] text-amber-500 mt-0.5">{stats.packagesSkipped} duplicatas/sem responsável</p>}
+              {stats.packagesSkipped > 0 && <p className="text-[10px] text-state-warn mt-0.5">{stats.packagesSkipped} duplicatas/sem responsável</p>}
             </div>
           </div>
 
           {stats.errors > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-              <p className="text-sm font-bold text-red-700">{stats.errors} erro(s) durante a importação</p>
+            <div className="bg-state-bad-soft border border-state-bad/30 rounded-card p-4">
+              <p className="text-sm font-bold text-state-bad">{stats.errors} erro(s) durante a importação</p>
             </div>
           )}
 
@@ -1649,10 +1649,10 @@ const ImportData: React.FC = () => {
 
           {/* Delete imported data */}
           {createdIds && (createdIds.customerIds.length > 0 || createdIds.childIds.length > 0 || createdIds.packageIds.length > 0) && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-5 space-y-3">
+            <div className="bg-state-bad-soft border border-state-bad/30 rounded-card p-5 space-y-3">
               <div>
-                <h3 className="text-sm font-bold text-red-700">Excluir dados importados</h3>
-                <p className="text-xs text-red-600 mt-1">
+                <h3 className="text-sm font-bold text-state-bad">Excluir dados importados</h3>
+                <p className="text-xs text-state-bad mt-1">
                   {createdIds.customerIds.length} clientes, {createdIds.childIds.length} crianças, {createdIds.packageIds.length} pacotes
                   {createdIds.importedAt && ` — importados em ${new Date(createdIds.importedAt).toLocaleString('pt-BR')}`}
                 </p>
@@ -1660,7 +1660,7 @@ const ImportData: React.FC = () => {
               <button
                 onClick={handleDeleteImported}
                 disabled={deleting}
-                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition-colors disabled:opacity-50"
+                className="px-4 py-2 rounded-lg bg-state-bad hover:bg-danger-600 text-white text-xs font-semibold transition-colors disabled:opacity-50"
               >
                 {deleting ? '⏳ Excluindo...' : '🗑️ Excluir tudo que foi importado'}
               </button>
@@ -1671,10 +1671,10 @@ const ImportData: React.FC = () => {
 
       {/* Logs */}
       {logs.length > 0 && (
-        <div className="bg-white rounded-card-lg border border-slate-200/80 shadow-card">
-          <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-600">Log de Importação ({logs.length})</h3>
-            <span className="text-[10px] text-slate-400">
+        <div className="bg-paper-raised rounded-card-lg border border-line/80 shadow-card">
+          <div className="p-4 border-b border-line-subtle flex items-center justify-between">
+            <h3 className="text-sm font-bold text-ink-600">Log de Importação ({logs.length})</h3>
+            <span className="text-[10px] text-ink-400">
               {logs.filter(l => l.type === 'error').length} erros · {logs.filter(l => l.type === 'warning').length} avisos
             </span>
           </div>
@@ -1683,10 +1683,10 @@ const ImportData: React.FC = () => {
               <div
                 key={i}
                 className={`px-2 py-1 rounded ${
-                  log.type === 'error' ? 'bg-red-50 text-red-700' :
-                  log.type === 'warning' ? 'bg-amber-50 text-amber-700' :
-                  log.type === 'success' ? 'bg-emerald-50 text-emerald-700' :
-                  'bg-slate-50 text-slate-600'
+                  log.type === 'error' ? 'bg-state-bad-soft text-state-bad' :
+                  log.type === 'warning' ? 'bg-state-warn-soft text-state-warn' :
+                  log.type === 'success' ? 'bg-state-ok-soft text-state-ok' :
+                  'bg-paper text-ink-600'
                 }`}
               >
                 {log.message}

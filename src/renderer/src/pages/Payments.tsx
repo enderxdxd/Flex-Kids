@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { formatBRL } from '../../../shared/utils/currency';
 import { toast } from 'react-toastify';
 import { Payment } from '../../../shared/types';
 import { format } from 'date-fns';
@@ -115,13 +116,8 @@ const Payments: React.FC = () => {
 
   const methodTone = (method: string) => {
     switch (method) {
-      case 'cash': return { iconBg: 'bg-gradient-to-br from-emerald-400 to-teal-600', badge: 'emerald' as const };
-      case 'pix': return { iconBg: 'bg-gradient-to-br from-cyan-400 to-sky-600', badge: 'blue' as const };
-      case 'credit':
-      case 'debit':
-      case 'card': return { iconBg: 'bg-gradient-to-br from-blue-400 to-indigo-600', badge: 'blue' as const };
-      case 'package': return { iconBg: 'bg-brand-gradient', badge: 'brand' as const };
-      default: return { iconBg: 'bg-gradient-to-br from-slate-400 to-slate-600', badge: 'slate' as const };
+      case 'package': return { iconBg: 'bg-ink-100 text-ink-500', badge: 'brand' as const };
+      default: return { iconBg: 'bg-ink-100 text-ink-500', badge: 'slate' as const };
     }
   };
 
@@ -171,23 +167,23 @@ const Payments: React.FC = () => {
 
       {/* Stats principais */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card padding="md" className="relative overflow-hidden bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200/60" accent>
+        <Card padding="md" className="relative overflow-hidden bg-state-ok-soft border-state-ok/30" accent>
           <div className="flex items-center justify-between mb-2">
-            <span className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 text-white flex items-center justify-center shadow-sm">
+            <span className="w-8 h-8 rounded-md bg-ink-100 text-ink-500 flex items-center justify-center shadow-sm">
               <MoneyIcon size={18} />
             </span>
           </div>
-          <p className="text-caption text-emerald-700 uppercase">Receita Total</p>
-          <p className="text-3xl font-bold text-emerald-700 tabular-nums mt-1">R$ {total.toFixed(2)}</p>
+          <p className="text-caption text-state-ok uppercase">Receita Total</p>
+          <p className="text-3xl font-bold text-state-ok tabular-nums mt-1">{formatBRL(total)}</p>
         </Card>
         <Card padding="md">
-          <p className="text-caption text-slate-500 uppercase">Pagamentos</p>
-          <p className="text-3xl font-bold text-slate-900 tabular-nums mt-1">{filteredPayments.length}</p>
+          <p className="text-caption text-ink-500 uppercase">Pagamentos</p>
+          <p className="text-readout text-ink-900 tabular-nums mt-1">{filteredPayments.length}</p>
         </Card>
         <Card padding="md">
-          <p className="text-caption text-slate-500 uppercase">Ticket Médio</p>
-          <p className="text-3xl font-bold text-slate-900 tabular-nums mt-1">
-            R$ {filteredPayments.length > 0 ? (total / filteredPayments.length).toFixed(2) : '0.00'}
+          <p className="text-caption text-ink-500 uppercase">Ticket médio</p>
+          <p className="text-readout text-ink-900 tabular-nums mt-1">
+            {formatBRL(filteredPayments.length > 0 ? total / filteredPayments.length : 0)}
           </p>
         </Card>
       </div>
@@ -202,19 +198,19 @@ const Payments: React.FC = () => {
               key={stat.method}
               onClick={() => setSelectedMethod(stat.method === selectedMethod ? 'all' : stat.method)}
               className={cn(
-                'group bg-white rounded-card-lg border p-3 text-left transition-all duration-200',
-                'hover:shadow-card-hover hover:-translate-y-0.5',
-                isActive ? 'border-brand-400 shadow-brand-sm bg-brand-gradient-soft' : 'border-slate-200',
+                'group bg-paper-raised rounded-card-lg border p-3 text-left transition-all duration-200',
+                'hover:shadow-card-hover',
+                isActive ? 'border-brand-500 bg-brand-50' : 'border-line hover:border-line-strong',
               )}
             >
               <div className="flex items-center gap-2 mb-1.5">
-                <span className={cn('w-7 h-7 rounded-lg text-white flex items-center justify-center', t.iconBg)}>
+                <span className={cn('w-7 h-7 rounded-md flex items-center justify-center', t.iconBg)}>
                   {getPaymentMethodIcon(stat.method, 'w-3.5 h-3.5')}
                 </span>
-                <span className="text-xs font-semibold text-slate-700">{getPaymentMethodLabel(stat.method)}</span>
+                <span className="text-xs font-semibold text-ink-700">{getPaymentMethodLabel(stat.method)}</span>
               </div>
-              <p className="text-xl font-bold text-slate-900 tabular-nums">{stat.count}</p>
-              <p className="text-xs font-semibold text-emerald-700 tabular-nums">R$ {stat.total.toFixed(2)}</p>
+              <p className="text-xl font-bold text-ink-900 tabular-nums">{stat.count}</p>
+              <p className="text-xs font-semibold text-money-in tabular-nums">{formatBRL(stat.total)}</p>
             </button>
           );
         })}
@@ -222,27 +218,28 @@ const Payments: React.FC = () => {
 
       {/* Filters + Table */}
       <Card padding="none">
-        <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-b border-slate-100 bg-gradient-to-r from-brand-50/40 to-transparent">
-          <div className="flex gap-1 bg-slate-100 p-1 rounded-lg">
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-b border-line-subtle bg-transparent">
+          <div className="flex gap-5 border-b border-line -mb-4">
             {(['today', 'month', 'all'] as const).map(f => (
               <button
                 key={f}
                 onClick={() => setFilterType(f)}
                 className={cn(
-                  'px-3 py-1.5 rounded-md text-xs font-semibold transition-all',
+                  'pb-2.5 text-xs font-semibold border-b-2 transition-colors',
+                  'focus-visible:outline-none focus-visible:shadow-focus',
                   filterType === f
-                    ? 'bg-white text-brand-700 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700',
+                    ? 'border-brand-600 text-ink-900'
+                    : 'border-transparent text-ink-500 hover:text-ink-800',
                 )}
               >
-                {f === 'today' ? 'Hoje' : f === 'month' ? 'Este Mês' : 'Todos'}
+                {f === 'today' ? 'Hoje' : f === 'month' ? 'Este mês' : 'Todos'}
               </button>
             ))}
           </div>
           <select
             value={selectedMethod}
             onChange={(e) => setSelectedMethod(e.target.value)}
-            className="h-9 px-3 border border-slate-200 rounded-lg text-xs font-medium bg-white hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 focus:outline-none transition-all"
+            className="h-9 px-3 border border-line rounded-lg text-xs font-medium bg-paper-raised hover:border-brand-300 focus:border-brand-500 focus-visible:shadow-focus focus:outline-none transition-all"
           >
             <option value="all">Todos os métodos</option>
             <option value="cash">Dinheiro</option>
@@ -263,21 +260,21 @@ const Payments: React.FC = () => {
             description="Ajuste os filtros para ver outros períodos"
           />
         ) : (
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-line-subtle">
             {filteredPayments.map((payment) => {
               const t = methodTone(payment.method);
               return (
-                <div key={payment.id} className="flex items-center justify-between p-4 hover:bg-slate-50/60 transition-colors">
+                <div key={payment.id} className="flex items-center justify-between p-4 hover:bg-paper/60 transition-colors">
                   <div className="flex items-center gap-4 flex-1 min-w-0">
-                    <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-sm', t.iconBg)} aria-hidden="true">
+                    <div className={cn('w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0 text-white shadow-sm', t.iconBg)} aria-hidden="true">
                       {getPaymentMethodIcon(payment.method, 'w-5 h-5')}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <p className="font-bold text-base text-slate-900 tabular-nums">R$ {payment.amount.toFixed(2)}</p>
+                        <p className="font-bold text-base text-ink-900 tabular-nums">{formatBRL(payment.amount)}</p>
                         {getPaymentMethodBadge(payment.method)}
                       </div>
-                      <p className="text-xs text-slate-500 truncate">
+                      <p className="text-xs text-ink-500 truncate">
                         {format(new Date(payment.createdAt), 'dd/MM/yyyy HH:mm')}
                         {payment.description ? ` • ${payment.description}` : ''}
                         {payment.childName ? ` • ${payment.childName}` : ''}

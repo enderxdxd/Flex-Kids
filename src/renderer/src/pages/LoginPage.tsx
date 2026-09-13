@@ -38,23 +38,23 @@ const LoginPage: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-sm animate-fade-in-up">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-brand-gradient rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-brand">
+          <div className="w-16 h-16 bg-brand-gradient rounded-card-lg flex items-center justify-center mx-auto mb-4 shadow-brand">
             <BuildingIcon className="text-white" size={32} />
           </div>
-          <h1 className="text-display bg-brand-gradient bg-clip-text text-transparent">Flex-Kids</h1>
-          <p className="text-sm text-slate-500 mt-1">Selecione sua unidade para entrar</p>
+          <h1 className="text-display text-ink-900">Flex-Kids</h1>
+          <p className="text-sm text-ink-500 mt-1">Selecione sua unidade para entrar</p>
         </div>
 
-        <Card padding="lg" accent>
+        <Card padding="lg">
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm text-red-700 font-medium">
+              <div className="bg-state-bad-soft border border-state-bad/30 rounded-lg px-3 py-2 text-sm text-state-bad font-medium">
                 {error}
               </div>
             )}
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-2">Unidade</label>
+              <label className="block text-xs font-semibold text-ink-700 mb-2">Unidade</label>
               <div className="grid grid-cols-2 gap-2">
                 {UNITS.map(unit => (
                   <button
@@ -62,10 +62,10 @@ const LoginPage: React.FC = () => {
                     type="button"
                     onClick={() => { setSelectedUnit(unit.id); setError(''); }}
                     className={cn(
-                      'p-3 rounded-lg border text-sm font-semibold transition-all duration-150 active:scale-[0.98]',
+                      'p-3 rounded-lg border text-sm font-semibold transition-all duration-150',
                       selectedUnit === unit.id
-                        ? 'border-brand-400 bg-brand-gradient-soft text-brand-700 shadow-brand-sm'
-                        : 'border-slate-200 text-slate-700 hover:border-brand-300 hover:bg-brand-50',
+                        ? 'border-brand-400 bg-brand-50 text-brand-700 shadow-brand-sm'
+                        : 'border-line text-ink-700 hover:border-brand-300 hover:bg-brand-50',
                     )}
                   >
                     {unit.name}
@@ -75,12 +75,12 @@ const LoginPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Senha da Unidade</label>
+              <label className="block text-xs font-semibold text-ink-700 mb-1.5">Senha da unidade</label>
               <Input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Digite a senha..."
+                placeholder="Digite a senha…"
                 required
                 autoFocus={!!selectedUnit}
               />
@@ -98,7 +98,7 @@ const LoginPage: React.FC = () => {
           </form>
         </Card>
 
-        <p className="text-center text-xs text-slate-500 mt-4">
+        <p className="text-center text-xs text-ink-500 mt-4">
           Cada unidade possui acesso exclusivo ao seu sistema
         </p>
       </div>

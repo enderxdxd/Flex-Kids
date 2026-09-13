@@ -5,9 +5,9 @@ type Padding = 'none' | 'sm' | 'md' | 'lg';
 
 const padMap: Record<Padding, string> = {
   none: '',
-  sm: 'p-4',
-  md: 'p-5',
-  lg: 'p-6',
+  sm: 'p-3.5',
+  md: 'p-4',
+  lg: 'p-5',
 };
 
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -16,6 +16,11 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   accent?: boolean;
 }
 
+/**
+ * Superfície de conteúdo. Borda define o limite; sombra apenas separa do
+ * papel. Sem blur, sem levitar no hover — cartão que se mexe embaixo do
+ * cursor atrapalha quem está mirando um botão dentro dele.
+ */
 export const Card: React.FC<CardProps> = ({
   padding = 'md',
   interactive = false,
@@ -26,10 +31,10 @@ export const Card: React.FC<CardProps> = ({
 }) => (
   <div
     className={cn(
-      'relative bg-white/95 backdrop-blur-sm rounded-card-lg border border-slate-200/80 shadow-card',
+      'relative bg-paper-raised rounded-card-lg border border-line shadow-card',
       padMap[padding],
-      interactive && 'transition-all duration-200 hover:shadow-card-hover hover:border-brand-200 hover:-translate-y-0.5',
-      accent && 'before:absolute before:inset-x-0 before:top-0 before:h-[3px] before:rounded-t-card-lg before:bg-brand-gradient',
+      interactive && 'transition-[border-color,box-shadow] duration-100 hover:border-line-strong hover:shadow-card-hover',
+      accent && 'before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[3px] before:rounded-l-card-lg before:bg-brand-500',
       className,
     )}
     {...rest}

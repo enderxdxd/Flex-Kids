@@ -75,8 +75,8 @@ const CancellationReport: React.FC = () => {
       <Card padding="md">
         <div className="flex flex-wrap items-end gap-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Período</label>
-            <div className="flex gap-1 bg-slate-100 p-1 rounded-lg">
+            <label className="block text-xs font-semibold text-ink-700 mb-1.5">Período</label>
+            <div className="flex gap-1 bg-ink-100 p-1 rounded-lg">
               {(['day', 'month'] as const).map(f => (
                 <button
                   key={f}
@@ -84,8 +84,8 @@ const CancellationReport: React.FC = () => {
                   className={cn(
                     'px-3 py-1.5 rounded-md text-sm font-semibold transition-all',
                     filterType === f
-                      ? 'bg-white text-brand-700 shadow-sm'
-                      : 'text-slate-500 hover:text-slate-700',
+                      ? 'bg-paper-raised text-brand-700 shadow-sm'
+                      : 'text-ink-500 hover:text-ink-700',
                   )}
                 >
                   {f === 'day' ? 'Dia' : 'Mês'}
@@ -96,22 +96,22 @@ const CancellationReport: React.FC = () => {
 
           {filterType === 'day' ? (
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Data</label>
+              <label className="block text-xs font-semibold text-ink-700 mb-1.5">Data</label>
               <input
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                className="h-10 px-3 border border-slate-200 rounded-lg text-sm bg-white hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 focus:outline-none transition-all"
+                className="h-10 px-3 border border-line rounded-lg text-sm bg-paper-raised hover:border-brand-300 focus:border-brand-500 focus-visible:shadow-focus focus:outline-none transition-all"
               />
             </div>
           ) : (
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Mês</label>
+              <label className="block text-xs font-semibold text-ink-700 mb-1.5">Mês</label>
               <input
                 type="month"
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="h-10 px-3 border border-slate-200 rounded-lg text-sm bg-white hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 focus:outline-none transition-all"
+                className="h-10 px-3 border border-line rounded-lg text-sm bg-paper-raised hover:border-brand-300 focus:border-brand-500 focus-visible:shadow-focus focus:outline-none transition-all"
               />
             </div>
           )}
@@ -129,25 +129,25 @@ const CancellationReport: React.FC = () => {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card padding="md" className="relative overflow-hidden bg-gradient-to-br from-red-50 to-rose-50 border-red-200/60">
+        <Card padding="md" className="relative overflow-hidden bg-state-bad-soft border-state-bad/30">
           <div className="flex items-center justify-between mb-2">
-            <span className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 text-white flex items-center justify-center shadow-sm">
+            <span className="w-8 h-8 rounded-md bg-ink-100 text-ink-500 flex items-center justify-center shadow-sm">
               <BanIcon size={18} />
             </span>
           </div>
-          <p className="text-caption text-red-700 uppercase">Total Cancelamentos</p>
-          <p className="text-3xl font-bold text-red-700 tabular-nums mt-1">{cancellations.length}</p>
+          <p className="text-caption text-state-bad uppercase">Total Cancelamentos</p>
+          <p className="text-3xl font-bold text-state-bad tabular-nums mt-1">{cancellations.length}</p>
         </Card>
         <Card padding="md">
-          <p className="text-caption text-slate-500 uppercase">Minutos Registrados</p>
-          <p className="text-3xl font-bold text-slate-900 tabular-nums mt-1">{totalMinutes} min</p>
+          <p className="text-caption text-ink-500 uppercase">Minutos Registrados</p>
+          <p className="text-readout text-ink-900 tabular-nums mt-1">{totalMinutes} min</p>
         </Card>
       </div>
 
       {/* List */}
       <Card padding="none">
-        <div className="px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-red-50/40 to-transparent">
-          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Cancelamentos</h2>
+        <div className="px-5 py-4 border-b border-line-subtle bg-state-bad-soft">
+          <h2 className="text-caption uppercase text-ink-500">Cancelamentos</h2>
         </div>
 
         {loading ? (
@@ -157,7 +157,7 @@ const CancellationReport: React.FC = () => {
         ) : cancellations.length === 0 ? (
           <EmptyState
             icon={
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-7 h-7 text-emerald-500" aria-hidden="true">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-7 h-7 text-state-ok" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
               </svg>
             }
@@ -165,20 +165,20 @@ const CancellationReport: React.FC = () => {
             description="Tudo certo por aqui."
           />
         ) : (
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-line-subtle">
             {cancellations.map((visit) => {
               const checkInDate = visit.checkIn instanceof Date ? visit.checkIn : new Date(visit.checkIn);
               const checkOutDate = visit.checkOut ? (visit.checkOut instanceof Date ? visit.checkOut : new Date(visit.checkOut)) : null;
               return (
-                <div key={visit.id} className="relative flex items-center justify-between pl-5 pr-5 py-3 hover:bg-red-50/30 transition-colors">
-                  <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-gradient-to-b from-red-500 to-rose-600" aria-hidden="true" />
+                <div key={visit.id} className="relative flex items-center justify-between pl-5 pr-5 py-3 hover:bg-state-bad-soft transition-colors">
+                  <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-state-bad" aria-hidden="true" />
                   <div className="flex items-center gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <p className="font-semibold text-sm text-slate-900">{visit.child?.name || 'Criança'}</p>
+                        <p className="font-semibold text-sm text-ink-900">{visit.child?.name || 'Criança'}</p>
                         <Badge tone="red" size="sm">Cancelado</Badge>
                       </div>
-                      <p className="text-xs text-slate-500 mt-0.5">
+                      <p className="text-xs text-ink-500 mt-0.5">
                         {format(checkInDate, "EEEE, dd/MM 'às' HH:mm", { locale: ptBR })}
                         {checkOutDate ? ` → ${format(checkOutDate, 'HH:mm')}` : ''}
                         {visit.child?.customer?.name ? ` · ${visit.child.customer.name}` : ''}
@@ -186,8 +186,8 @@ const CancellationReport: React.FC = () => {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-sm text-red-600 tabular-nums">{visit.duration || 0} min</p>
-                    <p className="text-[10px] text-slate-400">registrados</p>
+                    <p className="font-bold text-sm text-state-bad tabular-nums">{visit.duration || 0} min</p>
+                    <p className="text-[10px] text-ink-400">registrados</p>
                   </div>
                 </div>
               );

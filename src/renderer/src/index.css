@@ -1,12 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+/* Archivo: grotesk com presença, boa em corpo pequeno e com figuras tabulares.
+   Azeret Mono: leitura de instrumento — relógios e durações. */
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Azeret+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --sidebar-w: 240px;
-  --sidebar-w-collapsed: 68px;
+  --sidebar-w: 236px;
+  --sidebar-w-collapsed: 60px;
   --sidebar-w-current: var(--sidebar-w);
 }
 
@@ -17,15 +19,13 @@
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  color: #0f172a;
-  background: #f8fafc;
-  background-image:
-    radial-gradient(1100px 520px at 100% -10%, rgba(167, 139, 250, 0.18) 0%, transparent 55%),
-    radial-gradient(900px 460px at -10% 110%, rgba(217, 70, 239, 0.12) 0%, transparent 55%);
-  background-attachment: fixed;
+  color: #16161a;
+  /* Papel liso. O brilho radial violeta competia com o conteúdo em todas
+     as telas e não dizia nada sobre o estado da operação. */
+  background: #f6f6f4;
 }
 
 #root {
@@ -33,23 +33,95 @@ body {
   height: 100vh;
 }
 
-:where(a, button, input, select, textarea, [tabindex]):focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px rgb(139 92 246 / 0.35);
-  border-radius: 0.5rem;
+/* Todo algarismo alinha em coluna. Numa tela onde o funcionário compara
+   horários e valores empilhados, figura proporcional atrapalha a leitura. */
+body,
+input,
+button,
+select,
+textarea {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
 }
 
-::-webkit-scrollbar { width: 8px; height: 8px; }
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px rgb(102 58 222 / 0.65);
+  border-radius: 0.375rem;
+}
+
+/* Barra de rolagem discreta: é cromo, não conteúdo. */
+::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #c4b5fd, #a78bfa);
-  border-radius: 4px;
+  background: #d8d8d6;
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #a78bfa, #8b5cf6);
+::-webkit-scrollbar-thumb:hover { background: #b4b4bd; background-clip: content-box; }
+
+/* ---------------------------------------------------------------------------
+   Aviso de resultado: deu certo / precisa de atenção / deu errado.
+
+   O react-toastify vem com a própria paleta, que não conversava com o resto do
+   app — um verde e um vermelho de outro sistema aparecendo no canto da tela.
+   Aqui ele vira um cartão de papel com uma faixa de estado na lateral: mesma
+   linguagem da lista de visitas, onde a faixa também diz o estado.
+
+   A cor nunca carrega o aviso sozinha — o ícone e o texto dizem o mesmo.
+   --------------------------------------------------------------------------- */
+:root {
+  --toastify-color-success: #1a7f5a;
+  --toastify-color-warning: #b5730c;
+  --toastify-color-error: #c0392f;
+  --toastify-color-info: #663ade;
+  --toastify-text-color-light: #26262c;
+  --toastify-toast-background: #ffffff;
+  --toastify-toast-bd-radius: 0.75rem;
+  --toastify-font-family: 'Archivo', system-ui, sans-serif;
+  --toastify-toast-min-height: 52px;
+  /* Ícone da biblioteca também alinhado: ele é quem diz o resultado quando a
+     cor não é percebida. */
+  --toastify-icon-color-success: #1a7f5a;
+  --toastify-icon-color-warning: #b5730c;
+  --toastify-icon-color-error: #c0392f;
+  --toastify-icon-color-info: #663ade;
+  --toastify-color-progress-success: #1a7f5a;
+  --toastify-color-progress-warning: #b5730c;
+  --toastify-color-progress-error: #c0392f;
+  --toastify-color-progress-info: #663ade;
+}
+
+.Toastify__toast {
+  border: 1px solid #e2e2de;
+  border-left-width: 3px;
+  padding: 0.75rem 0.875rem;
+  font-size: 0.8125rem;
+  line-height: 1.35rem;
+  box-shadow: 0 12px 32px -12px rgb(22 22 26 / 0.22), 0 2px 8px -4px rgb(22 22 26 / 0.10);
+}
+
+.Toastify__toast--success { border-left-color: #1a7f5a; }
+.Toastify__toast--warning { border-left-color: #b5730c; }
+.Toastify__toast--error   { border-left-color: #c0392f; }
+.Toastify__toast--info    { border-left-color: #663ade; }
+
+.Toastify__toast-body { font-weight: 500; }
+
+/* A barra de progresso já era fina demais para ser lida como estado; a faixa
+   lateral assume esse papel e ela fica só marcando o tempo restante. */
+.Toastify__progress-bar { height: 2px; opacity: 0.45; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 @media print {
   .no-print { display: none !important; }
-  body { background: white; background-image: none; }
+  body { background: white; }
 }

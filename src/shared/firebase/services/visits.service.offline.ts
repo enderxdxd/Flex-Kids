@@ -61,7 +61,7 @@ export const visitsServiceOffline = {
   async checkIn(data: CheckInData): Promise<Visit> {
     const acquired = await acquireCheckInLock(data.childId);
     if (!acquired) {
-      throw new Error('Check-in já em andamento, aguarde.');
+      throw new Error('Já existe um check-in em andamento. Aguarde alguns segundos.');
     }
 
     try {
@@ -74,7 +74,7 @@ export const visitsServiceOffline = {
   async _doCheckIn(data: CheckInData): Promise<Visit> {
     const alreadyActive = await this.hasActiveVisit(data.childId, data.unitId);
     if (alreadyActive) {
-      throw new Error('Esta criança já possui um check-in ativo.');
+      throw new Error('Esta criança já tem um check-in aberto.');
     }
 
     const db = getDb();

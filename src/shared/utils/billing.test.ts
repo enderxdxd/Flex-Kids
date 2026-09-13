@@ -7,7 +7,9 @@ import {
   calculatePrincipalValue,
   calculateSiblingAvulsoValue,
   distributeSiblingCoverageOverPackage,
+  calculateIncludedSiblingValues,
   recalcDurationMinutes,
+  resolvePackageDeduction,
 } from './billing';
 
 const pkg = (id: string, hours: number, usedHours: number = 0) => ({
@@ -448,5 +450,164 @@ describe('recalcDurationMinutes', () => {
     expect(staleDuration).toBe(60);
     expect(freshDuration).toBe(75);
     expect(freshDuration).toBeGreaterThan(staleDuration);
+  });
+});
+
+describe('resolvePackageDeduction', () => {
+  it('drains a package whose fractional balance rounds up to the covered minutes', () => {
+    // Cenário real (v5.8.0): pacote renovado herda horas fracionárias
+    // (20h novas + 0,9666h de saldo = 20,9666h => UI mostra "1258min").
+    // O saldo real é 127,8min mas a UI/cobertura arredondam para 128min.
+    const renewed = pkg('renovado', 20.9666667, 18.8366667);
+    const coverage = calculateMultiPackageCoverage([renewed], 662, 30);
+
+    expect(coverage.breakdown[0].coveredMin).toBe(128);
+
+    const deduction = resolvePackageDeduction(renewed, coverage.breakdown[0].coveredMin / 60);
+
+    expect(deduction.newUsedHours).toBe(renewed.hours);
+    expect(deduction.active).toBe(false);
+  });
+
+  it('never lets usedHours exceed the package total', () => {
+    const deduction = resolvePackageDeduction(pkg('p', 10, 9.99), 0.02);
+
+    expect(deduction.newUsedHours).toBe(10);
+    expect(deduction.active).toBe(false);
+  });
+
+  it('keeps the package active while balance remains', () => {
+    const deduction = resolvePackageDeduction(pkg('p', 10, 2), 0.5);
+
+    expect(deduction.newUsedHours).toBe(2.5);
+    expect(deduction.active).toBe(true);
+  });
+
+  it('rejects a deduction that overshoots the balance beyond minute rounding', () => {
+    expect(() => resolvePackageDeduction(pkg('p', 10, 9), 2)).toThrow(
+      /saldo/i,
+    );
+  });
+
+  it('debits both packages of the reported 11h02 check-out', () => {
+    // Caso reportado: 662min (11h02) cobertos por 128min do pacote renovado
+    // + 534min do pacote novo. Antes o primeiro débito estourava o saldo.
+    const renovado = pkg('renovado', 20.9666667, 18.8366667);
+    const novo = pkg('novo', 20);
+    const coverage = calculateMultiPackageCoverage([renovado, novo], 662, 30);
+
+    expect(coverage.breakdown.map((b) => b.coveredMin)).toEqual([128, 534]);
+    expect(coverage.isFullyCovered).toBe(true);
+
+    const [first, second] = coverage.breakdown.map((b) =>
+      resolvePackageDeduction(b.pkg, b.coveredMin / 60),
+    );
+
+    expect(first.active).toBe(false);
+    expect(second.newUsedHours).toBeCloseTo(8.9, 10);
+    expect(second.active).toBe(true);
+  });
+
+  it('accepts any coverage that calculateMultiPackageCoverage produced', () => {
+    // Invariante: o que a cobertura promete, o débito precisa aceitar.
+    for (let usedMin = 0; usedMin <= 1200; usedMin += 7) {
+      const p = pkg('p', 20.9666667, usedMin / 60);
+      const coverage = calculateMultiPackageCoverage([p], 5000, 30);
+      for (const { coveredMin } of coverage.breakdown) {
+        expect(() => resolvePackageDeduction(p, coveredMin / 60)).not.toThrow();
+      }
+    }
+  });
+});
+
+describe('calculateIncludedSiblingValues', () => {
+  const sib = (durationMin: number, isKidsPlan = false) => ({ durationMin, isKidsPlan });
+
+  it('charges each sibling individually when the principal has no package', () => {
+    const values = calculateIncludedSiblingValues({
+      principalUsesPackage: false,
+      includedSiblings: [sib(60), sib(10)],
+      minimumTime: 30,
+      hourlyRate: 30,
+    });
+
+    // 60min → R$30; 10min sobe para o mínimo de 30min → R$15
+    expect(values.map(v => v.sibValue)).toEqual([30, 15]);
+    expect(values.every(v => !v.sibUsedPackage)).toBe(true);
+  });
+
+  it('bills a Kids Plan sibling by its excess, not as free', () => {
+    // Regressão: o preview mostrava R$ 0 e o check-out cobrava o excedente.
+    const values = calculateIncludedSiblingValues({
+      principalUsesPackage: false,
+      includedSiblings: [sib(240, true)],
+      minimumTime: 30,
+      hourlyRate: 30,
+    });
+
+    // 240min − 180min grátis = 60min excedente → R$30
+    expect(values[0].sibValue).toBe(30);
+  });
+
+  it('applies the employee discount to non-Kids siblings', () => {
+    const values = calculateIncludedSiblingValues({
+      principalUsesPackage: false,
+      includedSiblings: [sib(60)],
+      minimumTime: 30,
+      hourlyRate: 30,
+      employeeDiscount: true,
+    });
+
+    expect(values[0].sibValue).toBe(15);
+  });
+
+  it('spends the package leftover on siblings when the principal uses one', () => {
+    // Pacote de 10h; principal 60min; irmão 60min — tudo coberto.
+    const coverage = calculateMultiPackageCoverage([pkg('p', 10)], 60, 30, 60);
+    const values = calculateIncludedSiblingValues({
+      principalUsesPackage: true,
+      includedSiblings: [sib(60)],
+      multiCoverage: coverage,
+      minimumTime: 30,
+      hourlyRate: 30,
+    });
+
+    expect(values[0]).toEqual({ sibValue: 0, sibUsedPackage: true });
+  });
+
+  it('charges the sibling when the package leftover runs out', () => {
+    // Pacote com 60min de saldo; principal já consome tudo.
+    const coverage = calculateMultiPackageCoverage([pkg('p', 10, 9)], 60, 30, 60);
+    const values = calculateIncludedSiblingValues({
+      principalUsesPackage: true,
+      includedSiblings: [sib(60)],
+      multiCoverage: coverage,
+      minimumTime: 30,
+      hourlyRate: 30,
+    });
+
+    expect(values[0].sibValue).toBe(30);
+    expect(values[0].sibUsedPackage).toBe(false);
+  });
+
+  it('returns one value per included sibling, in order', () => {
+    const values = calculateIncludedSiblingValues({
+      principalUsesPackage: false,
+      includedSiblings: [sib(30), sib(90), sib(240, true)],
+      minimumTime: 30,
+      hourlyRate: 30,
+    });
+
+    expect(values).toHaveLength(3);
+    expect(values.map(v => v.sibValue)).toEqual([15, 45, 30]);
+  });
+
+  it('handles an empty sibling list', () => {
+    expect(calculateIncludedSiblingValues({
+      principalUsesPackage: false,
+      includedSiblings: [],
+      minimumTime: 30,
+      hourlyRate: 30,
+    })).toEqual([]);
   });
 });

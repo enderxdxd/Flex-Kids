@@ -92,7 +92,7 @@ const GlobalUpdatePrompt: React.FC = () => {
           role="button"
           aria-label="Atualização disponível — clique para abrir"
         >
-          <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold px-4 py-2 rounded-full shadow-xl flex items-center gap-2 border-2 border-white">
+          <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold px-4 py-2 rounded-full shadow-card-lg flex items-center gap-2 border-2 border-white">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
             </svg>

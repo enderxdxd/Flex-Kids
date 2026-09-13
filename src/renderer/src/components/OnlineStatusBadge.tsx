@@ -18,27 +18,27 @@ export const OnlineStatusBadge: React.FC = () => {
 
   if (!isOnline) {
     return (
-      <div className={`${baseClasses} bg-orange-50/90 border-orange-200/60 text-orange-700`}>
+      <div className={`${baseClasses} bg-state-warn-soft border-state-warn/30 text-state-warn`}>
         <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
         <span>Offline</span>
-        {pendingCount > 0 && <span className="bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full text-[10px]">{pendingCount} pendentes</span>}
+        {pendingCount > 0 && <span className="bg-orange-100 text-state-warn px-1.5 py-0.5 rounded-full text-[10px]">{pendingCount} pendentes</span>}
       </div>
     );
   }
 
   if (pendingCount > 0) {
     return (
-      <div className={`${baseClasses} bg-amber-50/90 border-amber-200/60 text-amber-700`}>
-        <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+      <div className={`${baseClasses} bg-state-warn-soft border-state-warn/30 text-state-warn`}>
+        <div className="w-2 h-2 bg-state-warn rounded-full"></div>
         <span>Online</span>
-        <span className="bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded-full text-[10px]">{pendingCount} pendentes</span>
+        <span className="bg-state-warn-soft text-state-warn px-1.5 py-0.5 rounded-full text-[10px]">{pendingCount} pendentes</span>
       </div>
     );
   }
 
   return (
-    <div className={`${baseClasses} bg-white/80 border-emerald-200/60 text-emerald-700`}>
-      <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+    <div className={`${baseClasses} bg-paper-raised/80 border-state-ok/30 text-state-ok`}>
+      <div className="w-2 h-2 bg-state-ok rounded-full"></div>
       <span>Online</span>
     </div>
   );

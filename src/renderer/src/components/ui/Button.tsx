@@ -4,23 +4,27 @@ import { cn } from './cn';
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline';
 type Size = 'sm' | 'md' | 'lg';
 
+/**
+ * Só o primário carrega cor cheia. Se todo botão da tela for colorido,
+ * nenhum é a ação principal e o funcionário perde tempo procurando.
+ */
 const variantMap: Record<Variant, string> = {
   primary:
-    'bg-brand-gradient text-white shadow-brand-sm hover:shadow-brand hover:brightness-110 disabled:opacity-60',
+    'bg-brand-gradient text-white shadow-brand-sm hover:brightness-[1.08] active:brightness-95 disabled:opacity-50 disabled:shadow-none',
   secondary:
-    'bg-slate-100 hover:bg-slate-200 text-slate-800 disabled:text-slate-400',
+    'bg-ink-100 hover:bg-ink-200 text-ink-800 disabled:text-ink-400',
   ghost:
-    'bg-transparent hover:bg-brand-50 text-slate-700 hover:text-brand-700 disabled:text-slate-400',
+    'bg-transparent hover:bg-ink-100 text-ink-600 hover:text-ink-900 disabled:text-ink-300',
   danger:
-    'bg-gradient-to-br from-red-500 to-rose-600 hover:brightness-110 text-white shadow-card disabled:opacity-60',
+    'bg-danger-500 hover:bg-danger-600 active:bg-danger-700 text-white disabled:opacity-50',
   outline:
-    'bg-white hover:bg-brand-50 text-slate-700 hover:text-brand-700 border border-slate-200 hover:border-brand-300 disabled:text-slate-400',
+    'bg-paper-raised hover:bg-ink-100/60 text-ink-700 border border-line hover:border-line-strong disabled:text-ink-300',
 };
 
 const sizeMap: Record<Size, string> = {
-  sm: 'h-8 px-3 text-xs',
-  md: 'h-10 px-4 text-sm',
-  lg: 'h-12 px-5 text-base',
+  sm: 'h-8 px-2.5 text-xs gap-1.5',
+  md: 'h-control px-3.5 text-sm gap-2',
+  lg: 'h-11 px-5 text-[0.9375rem] gap-2',
 };
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -51,10 +55,12 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     <button
       ref={ref}
       disabled={disabled || loading}
+      aria-busy={loading || undefined}
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-lg font-semibold',
-        'transition-all duration-150 active:scale-[0.98]',
-        'disabled:cursor-not-allowed disabled:active:scale-100',
+        'inline-flex items-center justify-center rounded-md font-semibold whitespace-nowrap',
+        'transition-[background-color,border-color,filter,box-shadow] duration-100',
+        'disabled:cursor-not-allowed',
+        'focus-visible:outline-none focus-visible:shadow-focus',
         variantMap[variant],
         sizeMap[size],
         fullWidth && 'w-full',
@@ -63,7 +69,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       {...rest}
     >
       {loading ? (
-        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+        <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
         </svg>

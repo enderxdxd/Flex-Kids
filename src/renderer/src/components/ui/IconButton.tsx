@@ -5,16 +5,14 @@ type Variant = 'ghost' | 'outline' | 'danger';
 type Size = 'sm' | 'md';
 
 const variantMap: Record<Variant, string> = {
-  ghost: 'hover:bg-slate-100 text-slate-500 hover:text-slate-700',
-  outline:
-    'border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-500 hover:text-slate-700',
-  danger:
-    'border border-slate-200 hover:border-red-300 hover:bg-red-50 text-slate-400 hover:text-red-600',
+  ghost: 'hover:bg-ink-100 text-ink-400 hover:text-ink-700',
+  outline: 'border border-line hover:border-line-strong hover:bg-ink-100/60 text-ink-500 hover:text-ink-800',
+  danger: 'border border-line hover:border-danger-300 hover:bg-danger-50 text-ink-400 hover:text-danger-600',
 };
 
 const sizeMap: Record<Size, string> = {
-  sm: 'w-8 h-8',
-  md: 'w-9 h-9',
+  sm: 'w-7 h-7',
+  md: 'w-control h-control',
 };
 
 interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -28,8 +26,9 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
     <button
       ref={ref}
       className={cn(
-        'inline-flex items-center justify-center rounded-lg transition-colors duration-150',
-        'disabled:opacity-50 disabled:cursor-not-allowed',
+        'inline-flex items-center justify-center rounded-md transition-colors duration-100',
+        'disabled:opacity-40 disabled:cursor-not-allowed',
+        'focus-visible:outline-none focus-visible:shadow-focus',
         variantMap[variant],
         sizeMap[size],
         className,

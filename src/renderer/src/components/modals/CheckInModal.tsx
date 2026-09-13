@@ -218,9 +218,9 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
 
   return (
     <ModalWrapper isOpen={isOpen} onClose={handleClose}>
-      <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-end p-4 border-b border-slate-200/50">
-          <button onClick={handleClose} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all focus:ring-2 focus:ring-violet-500 focus:outline-none">
+      <div className="bg-paper-raised/95 backdrop-blur-xl rounded-3xl shadow-card-lg border border-white/20 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-end p-4 border-b border-line/50">
+          <button onClick={handleClose} className="p-2 rounded-card hover:bg-ink-100 text-ink-400 hover:text-ink-600 transition-all focus-visible:shadow-focus focus:outline-none">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
@@ -228,38 +228,38 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          <div className="flex rounded-2xl bg-gradient-to-br from-slate-100 to-slate-50 p-1 shadow-inner">
+          <div className="flex rounded-card-lg bg-gradient-to-br from-slate-100 to-slate-50 p-1 shadow-inner">
             <button type="button" onClick={() => { setSearchMode('client'); setSearchTerm(''); setSelectedCustomer(''); clearChildSelection(); }}
-              className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-2 focus:ring-2 focus:ring-violet-500 focus:outline-none ${searchMode === 'client' ? 'bg-white text-violet-700 shadow-lg shadow-violet-500/20' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}>
+              className={`flex-1 py-3 text-sm font-bold rounded-card transition-all duration-300 flex items-center justify-center gap-2 focus-visible:shadow-focus focus:outline-none ${searchMode === 'client' ? 'bg-paper-raised text-violet-700 shadow-card shadow-violet-500/20' : 'text-ink-500 hover:text-ink-700 hover:bg-paper-raised/50'}`}>
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg> Por Cliente
             </button>
             <button type="button" onClick={() => { setSearchMode('child'); setSearchTerm(''); setSelectedCustomer(''); clearChildSelection(); }}
-              className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-2 focus:ring-2 focus:ring-violet-500 focus:outline-none ${searchMode === 'child' ? 'bg-white text-violet-700 shadow-lg shadow-violet-500/20' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}>
+              className={`flex-1 py-3 text-sm font-bold rounded-card transition-all duration-300 flex items-center justify-center gap-2 focus-visible:shadow-focus focus:outline-none ${searchMode === 'child' ? 'bg-paper-raised text-violet-700 shadow-card shadow-violet-500/20' : 'text-ink-500 hover:text-ink-700 hover:bg-paper-raised/50'}`}>
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg> Por Criança
             </button>
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">
+            <label className="block text-sm font-bold text-ink-700 mb-2">
               <span className="inline-flex items-center gap-1.5"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg> {searchMode === 'client' ? 'Buscar Cliente' : 'Buscar Criança'}</span>
             </label>
             <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
               placeholder={searchMode === 'client' ? 'Digite nome ou telefone...' : 'Digite o nome da criança...'}
-              className="w-full px-4 py-3 border border-slate-200 rounded-2xl text-sm bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent focus:bg-white transition-all duration-200 shadow-sm hover:shadow-md" />
+              className="w-full px-4 py-3 border border-line rounded-card-lg text-sm bg-paper/50 focus:outline-none focus-visible:shadow-focus focus:border-transparent focus:bg-paper-raised transition-all duration-200 shadow-sm hover:shadow-md" />
           </div>
 
           {searchMode === 'client' && (
             <>
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Cliente</label>
-                <div className="space-y-2 max-h-40 overflow-y-auto border border-slate-200/50 rounded-2xl p-2 bg-slate-50/30">
+                <label className="block text-sm font-bold text-ink-700 mb-2">Cliente</label>
+                <div className="space-y-2 max-h-40 overflow-y-auto border border-line/50 rounded-card-lg p-2 bg-paper/30">
                   {filteredCustomers.length === 0 ? (
-                    <p className="text-center text-slate-400 py-4 text-sm">Nenhum cliente encontrado</p>
+                    <p className="text-center text-ink-400 py-4 text-sm">Nenhum cliente encontrado</p>
                   ) : filteredCustomers.map(customer => (
                     <button key={customer.id} type="button" onClick={() => { setSelectedCustomer(customer.id); clearChildSelection(); }}
-                      className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-all duration-200 ${selectedCustomer === customer.id ? 'bg-gradient-to-r from-violet-50 to-purple-50 border-2 border-violet-300 shadow-md' : 'hover:bg-white border-2 border-transparent hover:shadow-sm'}`}>
-                      <p className="font-bold text-slate-800">{customer.name}</p>
-                      <p className="text-xs text-slate-500 mt-0.5 inline-flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg> {customer.phone}</p>
+                      className={`w-full text-left px-4 py-3 rounded-card text-sm transition-all duration-200 ${selectedCustomer === customer.id ? 'bg-gradient-to-r from-violet-50 to-purple-50 border-2 border-violet-300 shadow-md' : 'hover:bg-paper-raised border-2 border-transparent hover:shadow-sm'}`}>
+                      <p className="font-bold text-ink-800">{customer.name}</p>
+                      <p className="text-xs text-ink-500 mt-0.5 inline-flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg> {customer.phone}</p>
                     </button>
                   ))}
                 </div>
@@ -267,26 +267,26 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
               {selectedCustomer && (
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-bold text-slate-700">Criança</label>
+                    <label className="block text-sm font-bold text-ink-700">Criança</label>
                     {customerChildren.length > 1 && (
                       <button type="button" onClick={handleCheckInAll} disabled={loading}
-                        className="text-xs font-bold text-violet-600 hover:text-violet-700 disabled:opacity-50 transition-colors px-3 py-3 rounded-lg hover:bg-violet-50 focus:ring-2 focus:ring-violet-500 focus:outline-none inline-flex items-center gap-1">
+                        className="text-xs font-bold text-violet-600 hover:text-violet-700 disabled:opacity-50 transition-colors px-3 py-3 rounded-lg hover:bg-violet-50 focus-visible:shadow-focus focus:outline-none inline-flex items-center gap-1">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> Check-in em Todos ({customerChildren.length})
                       </button>
                     )}
                   </div>
                   <div className="space-y-2">
                     {customerChildren.length === 0 ? (
-                      <p className="text-center text-slate-400 py-4 text-sm bg-slate-50 rounded-xl">Sem crianças cadastradas</p>
+                      <p className="text-center text-ink-400 py-4 text-sm bg-paper rounded-card">Sem crianças cadastradas</p>
                     ) : customerChildren.map(child => {
                       const plan = getChildPlan(child.id);
                       return (
                         <button key={child.id} type="button" onClick={() => toggleChildSelection(child.id)}
-                          className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-all duration-200 ${selectedChildren.includes(child.id) ? 'bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-300 shadow-md' : 'hover:bg-white border-2 border-transparent hover:shadow-sm'}`}>
+                          className={`w-full text-left px-4 py-3 rounded-card text-sm transition-all duration-200 ${selectedChildren.includes(child.id) ? 'bg-state-ok-soft border-2 border-state-ok/30 shadow-md' : 'hover:bg-paper-raised border-2 border-transparent hover:shadow-sm'}`}>
                           <div className="flex justify-between items-center">
                             <div>
-                              <p className="font-bold text-slate-800">{child.name}</p>
-                              <p className="text-xs text-slate-500 mt-0.5">{getChildAge(child)} anos</p>
+                              <p className="font-bold text-ink-800">{child.name}</p>
+                              <p className="text-xs text-ink-500 mt-0.5">{getChildAge(child)} anos</p>
                             </div>
                             {plan && (
                               <span className="text-[10px] bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-2 py-1 rounded-full font-bold shadow-sm inline-flex items-center gap-1">
@@ -305,20 +305,20 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
 
           {searchMode === 'child' && (
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Resultados</label>
-              <div className="space-y-2 max-h-52 overflow-y-auto border border-slate-200/50 rounded-2xl p-2 bg-slate-50/30">
+              <label className="block text-sm font-bold text-ink-700 mb-2">Resultados</label>
+              <div className="space-y-2 max-h-52 overflow-y-auto border border-line/50 rounded-card-lg p-2 bg-paper/30">
                 {filteredChildrenByName.length === 0 ? (
-                  <p className="text-center text-slate-400 py-4 text-sm">Nenhuma criança encontrada</p>
+                  <p className="text-center text-ink-400 py-4 text-sm">Nenhuma criança encontrada</p>
                 ) : filteredChildrenByName.map(child => {
                   const parent = customers.find(c => c.id === child.customerId);
                   const plan = getChildPlan(child.id);
                   return (
                     <button key={child.id} type="button" onClick={() => toggleChildSelection(child.id)}
-                      className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-all duration-200 ${selectedChildren.includes(child.id) ? 'bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-300 shadow-md' : 'hover:bg-white border-2 border-transparent hover:shadow-sm'}`}>
+                      className={`w-full text-left px-4 py-3 rounded-card text-sm transition-all duration-200 ${selectedChildren.includes(child.id) ? 'bg-state-ok-soft border-2 border-state-ok/30 shadow-md' : 'hover:bg-paper-raised border-2 border-transparent hover:shadow-sm'}`}>
                       <div className="flex justify-between items-center">
                         <div>
-                          <p className="font-bold text-slate-800">{child.name}</p>
-                          <p className="text-xs text-slate-500 mt-0.5">{getChildAge(child)} anos {parent ? `• ${parent.name}` : ''}</p>
+                          <p className="font-bold text-ink-800">{child.name}</p>
+                          <p className="text-xs text-ink-500 mt-0.5">{getChildAge(child)} anos {parent ? `• ${parent.name}` : ''}</p>
                         </div>
                         {plan && (
                           <span className="text-[10px] bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-2 py-1 rounded-full font-bold shadow-sm inline-flex items-center gap-1">
@@ -339,25 +339,25 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
             const childObs = childData?.observations;
             const customerObs = customerData?.observations;
             return (childObs || customerObs) ? (
-              <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 space-y-2.5">
+              <div className="bg-state-warn-soft border-2 border-state-warn/30 rounded-card-lg p-4 space-y-2.5">
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 bg-amber-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <svg className="w-4 h-4 text-amber-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="w-7 h-7 bg-state-warn-soft rounded-md flex items-center justify-center flex-shrink-0">
+                    <svg className="w-4 h-4 text-state-warn" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                     </svg>
                   </div>
-                  <p className="text-sm font-bold text-amber-800">Atenção — Observações</p>
+                  <p className="text-sm font-bold text-state-warn">Atenção — Observações</p>
                 </div>
                 {childObs && (
                   <div>
-                    <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-0.5">Criança</p>
-                    <p className="text-sm text-amber-900">{childObs}</p>
+                    <p className="text-[10px] font-bold text-state-warn uppercase tracking-wider mb-0.5">Criança</p>
+                    <p className="text-sm text-state-warn">{childObs}</p>
                   </div>
                 )}
                 {customerObs && (
                   <div>
-                    <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-0.5">Responsável</p>
-                    <p className="text-sm text-amber-900">{customerObs}</p>
+                    <p className="text-[10px] font-bold text-state-warn uppercase tracking-wider mb-0.5">Responsável</p>
+                    <p className="text-sm text-state-warn">{customerObs}</p>
                   </div>
                 )}
               </div>
@@ -365,32 +365,32 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
           })()}
 
           {selectedChild && duplicateWarning && (
-            <div className="bg-orange-50 border-2 border-orange-200 rounded-2xl p-4 space-y-2">
+            <div className="bg-state-warn-soft border-2 border-state-warn/30 rounded-card-lg p-4 space-y-2">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 bg-orange-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <svg className="w-4 h-4 text-orange-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-4 h-4 text-state-warn" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </div>
-                <p className="text-sm font-bold text-orange-800">Criança duplicada detectada!</p>
+                <p className="text-sm font-bold text-state-warn">Criança duplicada detectada!</p>
               </div>
-              <p className="text-xs text-orange-700 leading-relaxed">
+              <p className="text-xs text-state-warn leading-relaxed">
                 Existe outra criança com o mesmo nome cadastrada sob outro responsável.
                 Verifique se não é a mesma criança para evitar problemas com pacotes.
               </p>
               {duplicateWarning.map((dup, i) => (
-                <div key={i} className="flex items-center gap-2 bg-orange-100/60 rounded-xl px-3 py-2">
-                  <span className="text-xs font-semibold text-orange-800">{dup.child.name}</span>
+                <div key={i} className="flex items-center gap-2 bg-orange-100/60 rounded-card px-3 py-2">
+                  <span className="text-xs font-semibold text-state-warn">{dup.child.name}</span>
                   <span className="text-orange-400">·</span>
-                  <span className="text-xs text-orange-600">Responsável: {dup.parentName}</span>
+                  <span className="text-xs text-state-warn">Responsável: {dup.parentName}</span>
                 </div>
               ))}
             </div>
           )}
 
           {selectedChild && getChildPlan(selectedChild) && (
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200/50 rounded-2xl p-4 flex items-center gap-3 shadow-sm">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200/50 rounded-card-lg p-4 flex items-center gap-3 shadow-sm">
+              <div className="w-10 h-10 bg-blue-600 rounded-card flex items-center justify-center shadow-card shadow-blue-500/30">
                 <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5zm0 7l-9-5 9 5 9-5-9 5zm0-7l9-5-9-5-9 5 9 5z" /></svg>
               </div>
               <div>
@@ -401,8 +401,8 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onSuccess 
           )}
 
           <div className="flex gap-3 pt-3">
-            <button type="button" onClick={handleClose} className="flex-1 py-3 rounded-xl border-2 border-slate-300 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:border-slate-400 transition-all duration-200 shadow-sm hover:shadow-md focus:ring-2 focus:ring-violet-500 focus:outline-none">Cancelar</button>
-            <button type="submit" disabled={selectedChildren.length === 0 || loading} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-sm font-bold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed focus:ring-2 focus:ring-violet-500 focus:outline-none">
+            <button type="button" onClick={handleClose} className="flex-1 py-3 rounded-card border-2 border-line-strong text-sm font-bold text-ink-600 hover:bg-paper hover:border-slate-400 transition-all duration-200 shadow-sm hover:shadow-md focus-visible:shadow-focus focus:outline-none">Cancelar</button>
+            <button type="submit" disabled={selectedChildren.length === 0 || loading} className="flex-1 py-3 rounded-card bg-state-ok hover:bg-[#166b4c] text-white text-sm font-bold transition-all duration-200 shadow-card hover:shadow-card-lg disabled:opacity-50 disabled:cursor-not-allowed focus-visible:shadow-focus focus:outline-none">
               {loading ? (<span className="inline-flex items-center gap-1.5"><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> Processando...</span>) : (<span className="inline-flex items-center gap-1.5"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> {selectedChildren.length > 1 ? `Confirmar ${selectedChildren.length} Check-Ins` : selectedChild && getChildPlan(selectedChild) ? 'Check-In (Plano Kids)' : 'Confirmar Check-In'}</span>)}
             </button>
           </div>

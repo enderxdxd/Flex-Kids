@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { formatBRL } from '../../../shared/utils/currency';
 import { toast } from 'react-toastify';
 import { format, differenceInDays } from 'date-fns';
 import { KidsPlan, Child, Customer } from '../../../shared/types';
@@ -117,35 +118,35 @@ const KidsPlans: React.FC = () => {
     return differenceInDays(end, new Date());
   };
 
+  /**
+   * Filtro-indicador. Seis recortes da mesma lista: só "a vencer" e
+   * "expirados" pedem ação do funcionário, e só esses dois recebem cor. Os
+   * outros são contagem — em seis cores, nenhum deles se destacava.
+   */
   const statCard = (label: string, value: number, tone: 'slate' | 'emerald' | 'amber' | 'red' | 'blue' | 'brand', onClick?: () => void, active?: boolean) => {
-    const toneMap: Record<string, { ring: string; text: string; bg: string }> = {
-      slate: { ring: 'border-slate-200', text: 'text-slate-900', bg: 'bg-white' },
-      emerald: { ring: 'border-emerald-200', text: 'text-emerald-700', bg: 'bg-gradient-to-br from-emerald-50 to-teal-50/40' },
-      amber: { ring: 'border-amber-200', text: 'text-amber-700', bg: 'bg-gradient-to-br from-amber-50 to-orange-50/40' },
-      red: { ring: 'border-red-200', text: 'text-red-700', bg: 'bg-gradient-to-br from-red-50 to-rose-50/40' },
-      blue: { ring: 'border-blue-200', text: 'text-blue-700', bg: 'bg-gradient-to-br from-sky-50 to-blue-50/40' },
-      brand: { ring: 'border-brand-200', text: 'text-brand-700', bg: 'bg-gradient-to-br from-brand-50 to-fuchsia-50/40' },
-    };
-    const t = toneMap[tone];
+    const numberTone =
+      tone === 'amber' ? 'text-state-warn'
+      : tone === 'red' ? 'text-state-bad'
+      : 'text-ink-900';
     const Comp = onClick ? 'button' : 'div';
     return (
       <Comp
         onClick={onClick}
+        aria-pressed={onClick ? !!active : undefined}
         className={cn(
-          'rounded-card-lg border p-4 transition-all duration-200 text-left',
-          t.ring, t.bg,
-          onClick && 'hover:shadow-card-hover hover:-translate-y-0.5 cursor-pointer',
-          active && 'ring-2 ring-brand-400 shadow-brand-sm',
+          'rounded-card-lg border px-4 py-3 transition-colors text-left bg-paper-raised',
+          active ? 'border-brand-500 bg-brand-50' : 'border-line',
+          onClick && 'hover:border-line-strong cursor-pointer focus-visible:outline-none focus-visible:shadow-focus',
         )}
       >
-        <p className={cn('text-caption uppercase', t.text)}>{label}</p>
-        <p className={cn('text-2xl font-bold tabular-nums mt-1', t.text)}>{value}</p>
+        <p className="text-caption uppercase text-ink-500">{label}</p>
+        <p className={cn('text-readout-sm tabular-nums mt-1', numberTone)}>{value}</p>
       </Comp>
     );
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         title="Plano Kids"
         subtitle={`${plans.length} planos cadastrados`}
@@ -165,9 +166,9 @@ const KidsPlans: React.FC = () => {
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
         {statCard('Total', plans.length, 'slate')}
         {statCard('Ativos', statsActive, 'emerald', () => setFilterStatus(filterStatus === 'active' ? 'all' : 'active'), filterStatus === 'active')}
-        {statCard('A Vencer', statsExpiring, 'amber', () => setFilterStatus(filterStatus === 'expiring' ? 'all' : 'expiring'), filterStatus === 'expiring')}
+        {statCard('A vencer', statsExpiring, 'amber', () => setFilterStatus(filterStatus === 'expiring' ? 'all' : 'expiring'), filterStatus === 'expiring')}
         {statCard('Expirados', statsExpired, 'red', () => setFilterStatus(filterStatus === 'expired' ? 'all' : 'expired'), filterStatus === 'expired')}
-        {statCard('2X Semana', stats2x, 'blue', () => setFilterType(filterType === 'KIDS_2X' ? 'all' : 'KIDS_2X'), filterType === 'KIDS_2X')}
+        {statCard('2x semana', stats2x, 'blue', () => setFilterType(filterType === 'KIDS_2X' ? 'all' : 'KIDS_2X'), filterType === 'KIDS_2X')}
         {statCard('Full', statsFull, 'brand', () => setFilterType(filterType === 'KIDS_FULL' ? 'all' : 'KIDS_FULL'), filterType === 'KIDS_FULL')}
       </div>
 
@@ -178,7 +179,7 @@ const KidsPlans: React.FC = () => {
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar por nome, matrícula ou contrato..."
+            placeholder="Buscar por nome, matrícula ou contrato…"
             iconLeft={
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
@@ -188,7 +189,7 @@ const KidsPlans: React.FC = () => {
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value as any)}
-            className="h-10 px-3 border border-slate-200 rounded-lg text-sm bg-white hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 focus:outline-none transition-all"
+            className="h-control px-2.5 border border-line rounded-md text-sm bg-paper-raised hover:border-line-strong focus:border-brand-500 focus-visible:shadow-focus focus:outline-none transition-colors"
           >
             <option value="all">Todos os planos</option>
             <option value="KIDS_2X">Plano Kids 2X</option>
@@ -197,7 +198,7 @@ const KidsPlans: React.FC = () => {
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value as any)}
-            className="h-10 px-3 border border-slate-200 rounded-lg text-sm bg-white hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 focus:outline-none transition-all"
+            className="h-control px-2.5 border border-line rounded-md text-sm bg-paper-raised hover:border-line-strong focus:border-brand-500 focus-visible:shadow-focus focus:outline-none transition-colors"
           >
             <option value="all">Todas as situações</option>
             <option value="active">Ativos</option>
@@ -208,7 +209,7 @@ const KidsPlans: React.FC = () => {
             <select
               value={filterCoach}
               onChange={(e) => setFilterCoach(e.target.value)}
-              className="h-10 px-3 border border-slate-200 rounded-lg text-sm bg-white hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 focus:outline-none transition-all"
+              className="h-control px-2.5 border border-line rounded-md text-sm bg-paper-raised hover:border-line-strong focus:border-brand-500 focus-visible:shadow-focus focus:outline-none transition-colors"
             >
               <option value="all">Todos os coaches</option>
               {coaches.map(c => (
@@ -221,8 +222,8 @@ const KidsPlans: React.FC = () => {
 
       {/* Plans List */}
       <Card padding="none">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-brand-50/40 to-transparent">
-          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-line-subtle bg-transparent">
+          <h2 className="text-caption uppercase text-ink-500">
             Planos ({filteredPlans.length})
           </h2>
         </div>
@@ -238,7 +239,7 @@ const KidsPlans: React.FC = () => {
             description={plans.length === 0 ? 'Importe os dados na página de Importação' : 'Tente ajustar os filtros'}
           />
         ) : (
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-line-subtle">
             {filteredPlans.map((plan) => {
               const daysLeft = getDaysLeft(plan.endDate);
               const startDate = plan.startDate instanceof Date ? plan.startDate : new Date(plan.startDate);
@@ -246,7 +247,7 @@ const KidsPlans: React.FC = () => {
               const stripe = plan.status === 'expired' || plan.status === 'cancelled'
                 ? 'bg-gradient-to-b from-slate-300 to-slate-400'
                 : plan.status === 'expiring'
-                  ? 'bg-gradient-to-b from-amber-400 to-orange-400'
+                  ? 'bg-state-warn'
                   : plan.planType === 'KIDS_FULL'
                     ? 'bg-brand-gradient'
                     : 'bg-gradient-to-b from-sky-400 to-blue-600';
@@ -255,7 +256,7 @@ const KidsPlans: React.FC = () => {
                 <div
                   key={plan.id}
                   className={cn(
-                    'relative pl-5 pr-4 py-4 hover:bg-slate-50 transition-colors',
+                    'relative pl-5 pr-4 py-4 hover:bg-paper transition-colors',
                     (plan.status === 'expired' || plan.status === 'cancelled') && 'opacity-70',
                   )}
                 >
@@ -263,10 +264,10 @@ const KidsPlans: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <div className={cn(
-                        'w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 text-white shadow-sm',
+                        'w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0 text-white shadow-sm',
                         plan.planType === 'KIDS_FULL'
                           ? 'bg-brand-gradient'
-                          : 'bg-gradient-to-br from-sky-400 to-blue-600',
+                          : 'bg-sky-500',
                       )}>
                         {plan.planType === 'KIDS_FULL' ? (
                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden="true">
@@ -280,11 +281,11 @@ const KidsPlans: React.FC = () => {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-semibold text-slate-900 text-sm">{getChildName(plan)}</p>
+                          <p className="font-semibold text-ink-900 text-sm">{getChildName(plan)}</p>
                           {getPlanTypeBadge(plan.planType)}
                           {getStatusBadge(plan.status)}
                         </div>
-                        <p className="text-xs text-slate-500 truncate">
+                        <p className="text-xs text-ink-500 truncate">
                           {getCustomerName(plan.customerId)}
                           {plan.enrollmentCode ? ` · Mat: ${plan.enrollmentCode}` : ''}
                           {plan.contractNumber ? ` · Contrato: ${plan.contractNumber}` : ''}
@@ -295,26 +296,26 @@ const KidsPlans: React.FC = () => {
 
                     <div className="flex items-center gap-6 flex-shrink-0 ml-4">
                       <div className="hidden md:block text-right">
-                        <p className="text-xs text-slate-500 tabular-nums">
+                        <p className="text-xs text-ink-500 tabular-nums">
                           {format(startDate, 'dd/MM/yy')} → {format(endDate, 'dd/MM/yy')}
                         </p>
                         <p className={cn(
                           'text-[11px] font-semibold',
-                          daysLeft < 0 ? 'text-red-600' : daysLeft <= 30 ? 'text-amber-700' : 'text-emerald-700',
+                          daysLeft < 0 ? 'text-state-bad' : daysLeft <= 30 ? 'text-state-warn' : 'text-state-ok',
                         )}>
                           {daysLeft < 0 ? `Expirado há ${Math.abs(daysLeft)} dias` : `${daysLeft} dias restantes`}
                         </p>
                       </div>
 
                       <div className="text-right hidden lg:block">
-                        <p className="text-sm font-bold text-slate-900 tabular-nums">R$ {plan.monthlyValue.toFixed(2)}/mês</p>
+                        <p className="text-sm font-bold text-ink-900 tabular-nums">{formatBRL(plan.monthlyValue)}/mês</p>
                         {plan.totalValue > 0 && (
-                          <p className="text-[10px] text-slate-400 tabular-nums">Total: R$ {plan.totalValue.toFixed(2)}</p>
+                          <p className="text-[10px] text-ink-400 tabular-nums">Total: {formatBRL(plan.totalValue)}</p>
                         )}
                       </div>
 
                       <div className="text-right hidden lg:block">
-                        <p className="text-xs text-slate-500">{plan.durationMonths} {plan.durationMonths === 1 ? 'mês' : 'meses'}</p>
+                        <p className="text-xs text-ink-500">{plan.durationMonths} {plan.durationMonths === 1 ? 'mês' : 'meses'}</p>
                       </div>
                     </div>
                   </div>

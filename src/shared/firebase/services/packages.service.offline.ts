@@ -5,8 +5,15 @@ import { Package } from '../../types';
 import { syncService } from '../../database/syncService';
 import { settingsServiceOffline } from './settings.service.offline';
 import { isPackageUsable as isPackageUsableShared, PackagePlanLike } from '../../utils/packageExpiry';
+import { resolvePackageDeduction } from '../../utils/billing';
 
 const COLLECTION = 'packages';
+
+export interface PackageDeductionUndo {
+  packageId: string;
+  usedHours: number;
+  active: boolean;
+}
 
 let _createLock = false;
 
@@ -26,7 +33,7 @@ async function loadPlans(unitId?: string): Promise<PackagePlanLike[]> {
 export const packagesServiceOffline = {
   async createPackage(data: Omit<Package, 'id' | 'createdAt' | 'updatedAt'>): Promise<Package> {
     if (_createLock) {
-      throw new Error('Criação de pacote já em andamento, aguarde.');
+      throw new Error('Já existe uma criação de pacote em andamento. Aguarde alguns segundos.');
     }
     _createLock = true;
 
@@ -256,28 +263,50 @@ export const packagesServiceOffline = {
     }
   },
 
-  async usePackage(packageId: string, hoursUsed: number): Promise<void> {
+  /**
+   * Debita horas de um pacote e devolve o estado anterior, para que o chamador
+   * possa desfazer o débito se uma etapa seguinte do check-out falhar.
+   */
+  async usePackage(packageId: string, hoursUsed: number): Promise<PackageDeductionUndo> {
     try {
       const pkg = await syncService.getFromLocal(COLLECTION, packageId);
       if (!pkg) {
-        throw new Error('Package not found');
+        throw new Error('pacote não encontrado neste dispositivo — aguarde a sincronização');
       }
 
-      const availableHours = Math.max(0, (pkg.hours || 0) - (pkg.usedHours || 0));
-      if (hoursUsed - availableHours > 0.001) {
-        throw new Error('Package does not have enough remaining hours');
-      }
-
-      const newUsedHours = Math.min(pkg.hours, (pkg.usedHours || 0) + hoursUsed);
-      const isActive = newUsedHours < pkg.hours;
+      const { newUsedHours, active } = resolvePackageDeduction(pkg, hoursUsed);
 
       await this.updatePackage(packageId, {
         usedHours: newUsedHours,
-        active: isActive,
+        active,
       });
+
+      return {
+        packageId,
+        usedHours: pkg.usedHours || 0,
+        active: pkg.active !== false,
+      };
     } catch (error) {
       console.error('Error using package:', error);
       throw error;
+    }
+  },
+
+  /**
+   * Desfaz débitos já aplicados (best-effort). Nunca lança: é chamado dentro de
+   * um catch e não pode mascarar o erro original.
+   */
+  async undoPackageDeductions(undos: PackageDeductionUndo[]): Promise<void> {
+    for (const undo of undos) {
+      try {
+        await this.updatePackage(undo.packageId, {
+          usedHours: undo.usedHours,
+          active: undo.active,
+        });
+        console.warn(`[Pacotes] Débito revertido: ${undo.packageId} → ${undo.usedHours}h usadas`);
+      } catch (error) {
+        console.error(`[Pacotes] Falha ao reverter débito de ${undo.packageId}:`, error);
+      }
     }
   },
 

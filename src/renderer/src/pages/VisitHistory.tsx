@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { formatBRL } from '../../../shared/utils/currency';
 import { toast } from 'react-toastify';
 import { format, isToday, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -156,7 +157,7 @@ const VisitHistory: React.FC = () => {
       else toast.warning('Impressora não respondeu');
     } catch (error) {
       console.error('Reprint error:', error);
-      toast.error('Erro ao reimprimir comprovante');
+      toast.error('Não foi possível reimprimir. Verifique se a impressora está ligada e conectada.');
     } finally {
       setReprintingId(null);
     }
@@ -165,8 +166,8 @@ const VisitHistory: React.FC = () => {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Histórico de Visitas"
-        subtitle="Todas as visitas · busca por criança ou responsável"
+        title="Histórico"
+        subtitle="Visitas encerradas e em andamento"
         actions={
           <Button
             variant="outline"
@@ -183,7 +184,7 @@ const VisitHistory: React.FC = () => {
       <Card padding="md" className="space-y-3">
         <Input
           type="text"
-          placeholder="Buscar por criança ou responsável..."
+          placeholder="Buscar por criança ou responsável…"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           iconLeft={
@@ -197,10 +198,11 @@ const VisitHistory: React.FC = () => {
           <button
             onClick={() => setDateFilter('all')}
             className={cn(
-              'px-3 py-1.5 rounded-full text-xs font-semibold transition-all',
+              'h-8 px-3 rounded-md text-xs font-semibold border transition-colors',
+              'focus-visible:outline-none focus-visible:shadow-focus',
               dateFilter === 'all'
-                ? 'bg-brand-gradient text-white shadow-brand-sm'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                ? 'border-brand-500 bg-brand-50 text-brand-700'
+                : 'border-line bg-paper-raised text-ink-600 hover:border-line-strong',
             )}
           >
             Todas as datas
@@ -208,10 +210,11 @@ const VisitHistory: React.FC = () => {
           <button
             onClick={() => setDateFilter('today')}
             className={cn(
-              'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all',
+              'flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-semibold border transition-colors',
+              'focus-visible:outline-none focus-visible:shadow-focus',
               dateFilter === 'today'
-                ? 'bg-brand-gradient text-white shadow-brand-sm'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                ? 'border-brand-500 bg-brand-50 text-brand-700'
+                : 'border-line bg-paper-raised text-ink-600 hover:border-line-strong',
             )}
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -224,10 +227,10 @@ const VisitHistory: React.FC = () => {
             value={selectedDate}
             onChange={(e) => { setSelectedDate(e.target.value); setDateFilter('date'); }}
             className={cn(
-              'h-8 px-3 rounded-full text-xs font-semibold border transition-all focus:outline-none focus:ring-2 focus:ring-brand-100',
+              'h-8 px-2.5 rounded-md text-xs font-semibold border transition-colors focus:outline-none focus-visible:shadow-focus',
               dateFilter === 'date'
-                ? 'border-brand-400 text-brand-700 bg-brand-gradient-soft'
-                : 'border-slate-200 text-slate-600 bg-white hover:border-brand-300',
+                ? 'border-brand-500 bg-brand-50 text-brand-700'
+                : 'border-line bg-paper-raised text-ink-600 hover:border-line-strong',
             )}
           />
         </div>
@@ -237,38 +240,38 @@ const VisitHistory: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card padding="md">
           <div className="flex items-center gap-3">
-            <span className="w-10 h-10 rounded-lg bg-brand-gradient text-white flex items-center justify-center shadow-sm">
+            <span className="w-8 h-8 rounded-md bg-ink-100 text-ink-500 flex items-center justify-center shadow-sm">
               <ClipboardIcon size={18} />
             </span>
             <div>
-              <p className="text-caption text-slate-500 uppercase">Total Visitas</p>
-              <p className="text-2xl font-bold text-slate-900 tabular-nums">{completedVisits.length}</p>
+              <p className="text-caption text-ink-500 uppercase">Total Visitas</p>
+              <p className="text-readout-sm text-ink-900 tabular-nums">{completedVisits.length}</p>
             </div>
           </div>
         </Card>
         <Card padding="md">
           <div className="flex items-center gap-3">
-            <span className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-400 to-teal-600 text-white flex items-center justify-center shadow-sm">
+            <span className="w-8 h-8 rounded-md bg-ink-100 text-ink-500 flex items-center justify-center shadow-sm">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </span>
             <div>
-              <p className="text-caption text-slate-500 uppercase">Tempo Total</p>
-              <p className="text-2xl font-bold text-slate-900 tabular-nums">{formatDuration(totalMinutes)}</p>
+              <p className="text-caption text-ink-500 uppercase">Tempo Total</p>
+              <p className="text-readout-sm text-ink-900 tabular-nums">{formatDuration(totalMinutes)}</p>
             </div>
           </div>
         </Card>
         <Card padding="md">
           <div className="flex items-center gap-3">
-            <span className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow-sm">
+            <span className="w-8 h-8 rounded-md bg-ink-100 text-ink-500 flex items-center justify-center shadow-sm">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </span>
             <div>
-              <p className="text-caption text-slate-500 uppercase">Em Andamento</p>
-              <p className="text-2xl font-bold text-slate-900 tabular-nums">{activeCount}</p>
+              <p className="text-caption text-ink-500 uppercase">Em Andamento</p>
+              <p className="text-readout-sm text-ink-900 tabular-nums">{activeCount}</p>
             </div>
           </div>
         </Card>
@@ -276,12 +279,12 @@ const VisitHistory: React.FC = () => {
 
       {/* List */}
       <Card padding="none">
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-gradient-to-r from-brand-50/40 to-transparent">
-          <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-line-subtle bg-transparent">
+          <p className="text-caption uppercase text-ink-500">
             {filteredVisits.length} visita{filteredVisits.length !== 1 ? 's' : ''}
-            {searchTerm && <span className="ml-1 font-normal normal-case text-slate-400">para "{searchTerm}"</span>}
-            {dateFilter === 'today' && <span className="ml-1 font-normal normal-case text-slate-400">· hoje</span>}
-            {dateFilter === 'date' && <span className="ml-1 font-normal normal-case text-slate-400">· {format(new Date(selectedDate + 'T00:00:00'), 'dd/MM/yyyy')}</span>}
+            {searchTerm && <span className="ml-1 font-normal normal-case text-ink-400">para "{searchTerm}"</span>}
+            {dateFilter === 'today' && <span className="ml-1 font-normal normal-case text-ink-400">· hoje</span>}
+            {dateFilter === 'date' && <span className="ml-1 font-normal normal-case text-ink-400">· {format(new Date(selectedDate + 'T00:00:00'), 'dd/MM/yyyy')}</span>}
           </p>
         </div>
 
@@ -296,7 +299,7 @@ const VisitHistory: React.FC = () => {
             description="Tente ajustar os filtros"
           />
         ) : (
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-line-subtle">
             {filteredVisits.map((visit) => {
               const checkInDate = visit.checkIn instanceof Date ? visit.checkIn : new Date(visit.checkIn);
               const checkOutDate = visit.checkOut
@@ -315,42 +318,41 @@ const VisitHistory: React.FC = () => {
               const customer = getCustomer(visit.childId);
 
               const stripe = isActive
-                ? 'bg-gradient-to-b from-emerald-400 to-teal-500'
+                ? 'bg-state-ok'
                 : isCancelled
-                  ? 'bg-gradient-to-b from-red-400 to-rose-500'
-                  : 'bg-slate-200';
+                  ? 'bg-danger-500'
+                  : 'bg-ink-200';
 
               return (
                 <div
                   key={visit.id}
                   className={cn(
-                    'relative flex items-center justify-between pl-5 pr-5 py-3.5 transition-colors',
-                    isActive ? 'bg-emerald-50/40 hover:bg-emerald-50/60' : isCancelled ? 'bg-red-50/30 hover:bg-red-50/50' : 'hover:bg-slate-50/60',
+                    'relative flex items-center justify-between pl-4 pr-4 py-2.5 transition-colors hover:bg-paper',
                   )}
                 >
-                  <span className={cn('absolute left-0 top-2 bottom-2 w-1 rounded-r-full', stripe)} aria-hidden="true" />
+                  <span className={cn('absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r', stripe)} aria-hidden="true" />
 
                   <div className="flex items-start gap-3 min-w-0">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                        <p className="font-semibold text-sm text-brand-700 truncate">
+                        <p className="font-semibold text-sm text-ink-900 truncate">
                           {child?.name || 'Desconhecido'}
                         </p>
                         {(child?.observations || customer?.observations) && (
                           <div className="relative group flex-shrink-0">
-                            <svg className="w-3.5 h-3.5 text-amber-500 cursor-default" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <svg className="w-3.5 h-3.5 text-money-due cursor-default" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                             </svg>
-                            <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-20 w-60 bg-slate-900 text-white text-xs rounded-xl p-3 shadow-card-lg pointer-events-none">
+                            <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-20 w-60 bg-ink-900 text-white text-xs rounded-md p-3 shadow-card-lg pointer-events-none">
                               {child?.observations && (
                                 <div className="mb-1.5 last:mb-0">
-                                  <p className="text-slate-400 font-semibold uppercase tracking-wider text-[10px] mb-0.5">Criança</p>
+                                  <p className="text-ink-400 font-semibold uppercase tracking-wider text-[10px] mb-0.5">Criança</p>
                                   <p className="leading-snug">{child.observations}</p>
                                 </div>
                               )}
                               {customer?.observations && (
                                 <div className="mb-1.5 last:mb-0">
-                                  <p className="text-slate-400 font-semibold uppercase tracking-wider text-[10px] mb-0.5">Responsável</p>
+                                  <p className="text-ink-400 font-semibold uppercase tracking-wider text-[10px] mb-0.5">Responsável</p>
                                   <p className="leading-snug">{customer.observations}</p>
                                 </div>
                               )}
@@ -359,18 +361,18 @@ const VisitHistory: React.FC = () => {
                         )}
                         {customer?.name && (
                           <>
-                            <span className="text-slate-300 flex-shrink-0">·</span>
-                            <p className="text-xs text-slate-400 truncate">{customer.name}</p>
+                            <span className="text-ink-300 flex-shrink-0">·</span>
+                            <p className="text-xs text-ink-400 truncate">{customer.name}</p>
                           </>
                         )}
                       </div>
 
                       <div className="flex items-center gap-2 tabular-nums">
-                        <p className="text-xs text-slate-600 font-medium capitalize">
+                        <p className="text-xs text-ink-600 font-medium capitalize">
                           {format(checkInDate, "EEE, dd/MM", { locale: ptBR })}
                         </p>
-                        <span className="text-slate-300">·</span>
-                        <p className="text-xs text-slate-500">
+                        <span className="text-ink-300">·</span>
+                        <p className="text-xs text-ink-500">
                           {format(checkInDate, 'HH:mm')}
                           {checkOutDate ? ` → ${format(checkOutDate, 'HH:mm')}` : ' → em andamento'}
                         </p>
@@ -394,13 +396,13 @@ const VisitHistory: React.FC = () => {
                         <div className="text-right">
                           <p className={cn(
                             'font-bold text-sm tabular-nums',
-                            isCancelled ? 'text-red-400 line-through' : 'text-slate-900',
+                            isCancelled ? 'text-ink-400 line-through' : 'text-ink-900',
                           )}>
                             {duration !== null ? formatDuration(duration) : '—'}
                           </p>
                           {!isCancelled && visit.value && visit.value > 0 && (
-                            <p className="text-xs text-emerald-700 font-semibold tabular-nums mt-0.5">
-                              R$ {visit.value.toFixed(2)}
+                            <p className="text-xs text-state-ok font-semibold tabular-nums mt-0.5">
+                              {formatBRL(visit.value)}
                             </p>
                           )}
                         </div>

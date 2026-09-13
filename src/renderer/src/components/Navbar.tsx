@@ -9,7 +9,7 @@ import {
 } from './icons/Icons';
 import { updateChecker, UpdateInfo } from '../services/updateChecker';
 import UpdateModal from './modals/UpdateModal';
-import { Badge, cn } from './ui';
+import { cn } from './ui';
 
 interface NavbarProps {
   onRefresh?: () => void;
@@ -49,52 +49,44 @@ const Navbar: React.FC<NavbarProps> = ({ onRefresh, loading, activeVisitsCount }
     return () => updateChecker.stopAutoCheck();
   }, []);
 
+  // Trilho em tinta chapada. O gradiente violeta com brilho radial dava ar de
+  // material promocional e competia com o conteúdo; aqui ele só precisa separar
+  // a navegação do papel e marcar onde o funcionário está.
   return (
     <aside
-      className="no-print fixed left-0 top-0 h-screen flex flex-col transition-[width] duration-200 z-40 text-slate-200 border-r border-slate-900/50 shadow-2xl"
-      style={{
-        width: 'var(--sidebar-w-current)',
-        backgroundImage:
-          'radial-gradient(circle at top right, rgba(124, 58, 237, 0.25) 0%, transparent 60%), linear-gradient(180deg, #0f172a 0%, #020617 100%)',
-      }}
+      className="no-print fixed left-0 top-0 h-screen flex flex-col transition-[width] duration-200 z-40 bg-ink-900 text-ink-300 border-r border-black/20"
+      style={{ width: 'var(--sidebar-w-current)' }}
     >
       {/* Logo */}
-      <div className="flex items-center gap-3 px-4 py-5 border-b border-white/5">
-        <div className="w-10 h-10 bg-brand-gradient rounded-xl flex items-center justify-center flex-shrink-0 shadow-brand-sm">
-          <BuildingIcon className="text-white" size={22} />
+      <div className="flex items-center gap-2.5 px-3 h-14 border-b border-white/10">
+        <div className="w-7 h-7 bg-brand-600 rounded-md flex items-center justify-center flex-shrink-0">
+          <BuildingIcon className="text-white" size={16} />
         </div>
         {!collapsed && (
-          <div className="overflow-hidden">
-            <h1 className="text-base font-bold tracking-tight bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">Flex-Kids</h1>
-            <p className="text-[11px] text-slate-400 font-medium">Gestão Integrada</p>
-          </div>
+          <h1 className="text-sm font-bold tracking-tight text-white truncate">Flex-Kids</h1>
         )}
       </div>
 
       {/* Unit Display */}
-      <div className="px-3 py-3 border-b border-white/5">
+      <div className="px-3 py-2.5 border-b border-white/10">
         {collapsed ? (
           <div
-            className="w-10 h-10 bg-brand-500/20 ring-1 ring-brand-400/30 rounded-lg flex items-center justify-center text-xs font-bold text-brand-200 mx-auto"
+            className="w-8 h-8 bg-paper-raised/10 rounded-md flex items-center justify-center text-xs font-bold text-ink-200 mx-auto"
             title={unitInfo?.name || currentUnit}
           >
             {unitInfo?.name?.charAt(0) || 'U'}
           </div>
         ) : (
-          <div className="bg-gradient-to-br from-brand-500/15 to-accent-600/10 ring-1 ring-brand-400/25 rounded-lg px-3 py-2 flex items-center gap-2">
-            <BuildingIcon className="text-brand-300 flex-shrink-0" size={16} />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-white truncate">{unitInfo?.name || currentUnit}</p>
-              {isUnitLocked && (
-                <p className="text-[10px] text-brand-200/80 font-medium">Unidade vinculada</p>
-              )}
-            </div>
+          <div className="px-1">
+            <p className="text-caption uppercase text-ink-500">Unidade</p>
+            <p className="text-sm font-semibold text-white truncate mt-0.5">{unitInfo?.name || currentUnit}</p>
+            {isUnitLocked && <p className="text-[11px] text-ink-500">vinculada a este terminal</p>}
           </div>
         )}
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-3 px-2 space-y-1 overflow-y-auto" aria-label="Navegação principal">
+      <nav className="flex-1 py-2 px-2 space-y-0.5 overflow-y-auto" aria-label="Navegação principal">
         {navItems.map((item) => {
           const isActive = currentPath === item.href || (item.href === '#/dashboard' && currentPath === '#/');
           const showVisits = item.href === '#/dashboard' && activeVisitsCount !== undefined && activeVisitsCount > 0;
@@ -104,32 +96,31 @@ const Navbar: React.FC<NavbarProps> = ({ onRefresh, loading, activeVisitsCount }
               href={item.href}
               aria-current={isActive ? 'page' : undefined}
               className={cn(
-                'relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150',
+                'relative flex items-center gap-2.5 px-2.5 h-9 rounded-md text-sm font-medium transition-colors duration-100',
+                'focus-visible:outline-none focus-visible:shadow-focus',
                 isActive
-                  ? 'bg-brand-gradient text-white shadow-brand-sm'
-                  : 'text-slate-400 hover:bg-white/5 hover:text-white',
+                  ? 'bg-paper-raised/10 text-white'
+                  : 'text-ink-400 hover:bg-paper-raised/5 hover:text-ink-100',
               )}
               title={collapsed ? item.label : undefined}
             >
-              {isActive && !collapsed && (
-                <span className="absolute -left-2 top-1/2 -translate-y-1/2 w-1 h-6 rounded-full bg-accent-500 shadow-[0_0_12px_rgba(217,70,239,0.7)]" aria-hidden="true" />
+              {isActive && (
+                <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-brand-400" aria-hidden="true" />
               )}
-              <item.icon className="flex-shrink-0" size={18} />
+              <item.icon className="flex-shrink-0" size={16} />
               {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
               {!collapsed && showVisits && (
                 <span
                   className={cn(
-                    'min-w-[20px] h-5 inline-flex items-center justify-center rounded-full text-[10px] font-bold px-1.5',
-                    isActive
-                      ? 'bg-white/20 text-white'
-                      : 'bg-accent-500 text-white shadow-[0_0_10px_rgba(217,70,239,0.5)] animate-pulse',
+                    'min-w-[18px] h-[18px] inline-flex items-center justify-center rounded text-[10px] font-bold px-1 tabular-nums',
+                    isActive ? 'bg-paper-raised/20 text-white' : 'bg-paper-raised/10 text-ink-200',
                   )}
                 >
                   {activeVisitsCount}
                 </span>
               )}
               {!collapsed && item.admin && (
-                <Badge tone="amber" size="sm">ADM</Badge>
+                <span className="text-[10px] font-semibold text-ink-500 tracking-wide">ADM</span>
               )}
             </a>
           );
@@ -137,12 +128,12 @@ const Navbar: React.FC<NavbarProps> = ({ onRefresh, loading, activeVisitsCount }
       </nav>
 
       {/* Actions */}
-      <div className="px-2 py-3 border-t border-white/5 space-y-1">
+      <div className="px-2 py-2 border-t border-white/10 space-y-0.5">
         {updateInfo?.hasUpdate && (
           <button
             onClick={() => setShowUpdateModal(true)}
             className={cn(
-              'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium bg-brand-gradient text-white shadow-brand-sm hover:brightness-110 transition-all',
+              'w-full flex items-center gap-2.5 px-2.5 h-9 rounded-md text-sm font-medium bg-brand-600 text-white hover:bg-brand-500 transition-colors',
               collapsed && 'justify-center',
             )}
             title="Nova atualização disponível"
@@ -161,8 +152,8 @@ const Navbar: React.FC<NavbarProps> = ({ onRefresh, loading, activeVisitsCount }
             onClick={onRefresh}
             disabled={loading}
             className={cn(
-              'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-              'text-slate-400 hover:bg-white/5 hover:text-white disabled:opacity-50',
+              'w-full flex items-center gap-2.5 px-2.5 h-9 rounded-md text-sm font-medium transition-colors',
+              'text-ink-400 hover:bg-paper-raised/5 hover:text-ink-100 disabled:opacity-50',
               collapsed && 'justify-center',
             )}
             title="Atualizar dados"
@@ -177,8 +168,8 @@ const Navbar: React.FC<NavbarProps> = ({ onRefresh, loading, activeVisitsCount }
           <button
             onClick={() => { logoutAdmin(); window.location.hash = '#/dashboard'; }}
             className={cn(
-              'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-              'text-amber-300 hover:bg-amber-500/10',
+              'w-full flex items-center gap-2.5 px-2.5 h-9 rounded-md text-sm font-medium transition-colors',
+              'text-ink-400 hover:bg-paper-raised/5 hover:text-ink-100',
               collapsed && 'justify-center',
             )}
             title="Sair do modo administrador"
@@ -194,8 +185,8 @@ const Navbar: React.FC<NavbarProps> = ({ onRefresh, loading, activeVisitsCount }
         <button
           onClick={logout}
           className={cn(
-            'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-            'text-red-300 hover:bg-red-500/10',
+            'w-full flex items-center gap-2.5 px-2.5 h-9 rounded-md text-sm font-medium transition-colors',
+            'text-ink-400 hover:bg-paper-raised/5 hover:text-ink-100',
             collapsed && 'justify-center',
           )}
           title="Sair do sistema"
@@ -208,8 +199,8 @@ const Navbar: React.FC<NavbarProps> = ({ onRefresh, loading, activeVisitsCount }
         <button
           onClick={toggle}
           className={cn(
-            'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-colors',
-            'text-slate-500 hover:bg-white/5 hover:text-slate-300',
+            'w-full flex items-center gap-2.5 px-2.5 h-8 rounded-md text-xs font-medium transition-colors',
+            'text-ink-500 hover:bg-paper-raised/5 hover:text-ink-300',
             collapsed && 'justify-center',
           )}
           aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
